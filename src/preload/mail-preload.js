@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('pawmailMail', {
   /** 告诉后台：这封信拆开了 */
   opened: (id) => ipcRenderer.send('pawmail-mail:opened', id),
   setName: (name) => ipcRenderer.send('pawmail-mail:set-name', name),
+  /** 删信：ids 是信的编号列表。返回 { ok, removed } */
+  deleteLetters: (ids) => ipcRenderer.invoke('pawmail-mail:delete', ids),
   savePostcard: (dataUrl, id) => ipcRenderer.invoke('pawmail-mail:save-postcard', dataUrl, id),
   copyPostcard: (dataUrl) => ipcRenderer.invoke('pawmail-mail:copy-postcard', dataUrl),
   close: () => ipcRenderer.send('pawmail-mail:close'),

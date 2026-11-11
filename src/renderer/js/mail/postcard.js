@@ -21,6 +21,7 @@ export const capitalize = (text) => (text ? text.charAt(0).toUpperCase() + text.
  */
 export function drawPhoto(ctx, w, h, letter, speciesId) {
   const seed = hashText(`${letter.id}|${letter.place}`);
+  const report = letter.kind === 'monthly' || letter.kind === 'yearly';
   drawScene(ctx, w, h, { scene: letter.scene, place: letter.place, seed });
   const s = (h / 190) * 0.84; // 190 高的小图里，宠物比原始大小略小一点，多露出些风景
   ctx.save();
@@ -29,7 +30,7 @@ export function drawPhoto(ctx, w, h, letter, speciesId) {
   // 一圈淡淡的白边，让它在深色的夜景里也看得清
   ctx.shadowColor = 'rgba(255, 255, 255, 0.85)';
   ctx.shadowBlur = 2.5 * s;
-  drawPet(ctx, getSpecies(speciesId), makePose(scenePose(seed)), { time: 0.3 });
+  drawPet(ctx, getSpecies(speciesId), makePose(scenePose(report ? 4 : seed)), { time: 0.3 }); // 月报、年度回顾：举手欢呼
   ctx.restore();
 }
 
@@ -68,12 +69,14 @@ export function wrapText(ctx, text, maxWidth) {
 }
 
 /**
- * 把一封信画成明信片（1080×1440，适合发小红书、朋友圈）。
+ * 把一封信画成明信片。
+ * 普通的信是 1080×1440（3:4，适合小红书、朋友圈）；月报和年度回顾内容多，是 1080×1920（9:16，适合手机竖屏、发动态）。
  * @returns 一块画好的画布，调用 .toDataURL('image/png') 就能得到图片
  */
 export function renderPostcard(letter, { species, footer }) {
+  const stats = letter.stats && letter.stats.length ? letter.stats : null;
   const W = 1080;
-  const H = 1440;
+  const H = stats ? 1920 : 1440;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -100,8 +103,8 @@ export function renderPostcard(letter, { species, footer }) {
   ctx.lineWidth = 6;
   ctx.stroke();
 
-  // 地点和日期
-  ctx.fillStyle = INK;
+  // 地点和日期（月报、年度回顾的标题是金色的）
+  ctx.fillStyle = stats ? '#b86b00' : INK;
   ctx.font = `700 58px ${UI_FONT}`;
   ctx.fillText(capitalize(letter.title), 70, 752);
   ctx.textAlign = 'right';
@@ -118,9 +121,36 @@ export function renderPostcard(letter, { species, footer }) {
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // 月报、年度回顾：数据格子，一行 3 个
+  let top = 846;
+  if (stats) {
+    const cols = 3;
+    const gap = 22;
+    const tileW = (W - 140 - gap * (cols - 1)) / cols;
+    const tileH = 168;
+    const y0 = 818;
+    stats.forEach((s, i) => {
+      const x = 70 + (i % cols) * (tileW + gap);
+      const y = y0 + Math.floor(i / cols) * (tileH + gap);
+      roundedRect(ctx, x, y, tileW, tileH, 24);
+      ctx.fillStyle = '#fdefd6';
+      ctx.fill();
+      ctx.textAlign = 'center';
+      ctx.font = `40px ${EMOJI_FONT}`;
+      ctx.fillText(s.emoji, x + tileW / 2, y + 52);
+      ctx.fillStyle = INK;
+      ctx.font = `800 46px ${UI_FONT}`;
+      ctx.fillText(s.value, x + tileW / 2, y + 108);
+      ctx.fillStyle = MUTED;
+      ctx.font = `400 25px ${UI_FONT}`;
+      ctx.fillText(s.label, x + tileW / 2, y + 148);
+      ctx.textAlign = 'left';
+    });
+    top = y0 + Math.ceil(stats.length / cols) * (tileH + gap) + 52;
+  }
+
   // 正文：字号从大到小试，直到放得下
-  const top = 846;
-  const bottom = letter.gift ? 1210 : 1290;
+  const bottom = letter.gift ? H - 230 : H - 150;
   let size = 40;
   let lineHeight = 0;
   let paragraphs = [];
@@ -144,7 +174,7 @@ export function renderPostcard(letter, { species, footer }) {
 
   // 礼物
   if (letter.gift) {
-    const gy = 1262;
+    const gy = H - 178;
     roundedRect(ctx, 70, gy - 58, W - 140, 86, 22);
     ctx.fillStyle = '#fdefd6';
     ctx.fill();
@@ -168,15 +198,15 @@ export function renderPostcard(letter, { species, footer }) {
   ctx.textAlign = 'right';
   ctx.fillStyle = INK;
   ctx.font = `40px ${LETTER_FONT}`;
-  ctx.fillText(letter.sign, W - 132, 1350);
+  ctx.fillText(letter.sign, W - 132, H - 90);
   ctx.font = `38px ${EMOJI_FONT}`;
-  ctx.fillText('🐾', W - 74, 1350);
+  ctx.fillText('🐾', W - 74, H - 90);
 
   // 页脚
   ctx.textAlign = 'center';
   ctx.fillStyle = '#b89b78';
   ctx.font = `400 24px ${UI_FONT}`;
-  ctx.fillText(footer || 'Pawmail', W / 2, 1408);
+  ctx.fillText(footer || 'Pawmail', W / 2, H - 32);
   ctx.textAlign = 'left';
 
   return canvas;

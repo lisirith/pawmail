@@ -82,10 +82,12 @@ async function main() {
   const brain = new Brain({ pet, world, say, saved: init.pet, stat: (kind) => bridge.stat(kind) });
 
   // 来信：后台告诉我们还有几封没拆。有没拆的信时，它会把信抱在手里。
-  let mail = { unread: 0, total: 0, ...(init.mail || {}) };
+  let mail = { unread: 0, total: 0, special: false, ...(init.mail || {}) };
+  pet.carryGold = !!mail.special;
   bridge.on('mail', (next) => {
     const fresh = next.unread > mail.unread;
     mail = { ...mail, ...next };
+    pet.carryGold = !!mail.special; // 有没拆的月报或年度回顾：拿金色信封
     brain.onMail(mail.unread, fresh);
     if (menu.isOpen) menu.render(buildMenu());
   });
@@ -122,6 +124,7 @@ async function main() {
       drawn.k !== k ||
       drawn.fx !== fxCount ||
       drawn.carry !== pet.carry ||
+      drawn.carryGold !== pet.carryGold ||
       Math.abs(pet.carryLift - drawn.carryLift) * 70 * k > REDRAW_PX ||
       poseDistance(O, drawn.pose) * k > REDRAW_PX ||
       Math.abs(pet.rot - drawn.rot) * 120 * k > REDRAW_PX ||
@@ -140,6 +143,7 @@ async function main() {
       drawn.k = k;
       drawn.fx = fxCount;
       drawn.carry = pet.carry;
+      drawn.carryGold = pet.carryGold;
       drawn.carryLift = pet.carryLift;
       drawn.at = nowMs;
       redraws += 1;

@@ -441,8 +441,11 @@ function drawHead(ctx, sp, P, g, time) {
   ctx.restore();
 }
 
-/** 一封信（信封）。原点在信封中心。信纸窗口、明信片里也会用到。 */
-export function drawEnvelope(ctx, w = 30, h = 21) {
+/**
+ * 一封信（信封）。原点在信封中心。信纸窗口、明信片里也会用到。
+ * gold：金色信封（月报、年度回顾），封口是一颗星星
+ */
+export function drawEnvelope(ctx, w = 30, h = 21, { gold = false } = {}) {
   const x = -w / 2;
   const y = -h / 2;
   const r = 3;
@@ -460,7 +463,7 @@ export function drawEnvelope(ctx, w = 30, h = 21) {
   ctx.lineTo(x, y + r);
   ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
-  ctx.fillStyle = '#fffaf0';
+  ctx.fillStyle = gold ? '#ffe28a' : '#fffaf0';
   ctx.fill();
   ctx.strokeStyle = '#5b3a24';
   ctx.lineWidth = 2.2;
@@ -472,15 +475,27 @@ export function drawEnvelope(ctx, w = 30, h = 21) {
   ctx.lineTo(x + w - 2, y + 2);
   ctx.lineWidth = 1.7;
   ctx.stroke();
-  // 封口上的小红心
   const s = Math.min(w, h) * 0.17;
   ctx.translate(0, y + h * 0.6);
   ctx.beginPath();
-  ctx.moveTo(0, s * 0.9);
-  ctx.bezierCurveTo(-s * 1.3, s * 0.05, -s * 0.75, -s * 0.95, 0, -s * 0.3);
-  ctx.bezierCurveTo(s * 0.75, -s * 0.95, s * 1.3, s * 0.05, 0, s * 0.9);
-  ctx.closePath();
-  ctx.fillStyle = '#ff6f8d';
+  if (gold) {
+    // 封口上的小星星
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * TAU - Math.PI / 2;
+      const r = i % 2 === 0 ? s * 1.25 : s * 0.55;
+      if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#f08c00';
+  } else {
+    // 封口上的小红心
+    ctx.moveTo(0, s * 0.9);
+    ctx.bezierCurveTo(-s * 1.3, s * 0.05, -s * 0.75, -s * 0.95, 0, -s * 0.3);
+    ctx.bezierCurveTo(s * 0.75, -s * 0.95, s * 1.3, s * 0.05, 0, s * 0.9);
+    ctx.closePath();
+    ctx.fillStyle = '#ff6f8d';
+  }
   ctx.fill();
   ctx.restore();
 }
@@ -489,7 +504,7 @@ export function drawEnvelope(ctx, w = 30, h = 21) {
  * 画它手里拿着的信。
  * lift：0 = 抱在胸前，1 = 举过头顶（提醒你"有信"的时候）。趴下睡觉时，信放在身边的地上。
  */
-function drawCarried(ctx, sp, P, g, lift) {
+function drawCarried(ctx, sp, P, g, lift, gold) {
   let x;
   let y;
   let rot;
@@ -507,7 +522,7 @@ function drawCarried(ctx, sp, P, g, lift) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rot);
-  drawEnvelope(ctx);
+  drawEnvelope(ctx, 30, 21, { gold });
   ctx.restore();
 }
 
@@ -517,7 +532,7 @@ function drawCarried(ctx, sp, P, g, lift) {
  * @param sp    动物（见 species/）
  * @param P     姿势（见 pose.js）
  * @param opts  { time: 当前时间（秒，转圈眼睛用）, shadow: 是否画影子,
- *               carry: 手里有没有信, carryLift: 信举多高（0 胸前 … 1 头顶） }
+ *               carry: 手里有没有信, carryLift: 信举多高（0 胸前 … 1 头顶）, carryGold: 是不是金色信封 }
  */
 export function drawPet(ctx, sp, P, opts = {}) {
   const pal = sp.palette;
@@ -568,14 +583,14 @@ export function drawPet(ctx, sp, P, opts = {}) {
   if (!frontL) drawArm(ctx, sp, P, g, -1);
   if (!frontR) drawArm(ctx, sp, P, g, 1);
 
-  if (carryLift >= 0 && carryLift < 0.5) drawCarried(ctx, sp, P, g, carryLift); // 抱在胸前：在头的后面
+  if (carryLift >= 0 && carryLift < 0.5) drawCarried(ctx, sp, P, g, carryLift, opts.carryGold); // 抱在胸前：在头的后面
 
   drawHead(ctx, sp, P, g, time);
 
   if (frontL) drawArm(ctx, sp, P, g, -1);
   if (frontR) drawArm(ctx, sp, P, g, 1);
 
-  if (carryLift >= 0.5) drawCarried(ctx, sp, P, g, carryLift); // 举起来：在最前面
+  if (carryLift >= 0.5) drawCarried(ctx, sp, P, g, carryLift, opts.carryGold); // 举起来：在最前面
 
   ctx.restore();
 }

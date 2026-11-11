@@ -31,30 +31,42 @@ function mockMail(query) {
   const unread = Math.max(0, Number(query.get('unread') || 1));
   const ui = require(`../src/shared/locales/${lang}.json`).mail;
 
-  const start = Date.now() - 10 * 86400000;
-  const history = [L.welcomeLetter({ day: L.logicalDay(start), now: start })];
-  const owned = {};
+  // 用和真实程序一样的规则（advanceDay）模拟一段时间。默认是"到今天为止的 40 天"，一定会跨月，能看到月报。
+  // 加 from=2026-11-20&days=50 可以指定起点（跨年就能看到年度回顾）
+  const DAY_MS = 86400000;
+  const days = Math.min(400, Number(query.get('days')) || 40);
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(query.get('from') || '') ? new Date(`${query.get('from')}T10:00:00`).getTime() : Date.now() - days * DAY_MS;
+  const mail = { installId: 'preview', letters: [], gifts: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, monthly: {} };
   const usage = {};
-  let lastDay = history[0].day;
-  for (let i = 1; i <= 10; i++) {
-    const now = start + i * 86400000;
+  for (let i = 0; i <= days; i++) {
+    if (i > 0 && i % 9 === 4) continue; // 偶尔有一天没开电脑
+    const now = from + i * DAY_MS;
     const day = L.logicalDay(now);
     const late = new Date(now);
+    late.setDate(late.getDate() + 1);
     late.setHours(1, 40, 0, 0);
-    usage[lastDay] = { first: now - 86400000, last: i % 3 === 0 ? late.getTime() : now - 30000000, activeMin: 200 + i * 40, pets: i * 2, pokes: i, throws: i % 4 === 0 ? 5 : 0, dizzies: 0 };
-    history.push(L.generateLetter({ day, now, installId: 'preview', history, owned, usage, lastDay, streak: i + 1 }));
-    lastDay = day;
+    for (const letter of L.advanceDay(mail, { day, now, usage })) {
+      letter.opened = true; // 假装每天都拆了信：礼物进图鉴
+      if (letter.gift && L.GIFTS[letter.gift]) {
+        const have = mail.gifts[letter.gift];
+        mail.gifts[letter.gift] = { count: (have ? have.count : 0) + 1, firstDay: have ? have.firstDay : letter.day };
+      }
+    }
+    usage[day] = { first: now - 3600000, last: i % 3 === 0 ? late.getTime() : now + 40000000, activeMin: 200 + (i % 7) * 40, pets: i % 5, pokes: i % 3, throws: i % 6 === 0 ? 2 : 0, dizzies: 0 };
   }
-  history.forEach((letter, index) => {
-    letter.opened = index < history.length - unread;
-    if (letter.opened && letter.gift) owned[letter.gift] = { count: (owned[letter.gift] ? owned[letter.gift].count : 0) + 1 };
-  });
-  const letters = [...history].reverse().map((letter) => {
+  // 最后几封标成"还没拆"（注意 slice(-0) 会取到全部，所以 0 要单独处理）
+  if (unread > 0) {
+    mail.letters.slice(-unread).forEach((letter) => {
+      letter.opened = false;
+    });
+  }
+  const letters = [...mail.letters].reverse().map((letter) => {
     const rendered = L.renderLetter(letter, lang, { name, species });
-    if (rendered.gift) rendered.gift.isNew = !letter.opened && !owned[rendered.gift.id];
+    rendered.month = letter.day.slice(0, 7);
+    if (rendered.gift) rendered.gift.isNew = !letter.opened && !mail.gifts[rendered.gift.id];
     return rendered;
   });
-  return { lang, ui, name, species, letters, album: L.album(owned, lang), nav: null };
+  return { lang, ui, name, species, letters, album: L.album(mail.gifts, lang), nav: null };
 }
 
 const server = http.createServer((req, res) => {

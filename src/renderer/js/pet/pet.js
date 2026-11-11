@@ -55,6 +55,7 @@ export class Pet {
     };
 
     this.carry = false; // 手里有没有一封等你拆的信
+    this.carryGold = false; // 没拆的信里有月报或年度回顾：拿的是金色信封
     this.carryLift = 0;
 
     this.sleepy = 0; // 0…1：越困眼皮越重、眨眼越慢
@@ -430,6 +431,7 @@ export class Pet {
       shadow: this.mode === 'ground',
       carry: this.carry,
       carryLift: this.carryLift,
+      carryGold: this.carryGold,
     });
     ctx.restore();
     this.fx.draw(ctx);

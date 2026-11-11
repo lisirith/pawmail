@@ -313,6 +313,50 @@
     "treasureMap": "a treasure map"
   },
 
+  "report": {
+    "monthTitle": "Our {month}",
+    "yearTitle": "Our {year}",
+    "monthDays": "We spent {days} days together this month.",
+    "monthDaysStreak": "We spent {days} days together this month, with a best run of {streak} days in a row.",
+    "yearDays": "This year we spent {days} days together, with a best run of {streak} days in a row.",
+    "places": "I visited {count} places. My favourite was {place} ({times} times).",
+    "placesFew": "I went to {places}.",
+    "placesAllOnce": "I visited {count} places, each of them just once.",
+    "newPlaces": "And I went to {places} for the very first time.",
+    "joiner": ", ",
+    "gifts": "I brought you {count} gifts.",
+    "giftsHighlight": "I brought you {count} gifts. The most precious was {gift} {emoji}.",
+    "noGifts": "I didn't bring you any gifts this month. I'll look harder next month.",
+    "album": "Your album grew from {before} to {after}.",
+    "albumFirst": "Your album already holds {after}.",
+    "albumYear": "Your album now holds {after} of {total}.",
+    "pets": "You patted my head {pets} times.",
+    "petsThrows": "You patted my head {pets} times and threw me {throws} times. I remember every one.",
+    "noPets": "You didn't pat my head even once this month. Maybe next month?",
+    "hours": "We spent {hours} hours together at the computer.",
+    "lateBad": "Your latest night was {time} on {date}. Earlier nights in {next}, okay?",
+    "lateGood": "Your latest night this month was only {time}. Nicely done.",
+    "lateYear": "Your latest night of the year was {time} on {date}.",
+    "monthEndings": ["Take good care of me next month too.", "Thank you for this month. See you in the next one.", "I'll keep writing to you next month."],
+    "yearEndings": ["Thank you for being here all year. Let's do next year together too.", "This year was better with you. See you next year. No, wait: see you tomorrow."],
+    "stats": {
+      "days": "Days together",
+      "streak": "Best run (days)",
+      "places": "Places visited",
+      "gifts": "Gifts brought",
+      "pets": "Head pats",
+      "hours": "Hours together"
+    },
+    "units": {
+      "days": "{n}",
+      "streak": "{n}",
+      "places": "{n}",
+      "gifts": "{n}",
+      "pets": "{n}",
+      "hours": "{n}"
+    }
+  },
+
   "rarity": { "common": "Common", "rare": "Rare", "legendary": "Legendary" },
   "giftLine": "Enclosed: {gift}",
   "defaultName": "Your little one",

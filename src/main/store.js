@@ -8,12 +8,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { MAX_LETTERS } = require('./letters');
 
 const SCALES = [0.8, 1, 1.3];
 const LANGUAGES = ['zh', 'en'];
 const SPECIES = ['cat', 'panda'];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const MAX_LETTERS = 800;
+const MONTH = /^\d{4}-\d{2}$/;
+const YEAR = /^\d{4}$/;
+const NAME_ID = /^[A-Za-z]{1,32}$/; // 地点、礼物的编号
 
 const DEFAULT_SETTINGS = Object.freeze({
   species: 'cat',
@@ -88,9 +91,46 @@ function sanitizeUsage(raw) {
   return out;
 }
 
+/** 月报、年度回顾用的"小结"：全是数字和编号 */
+function sanitizeSummary(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const n = (v) => Math.round(num(v, 0, 1e9) || 0);
+  const ids = (list) => (Array.isArray(list) ? list.filter((id) => typeof id === 'string' && NAME_ID.test(id)).slice(0, 60) : []);
+  const places = {};
+  if (raw.places && typeof raw.places === 'object') {
+    for (const [id, count] of Object.entries(raw.places)) if (NAME_ID.test(id) && Number.isFinite(count)) places[id] = n(count);
+  }
+  const g = raw.gifts && typeof raw.gifts === 'object' ? raw.gifts : {};
+  const latest = time(raw.latest);
+  return {
+    days: n(raw.days),
+    streak: n(raw.streak),
+    places,
+    newPlaces: ids(raw.newPlaces),
+    gifts: { common: n(g.common), rare: n(g.rare), legendary: n(g.legendary) },
+    highlights: ids(raw.highlights),
+    albumBefore: n(raw.albumBefore),
+    albumAfter: n(raw.albumAfter),
+    pets: n(raw.pets),
+    pokes: n(raw.pokes),
+    throws: n(raw.throws),
+    activeMin: n(raw.activeMin),
+    latest: latest === undefined ? null : latest,
+    lateness: Number.isFinite(raw.lateness) ? raw.lateness : null,
+    latestLate: !!raw.latestLate,
+  };
+}
+
 function sanitizeLetter(raw) {
   if (!raw || typeof raw !== 'object' || !DAY.test(raw.day)) return null;
   const base = { id: raw.day, day: raw.day, at: time(raw.at) || 0, opened: !!raw.opened };
+  if (raw.kind === 'monthly' || raw.kind === 'yearly') {
+    const monthly = raw.kind === 'monthly';
+    if (!(monthly ? MONTH : YEAR).test(raw.period)) return null;
+    const summary = sanitizeSummary(raw.summary);
+    if (!summary) return null;
+    return { ...base, id: `${monthly ? 'm' : 'y'}-${raw.period}`, kind: raw.kind, period: raw.period, summary, ending: Math.max(0, int(raw.ending)) };
+  }
   if (raw.kind === 'welcome') return { ...base, kind: 'welcome', gift: 'pawprint', days: 1 };
   if (raw.kind !== 'daily' || typeof raw.place !== 'string') return null;
   let remark = null;
@@ -117,7 +157,16 @@ function sanitizeLetter(raw) {
 }
 
 function sanitizeMail(raw) {
-  const mail = { installId: crypto.randomBytes(8).toString('hex'), letters: [], gifts: {}, lastDay: null, streak: 0 };
+  const mail = {
+    installId: crypto.randomBytes(8).toString('hex'),
+    letters: [],
+    gifts: {},
+    lastDay: null,
+    streak: 0,
+    bestStreak: 0,
+    welcomed: false, // 见面信寄过没有（就算之后删了，也不会再寄）
+    monthly: {}, // 每个月的小结，年度回顾要用
+  };
   if (!raw || typeof raw !== 'object') return mail;
   if (typeof raw.installId === 'string' && /^[0-9a-f]{8,32}$/.test(raw.installId)) mail.installId = raw.installId;
   if (Array.isArray(raw.letters)) {
@@ -138,6 +187,15 @@ function sanitizeMail(raw) {
   }
   if (DAY.test(raw.lastDay)) mail.lastDay = raw.lastDay;
   mail.streak = Math.max(0, int(raw.streak));
+  mail.bestStreak = Math.max(mail.streak, int(raw.bestStreak));
+  // 旧版本的存档没有 welcomed：只要收到过信，就算见过面了
+  mail.welcomed = raw.welcomed === true || mail.letters.length > 0 || !!mail.lastDay;
+  if (raw.monthly && typeof raw.monthly === 'object') {
+    for (const [month, summary] of Object.entries(raw.monthly)) {
+      const clean = MONTH.test(month) && sanitizeSummary(summary);
+      if (clean) mail.monthly[month] = clean;
+    }
+  }
   return mail;
 }
 

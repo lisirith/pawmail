@@ -127,7 +127,96 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
   check('窗口背景是透明的，而且画出了宠物', cornerAlpha === 0 && opaque > 2000, { cornerAlpha, opaquePixels: opaque, size });
 
   await testMail();
+  await testReports();
   return finish();
+
+  // ---------------------------------------------------------------- 月报、年度回顾、删信
+
+  async function testReports() {
+    const L = require('./letters');
+    const DAY_MS = 86400000;
+    const mailData = store.data.mail;
+    const usage = store.data.usage;
+
+    // 从上次见面的第二天开始，一天天往后模拟，直到跨过下一个元旦再多 3 天（中间一定会跨好几个月）
+    let t = new Date(`${mailData.lastDay}T10:00:00`).getTime() + DAY_MS;
+    const year = Number(L.logicalDay(t).slice(0, 4));
+    const stop = new Date(`${year + 1}-01-04T10:00:00`).getTime();
+    let simulated = 0;
+    while (t <= stop) {
+      const day = L.logicalDay(t);
+      usage[day] = { first: t - 3600000, last: t + 12 * 3600000, activeMin: 240, pets: 3, pokes: 1, throws: simulated % 5 === 0 ? 1 : 0, dizzies: 0 };
+      mail.check(t, true);
+      for (const l of mailData.letters) if (!l.opened) mail.markOpened(l.id, { quiet: true }); // 假装每封都拆了
+      t += DAY_MS;
+      simulated += 1;
+    }
+
+    const monthly = mailData.letters.filter((l) => l.kind === 'monthly');
+    const review = mailData.letters.find((l) => l.id === `y-${year}`);
+    check('跨月时收到月报（这个月一起不少于 3 天）', monthly.length >= 1 && monthly.every((l) => /^m-\d{4}-\d{2}$/.test(l.id) && l.summary.days >= 3), {
+      simulatedDays: simulated,
+      reports: monthly.map((l) => l.id),
+    });
+    check('元旦收到年度回顾，代替 12 月的月报', !!review && review.summary.days >= 7 && !mailData.letters.some((l) => l.id === `m-${year}-12`), {
+      review: review && { days: review.summary.days, places: Object.keys(review.summary.places).length },
+    });
+    check('每个月都存了一份小结（年度回顾要用）', Object.keys(mailData.monthly).filter((k) => k.startsWith(`${year}-`)).length >= 1, {
+      months: Object.keys(mailData.monthly),
+    });
+
+    // 在信纸窗口里打开年度回顾：应该有数据格子；明信片是 1080×1920 的长图
+    const win = mail.open({ view: 'letter', id: review.id });
+    await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+    await wait(900);
+    const mjs = (code) => win.webContents.executeJavaScript(`(async () => { ${code} })()`, true);
+    const page = await mjs(
+      `return { stats: document.querySelectorAll('.stats .stat').length, title: (document.querySelector('.letter-title') || {}).textContent, lines: document.querySelectorAll('.letter-body p').length };`
+    );
+    check('年度回顾页面有数据格子和正文', page.stats >= 4 && page.lines >= 5 && /\d{4}/.test(page.title || ''), page);
+    fs.writeFileSync(path.join(outDir, 'report.png'), (await win.webContents.capturePage()).toPNG());
+    const card = await mjs(`const url = __mail.postcard(); const img = new Image(); img.src = url; await img.decode(); return { w: img.naturalWidth, h: img.naturalHeight };`);
+    check('年度回顾能存成 1080×1920 的长图', card.w === 1080 && card.h === 1920, card);
+
+    // 删一封：用窗口里的"删除"走一遍（和你点垃圾桶是同一条路）
+    const giftsBefore = Object.keys(mailData.gifts).length;
+    const victim = mailData.letters.find((l) => l.kind === 'daily');
+    const one = await mjs(`return await window.pawmailMail.deleteLetters(['${victim.id}']);`);
+    check('删一封信', one.ok && one.removed === 1 && !mailData.letters.some((l) => l.id === victim.id), one);
+
+    // 删一个月：删掉最早那个月的全部信（见面信也在里面）
+    const firstMonth = mailData.letters[0].day.slice(0, 7);
+    const ids = mailData.letters.filter((l) => l.day.startsWith(firstMonth)).map((l) => l.id);
+    const many = await mjs(`return await window.pawmailMail.deleteLetters(${JSON.stringify(ids)});`);
+    check('删整个月的信', many.ok && many.removed === ids.length && !mailData.letters.some((l) => l.day.startsWith(firstMonth)), {
+      month: firstMonth,
+      removed: many.removed,
+    });
+    check('删信不会把礼物从图鉴里拿走', Object.keys(mailData.gifts).length === giftsBefore, { gifts: giftsBefore });
+
+    const countBefore = mailData.letters.length;
+    mail.check(t - DAY_MS + 60000, true);
+    check('见面信删了以后，不会再寄一封', mailData.letters.length === countBefore && !mailData.letters.some((l) => l.kind === 'welcome'));
+
+    const bad = await mjs(`return await window.pawmailMail.deleteLetters(['../../save.json']);`);
+    check('删信时不认识的编号会被拒绝', bad && bad.ok === false, bad);
+
+    await mjs(`__mail.go('box'); return true;`);
+    await wait(400);
+    const box = await mjs(`return { months: document.querySelectorAll('.box-month').length, rows: document.querySelectorAll('.box-row').length };`);
+    check('信箱按月分组显示', box.months >= 2 && box.rows === mailData.letters.length, box);
+    fs.writeFileSync(path.join(outDir, 'mailbox.png'), (await win.webContents.capturePage()).toPNG());
+
+    store.saveNow();
+    const reread = JSON.parse(fs.readFileSync(store.file, 'utf8'));
+    check('月报、年度回顾和小结都写进了存档', reread.mail.letters.some((l) => l.kind === 'yearly') && reread.mail.welcomed === true && Object.keys(reread.mail.monthly).length >= 1, {
+      letters: reread.mail.letters.length,
+      sizeKB: Math.round(fs.statSync(store.file).size / 1024),
+    });
+
+    mail.close();
+    await wait(200);
+  }
 
   // ---------------------------------------------------------------- 每日来信
 
@@ -135,7 +224,7 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
     const DAY_MS = 86400000;
     const now = Date.now();
     // 从一份干净的"邮局"开始，这样每次自检的结果都一样
-    Object.assign(store.data.mail, { letters: [], gifts: {}, lastDay: null, streak: 0 });
+    Object.assign(store.data.mail, { letters: [], gifts: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, monthly: {} });
     store.data.settings.petName = null;
     mail.test = { dir: outDir }; // 明信片存到自检的输出文件夹，不弹资源管理器、不动剪贴板
 

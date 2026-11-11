@@ -313,6 +313,50 @@
     "treasureMap": "一张藏宝图"
   },
 
+  "report": {
+    "monthTitle": "{month} 月的我们",
+    "yearTitle": "{year} 年的我们",
+    "monthDays": "这个月我们一起过了 {days} 天。",
+    "monthDaysStreak": "这个月我们一起过了 {days} 天，最长连着见了 {streak} 天。",
+    "yearDays": "这一年我们一起过了 {days} 天，最长连着见了 {streak} 天。",
+    "places": "我去了 {count} 个地方，最常去的是{place}（{times} 次）。",
+    "placesFew": "我去了{places}。",
+    "placesAllOnce": "我去了 {count} 个地方，每个地方都只去了一次。",
+    "newPlaces": "还第一次去了{places}。",
+    "joiner": "、",
+    "gifts": "给你带回了 {count} 件礼物。",
+    "giftsHighlight": "给你带回了 {count} 件礼物，其中最珍贵的是{gift} {emoji}。",
+    "noGifts": "这个月没给你带回礼物，下个月我多找找。",
+    "album": "图鉴从 {before} 件涨到了 {after} 件。",
+    "albumFirst": "图鉴里已经有 {after} 件了。",
+    "albumYear": "图鉴一共收集到了 {after} / {total} 件。",
+    "pets": "你一共摸了我 {pets} 次头。",
+    "petsThrows": "你一共摸了我 {pets} 次头，扔了我 {throws} 次，我都记着呢。",
+    "noPets": "这个月你一次都没摸过我的头。下个月试试？",
+    "hours": "我们一起在电脑前待了 {hours} 个小时。",
+    "lateBad": "你最晚的一次是 {date}{time}。{next}早点睡，好不好？",
+    "lateGood": "这个月你最晚也就{time}，作息不错嘛。",
+    "lateYear": "这一年最晚的一次，是 {date}{time}。",
+    "monthEndings": ["下个月也请多指教。", "这个月谢谢你，下个月见。", "下个月，我还会给你写信的。"],
+    "yearEndings": ["谢谢你这一年都在。明年也一起吧。", "这一年有你真好。明年见——不对，明天见。"],
+    "stats": {
+      "days": "一起度过",
+      "streak": "最长连续",
+      "places": "去过的地方",
+      "gifts": "带回的礼物",
+      "pets": "摸头",
+      "hours": "陪伴时长"
+    },
+    "units": {
+      "days": "{n} 天",
+      "streak": "{n} 天",
+      "places": "{n} 个",
+      "gifts": "{n} 件",
+      "pets": "{n} 次",
+      "hours": "{n} 小时"
+    }
+  },
+
   "rarity": { "common": "普通", "rare": "稀有", "legendary": "传说" },
   "giftLine": "随信附上：{gift}",
   "defaultName": "你的小家伙",

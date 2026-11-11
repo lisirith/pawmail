@@ -27,8 +27,8 @@ function createMockBridge() {
       for (const lang of ['zh', 'en']) {
         strings[lang] = await (await fetch(`../shared/locales/${lang}.json`)).json();
       }
-      // 预览时加 ?mail=1 可以看到"手里有一封没拆的信"的样子
-      const mail = { unread: Number(params.get('mail')) || 0, total: 1 };
+      // 预览时加 ?mail=1 可以看到"手里有一封没拆的信"的样子；?mail=gold 是金色信封（月报）
+      const mail = { unread: params.get('mail') ? 1 : 0, total: 1, special: params.get('mail') === 'gold' };
       return { settings: { ...settings }, pet: null, mail, strings, dev: true, preview: true, version: 'preview' };
     },
     setCapture() {},

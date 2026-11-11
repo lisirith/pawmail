@@ -68,6 +68,17 @@
     "nameOk": "That's the one",
     "rename": "Rename",
     "suggestions": ["Mochi", "Dango", "Biscuit", "Pudding", "Peanut"],
+    "monthLabel": "{monthName} {year}",
+    "monthCount": "{n}",
+    "deleteOne": "Delete this letter",
+    "deleteMonth": "Delete month",
+    "confirmOne": "Delete this letter?",
+    "confirmMonth": "Delete all {n} letters from {label}?",
+    "confirmHint": "This can't be undone. Gifts you've received stay in your album.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleted": "Deleted {n}",
+    "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
     "postcardFooter": "Pawmail · a desktop pet that writes to you every day"
   }
 }

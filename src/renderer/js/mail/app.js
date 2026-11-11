@@ -14,6 +14,7 @@ function createMockApi() {
   const params = new URLSearchParams(location.search);
   const listeners = [];
   const opened = new Set();
+  const deleted = new Set();
   let name = params.get('name');
   const load = async () => {
     const query = new URLSearchParams({
@@ -21,21 +22,31 @@ function createMockApi() {
       species: params.get('species') || 'cat',
       unread: params.get('unread') || '1',
       name: name || '',
+      from: params.get('from') || '', // 比如 from=2026-10-20&days=80：从这天起模拟，能看到月报和年度回顾
+      days: params.get('days') || '',
     });
     const data = await (await fetch(`/__mock/mail?${query}`)).json();
+    data.letters = data.letters.filter((l) => !deleted.has(l.id));
     for (const letter of data.letters) if (opened.has(letter.id)) letter.opened = true;
-    if (params.get('view')) data.nav = { view: params.get('view') };
+    if (params.get('view')) data.nav = { view: params.get('view'), id: params.get('id') || undefined };
     return data;
   };
+  const push = () =>
+    load().then((data) => {
+      data.nav = null;
+      listeners.forEach((cb) => cb(data));
+    });
   return {
     init: load,
     opened: (id) => opened.add(id),
     setName(next) {
       name = next;
-      load().then((data) => {
-        data.nav = null;
-        listeners.forEach((cb) => cb(data));
-      });
+      push();
+    },
+    async deleteLetters(ids) {
+      ids.forEach((id) => deleted.add(id));
+      push();
+      return { ok: true, removed: ids.length };
     },
     async savePostcard(dataUrl) {
       window.__lastPostcard = dataUrl; // 预览时不存文件，留着给检查用
@@ -89,6 +100,34 @@ function drawFace(ctx, size, species, pose) {
   ctx.scale(k, k);
   drawHeadOnly(ctx, sp, makePose(pose));
   ctx.restore();
+}
+
+const isReport = (letter) => letter.kind === 'monthly' || letter.kind === 'yearly';
+const fillText = (text, params) => String(text).replace(/\{(\w+)\}/g, (whole, key) => (params[key] === undefined ? whole : params[key]));
+
+/** 信箱里每个月的小标题：2026 年 11 月 / November 2026 */
+function monthText(month) {
+  const { ui } = state.data;
+  const m = Number(month.slice(5, 7));
+  return fillText(ui.monthLabel, { year: month.slice(0, 4), month: m, monthName: (ui.months || [])[m - 1] || m });
+}
+
+// ---------------------------------------------------------------- 弹出的小卡片（起名字、确认删除）
+
+function openModal(card, dismissable) {
+  const host = $('naming');
+  state.modalDismissable = dismissable;
+  host.onclick = (e) => {
+    if (e.target === host && state.modalDismissable) closeModal(); // 点卡片外面 = 取消
+  };
+  host.replaceChildren(card);
+  host.hidden = false;
+}
+
+function closeModal() {
+  const host = $('naming');
+  host.hidden = true;
+  host.replaceChildren();
 }
 
 let toastTimer = 0;
@@ -174,7 +213,7 @@ function sealedView(letter) {
   const { canvas, ctx } = makeCanvas(300, 210, 'sealed-envelope');
   ctx.translate(150, 105);
   ctx.scale(3, 3);
-  drawEnvelope(ctx, 90, 62);
+  drawEnvelope(ctx, 90, 62, { gold: isReport(letter) }); // 月报、年度回顾是金色信封
   canvas.addEventListener('click', () => openLetter(letter, view));
   view.append(el('div', 'sealed-date', letter.dateText), canvas, el('div', 'sealed-hint', ui.openHint));
   return view;
@@ -218,7 +257,7 @@ async function exportPostcard(letter, mode, trigger) {
 function paperView(letter) {
   const { ui, species } = state.data;
   const view = el('section', 'view');
-  const paper = el('div', state.justOpened === letter.id ? 'paper reveal' : 'paper');
+  const paper = el('div', `paper${isReport(letter) ? ' report' : ''}${state.justOpened === letter.id ? ' reveal' : ''}`);
   state.justOpened = null;
 
   // 照片
@@ -231,11 +270,23 @@ function paperView(letter) {
   title.append(el('small', '', ui.from), capitalize(letter.title));
   head.append(title, el('div', 'letter-date', letter.dateText));
 
+  paper.append(canvas, head);
+
+  // 月报、年度回顾：一排数据格子
+  if (letter.stats && letter.stats.length) {
+    const grid = el('div', 'stats');
+    for (const s of letter.stats) {
+      const tile = el('div', 'stat');
+      tile.append(el('div', 'stat-emoji', s.emoji), el('div', 'stat-value', s.value), el('div', 'stat-label', s.label));
+      grid.append(tile);
+    }
+    paper.append(grid);
+  }
+
   // 正文
   const body = el('div', 'letter-body');
   for (const line of letter.lines) body.append(el('p', '', line));
-
-  paper.append(canvas, head, body);
+  paper.append(body);
 
   // 礼物
   if (letter.gift) {
@@ -274,23 +325,80 @@ function letterView() {
 
 // ---------------------------------------------------------------- 信箱
 
+function boxIcon(letter) {
+  if (!letter.opened) return isReport(letter) ? '🌟' : '💌';
+  if (letter.kind === 'yearly') return '🏆';
+  if (letter.kind === 'monthly') return '📊';
+  return letter.gift ? letter.gift.emoji : '✉️';
+}
+
+/** 信箱：按月份分组，最新的在最上面。每封信、每个月都可以删 */
 function boxView() {
   const { ui } = state.data;
   if (!letters().length) return el('section', 'view empty', ui.noLetters);
   const view = el('section', 'view');
   const list = el('div', 'box');
+
+  const groups = new Map();
   for (const letter of letters()) {
-    const item = button(letter.opened ? 'box-item' : 'box-item unread', null, () => go('letter', letter.id));
-    const text = el('div', 'box-text');
-    text.append(
-      el('div', 'box-title', letter.opened ? capitalize(letter.title) : ui.unread),
-      el('div', 'box-preview', letter.opened ? letter.lines[letter.kind === 'welcome' ? 0 : 1] || '' : ui.openHint)
+    if (!groups.has(letter.month)) groups.set(letter.month, []);
+    groups.get(letter.month).push(letter);
+  }
+
+  for (const [month, items] of groups) {
+    const label = monthText(month);
+    const head = el('div', 'box-month');
+    const removeMonth = button('box-month-delete', ui.deleteMonth, () =>
+      confirmDelete(
+        items.map((l) => l.id),
+        fillText(ui.confirmMonth, { label, n: items.length })
+      )
     );
-    item.append(el('span', 'box-icon', letter.opened ? (letter.gift ? letter.gift.emoji : '✉️') : '💌'), text, el('span', 'box-date', letter.dateText));
-    list.append(item);
+    head.append(el('span', 'box-month-title', label), el('span', 'box-month-count', fillText(ui.monthCount, { n: items.length })), removeMonth);
+    list.append(head);
+
+    for (const letter of items) {
+      const row = el('div', 'box-row');
+      const item = button(letter.opened ? 'box-item' : 'box-item unread', null, () => go('letter', letter.id));
+      if (isReport(letter)) item.classList.add('report');
+      const text = el('div', 'box-text');
+      // 没拆的普通信只显示"未拆"（保留惊喜）；月报、年度回顾直接显示标题，一看就知道是特别的信
+      const showTitle = letter.opened || isReport(letter);
+      text.append(
+        el('div', 'box-title', showTitle ? capitalize(letter.title) : ui.unread),
+        el('div', 'box-preview', letter.opened ? letter.lines[letter.kind === 'daily' ? 1 : 0] || '' : ui.openHint)
+      );
+      item.append(el('span', 'box-icon', boxIcon(letter)), text, el('span', 'box-date', letter.dateText));
+      const remove = button('box-delete', '🗑', () => confirmDelete([letter.id], ui.confirmOne));
+      remove.title = ui.deleteOne;
+      remove.setAttribute('aria-label', ui.deleteOne);
+      row.append(item, remove);
+      list.append(row);
+    }
   }
   view.append(list);
   return view;
+}
+
+/** 删信之前先问一句 */
+function confirmDelete(ids, title) {
+  const { ui } = state.data;
+  const card = el('div', 'naming-card confirm-card');
+  const actions = el('div', 'confirm-actions');
+  const yes = button('btn danger', ui.delete, async () => {
+    closeModal();
+    try {
+      const result = await api.deleteLetters(ids);
+      toast(result && result.ok ? fillText(ui.deleted, { n: result.removed }) : ui.failed);
+    } catch (err) {
+      console.error(err);
+      toast(ui.failed);
+    }
+  });
+  actions.append(button('btn', ui.cancel, closeModal), yes);
+  card.append(el('div', 'confirm-icon', '🗑'), el('div', 'naming-title', title), el('div', 'naming-hint', ui.confirmHint), actions);
+  openModal(card, true);
+  setTimeout(() => yes.focus(), 30);
 }
 
 // ---------------------------------------------------------------- 礼物图鉴
@@ -323,7 +431,6 @@ function renderMain() {
 
 function showNaming(after) {
   const { ui, species, name } = state.data;
-  const host = $('naming');
   const card = el('div', 'naming-card');
 
   const { canvas, ctx } = makeCanvas(84, 84, 'naming-face');
@@ -345,10 +452,6 @@ function showNaming(after) {
     );
   }
 
-  const close = () => {
-    host.hidden = true;
-    host.replaceChildren();
-  };
   const submit = () => {
     const value = input.value.trim();
     if (!value) {
@@ -357,22 +460,18 @@ function showNaming(after) {
     }
     state.data.name = value;
     api.setName(value);
-    close();
+    closeModal();
     renderBar();
     if (after) after();
   };
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submit();
-    else if (e.key === 'Escape' && name) close();
+    else if (e.key === 'Escape' && name) closeModal();
     e.stopPropagation();
   });
-  host.onclick = (e) => {
-    if (e.target === host && name) close(); // 已经有名字时，点外面可以取消
-  };
 
   card.append(canvas, el('div', 'naming-title', ui.nameTitle), el('div', 'naming-hint', ui.nameHint), input, chips, button('btn primary', ui.nameOk, submit));
-  host.replaceChildren(card);
-  host.hidden = false;
+  openModal(card, !!name); // 已经有名字时（改名），点外面可以取消；第一次起名必须起好
   setTimeout(() => input.focus(), 30);
 }
 
@@ -382,7 +481,12 @@ $('close').addEventListener('click', () => api.close());
 $('pet-name').addEventListener('click', () => showNaming());
 
 window.addEventListener('keydown', (e) => {
-  if (!state.data || !$('naming').hidden) return;
+  if (!state.data) return;
+  if (!$('naming').hidden) {
+    // 弹着小卡片时：Esc 只关卡片（第一次起名字时不能跳过）
+    if (e.key === 'Escape' && state.modalDismissable) closeModal();
+    return;
+  }
   if (e.key === 'Escape') api.close();
   if (state.view !== 'letter') return;
   const index = letters().findIndex((l) => l.id === state.id);

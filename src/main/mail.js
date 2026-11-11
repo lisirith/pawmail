@@ -6,10 +6,10 @@ const { BrowserWindow, ipcMain, clipboard, nativeImage, shell, app, screen } = r
 const path = require('node:path');
 const fs = require('node:fs');
 const L = require('./letters');
-const { MAX_LETTERS } = require('./store');
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const ID = L.LETTER_ID;
 const PNG_PREFIX = 'data:image/png;base64,';
+const isReport = (letter) => letter.kind === 'monthly' || letter.kind === 'yearly';
 const WINDOW_SIZE = { width: 472, height: 700 };
 
 class Mail {
@@ -35,52 +35,33 @@ class Mail {
     return this.store.data.mail;
   }
 
-  /** 有几封没拆、一共几封 */
+  /** 有几封没拆、一共几封、没拆的里面有没有月报或年度回顾（有的话宠物手里拿的是金色信封） */
   summary() {
     const letters = this.data.letters;
-    return { unread: letters.filter((l) => !l.opened).length, total: letters.length };
+    const unread = letters.filter((l) => !l.opened);
+    return { unread: unread.length, total: letters.length, special: unread.some(isReport) };
   }
 
   /**
    * 看看是不是该来信了。每隔几秒调用一次，很便宜。
-   * 规则：第一次运行立刻有一封"见面信"；之后每到新的一天（凌晨 4 点为界），你回到电脑前时来一封。
+   * 规则（具体见 letters.js 的 advanceDay）：第一次运行立刻有一封"见面信"；
+   * 之后每到新的一天（凌晨 4 点为界），你回到电脑前时来一封；跨月时再多一封月报或年度回顾。
    * @returns 这次有没有来新信
    */
   check(now, present) {
-    const mail = this.data;
-    const day = L.logicalDay(now);
-    if (!mail.letters.length) {
-      mail.letters.push(L.welcomeLetter({ day, now }));
-      mail.lastDay = day;
-      mail.streak = 1;
-    } else if (mail.lastDay !== day && present) {
-      const gap = mail.lastDay ? L.dayDiff(mail.lastDay, day) : 1;
-      if (gap <= 0) return false; // 电脑的日期被往回调了：等日子追上来再说
-      mail.streak = gap === 1 ? mail.streak + 1 : 1;
-      mail.letters.push(
-        L.generateLetter({
-          day,
-          now,
-          installId: mail.installId,
-          history: mail.letters,
-          owned: mail.gifts,
-          usage: this.store.data.usage,
-          lastDay: mail.lastDay,
-          streak: mail.streak,
-        })
-      );
-      mail.lastDay = day;
-      if (mail.letters.length > MAX_LETTERS) mail.letters.splice(0, mail.letters.length - MAX_LETTERS);
-    } else {
-      return false;
-    }
+    if (this.data.welcomed && !present) return false;
+    const added = L.advanceDay(this.data, { day: L.logicalDay(now), now, usage: this.store.data.usage });
+    if (!added.length) return false;
     this.onChange();
     this.refresh();
     return true;
   }
 
-  /** 拆开一封信：礼物这时才真正到手（进图鉴） */
-  markOpened(id) {
+  /**
+   * 拆开一封信：礼物这时才真正到手（进图鉴）。
+   * quiet：不通知窗口和宠物（自检一口气模拟几百天时用）
+   */
+  markOpened(id, { quiet = false } = {}) {
     const letter = this.data.letters.find((l) => l.id === id);
     if (!letter || letter.opened) return;
     letter.opened = true;
@@ -88,8 +69,25 @@ class Mail {
       const have = this.data.gifts[letter.gift];
       this.data.gifts[letter.gift] = { count: (have ? have.count : 0) + 1, firstDay: have && have.firstDay ? have.firstDay : letter.day };
     }
+    if (quiet) return;
     this.onChange();
     this.refresh(); // 图鉴变了，让窗口同步一下（正在看的信不会被打断）
+  }
+
+  /**
+   * 删信（你在信箱里选的）。拿到的礼物不会因此从图鉴里消失。
+   * @returns 删掉了几封
+   */
+  deleteLetters(ids) {
+    const doomed = new Set(ids);
+    const before = this.data.letters.length;
+    this.data.letters = this.data.letters.filter((l) => !doomed.has(l.id));
+    const removed = before - this.data.letters.length;
+    if (removed) {
+      this.onChange();
+      this.refresh();
+    }
+    return removed;
   }
 
   /** 发给信纸窗口的全部内容（文字已经按当前语言拼好） */
@@ -98,6 +96,7 @@ class Mail {
     const owned = this.data.gifts;
     const letters = [...this.data.letters].reverse().map((letter) => {
       const rendered = L.renderLetter(letter, ctx.lang, ctx);
+      rendered.month = letter.day.slice(0, 7); // 信箱按月分组用
       if (rendered.gift) rendered.gift.isNew = !letter.opened && !owned[rendered.gift.id]; // 第一次拿到这种礼物
       return rendered;
     });
@@ -186,7 +185,13 @@ class Mail {
     });
 
     ipcMain.on('pawmail-mail:opened', (event, id) => {
-      if (mine(event) && DAY.test(id)) this.markOpened(id);
+      if (mine(event) && ID.test(id)) this.markOpened(id);
+    });
+
+    ipcMain.handle('pawmail-mail:delete', (event, ids) => {
+      if (!mine(event) || !Array.isArray(ids) || !ids.length || ids.length > 1000) return { ok: false };
+      if (!ids.every((id) => typeof id === 'string' && ID.test(id))) return { ok: false };
+      return { ok: true, removed: this.deleteLetters(ids) };
     });
 
     ipcMain.on('pawmail-mail:set-name', (event, name) => {
@@ -196,7 +201,7 @@ class Mail {
 
     // 把明信片存成图片：放到"图片\Pawmail"文件夹里，然后在资源管理器里指给你看
     ipcMain.handle('pawmail-mail:save-postcard', async (event, dataUrl, id) => {
-      if (!mine(event) || !validImage(dataUrl) || !DAY.test(id)) return { ok: false };
+      if (!mine(event) || !validImage(dataUrl) || !ID.test(id)) return { ok: false };
       try {
         const dir = this.test ? this.test.dir : path.join(app.getPath('pictures'), 'Pawmail');
         await fs.promises.mkdir(dir, { recursive: true });

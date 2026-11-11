@@ -68,6 +68,17 @@
     "nameOk": "就叫这个",
     "rename": "改名字",
     "suggestions": ["年糕", "团子", "汤圆", "麻薯", "布丁"],
+    "monthLabel": "{year} 年 {month} 月",
+    "monthCount": "{n} 封",
+    "deleteOne": "删除这封信",
+    "deleteMonth": "删除这个月",
+    "confirmOne": "删除这封信？",
+    "confirmMonth": "删除 {label}的 {n} 封信？",
+    "confirmHint": "删除后就找不回来了。拿到的礼物会留在图鉴里。",
+    "cancel": "取消",
+    "delete": "删除",
+    "deleted": "已删除 {n} 封",
+    "months": ["1 月", "2 月", "3 月", "4 月", "5 月", "6 月", "7 月", "8 月", "9 月", "10 月", "11 月", "12 月"],
     "postcardFooter": "爪爪来信 Pawmail · 一只每天给你写信的桌面宠物"
   }
 }

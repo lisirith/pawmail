@@ -7,6 +7,8 @@
 // 一封信的结构：
 //   开头（去了哪儿） + 一件在那儿发生的小事 + 一句关于"你"的话（来自真实的使用情况） + （有时）一句收尾
 //   + （有时）一件礼物 + 落款
+//
+// 除了每天的信，每月 1 号还有一封"月报"，1 月 1 日那封换成"年度回顾"（见下面的"月报和年度回顾"一节）。
 
 const { PLACES, GIFTS } = require('../shared/letters/catalog');
 
@@ -18,11 +20,18 @@ const BASE = CONTENT.zh; // "有几句可选"以中文为准（英文必须一�
 
 const DAY_START_HOUR = 4; // 凌晨 4 点之前算作"前一天"：熬夜到 2 点，那还是今天的事
 const STREAK_MILESTONES = [3, 7, 14, 21, 30, 50, 100, 200, 365];
+const MAX_LETTERS = 800; // 信箱最多留多少封，超过了就删最老的。一封信只占约 0.3 KB，800 封（两年多）约 270 KB
+const MIN_MONTH_DAYS = 3; // 这个月一起不到 3 天，就不发月报（数据太少，写出来很空）
+const MIN_YEAR_DAYS = 7; // 这一年一起不到 7 天，就不发年度回顾
+const MONTHS_KEPT = 36; // "每月小结"留最近 36 个月（年度回顾要用）
+/** 信的编号：每天的信用日期（2026-11-11），月报是 m-2026-11，年度回顾是 y-2026 */
+const LETTER_ID = /^(\d{4}-\d{2}-\d{2}|m-\d{4}-\d{2}|y-\d{4})$/;
 
 // ---------------------------------------------------------------- 日期
 
 const pad = (n) => String(n).padStart(2, '0');
 const dayOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const monthOf = (day) => day.slice(0, 7);
 
 /** 这个时刻属于哪一"天"（格式 2026-11-11） */
 function logicalDay(now) {
@@ -43,6 +52,12 @@ function addDays(day, n) {
   const d = dayToDate(day);
   d.setDate(d.getDate() + n);
   return dayOf(d);
+}
+
+/** 这一"天"从什么时候开始（那天凌晨 4 点） */
+function dayStartMs(day) {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d, DAY_START_HOUR).getTime();
 }
 
 // ---------------------------------------------------------------- 随机
@@ -246,6 +261,230 @@ function generateLetter({ day, now, installId, history = [], owned = {}, usage =
   };
 }
 
+// ---------------------------------------------------------------- 月报和年度回顾
+//
+// 每次跨进新的一个月，先把上个月"总结"成一份小结（只有数字和编号，很小），存在 mail.monthly 里。
+// 月报直接用这份小结来写；年度回顾用这一年的 12 份小结来写。
+// 小结是在月初那一刻算好存下来的，所以之后就算你删了旧信，月报和年度回顾的内容也不会变。
+
+const RARITY_RANK = { legendary: 0, rare: 1, common: 2 };
+const LATE_AFTER = (24 + 0.5 - DAY_START_HOUR) * 3600 * 1000; // 过了凌晨 0 点半还在用电脑，就算"熬夜"
+
+/** 把某个月（格式 2026-11）总结成一份小结 */
+function summarizeMonth(month, { letters = [], usage = {}, gifts = {} } = {}) {
+  const inMonth = (day) => typeof day === 'string' && monthOf(day) === month;
+  const start = `${month}-01`;
+  const end = `${month}-31`; // 按字符串比较时，任何一个月的最后一天都 ≤ "xx-31"
+
+  // 一起度过的日子：那天用过电脑，或者那天收到了信
+  const daySet = new Set();
+  let activeMin = 0;
+  let pets = 0;
+  let pokes = 0;
+  let throws = 0;
+  let latest = null;
+  let lateness = null; // 最晚那次距离那天凌晨 4 点过了多久（毫秒），用来比较哪天睡得最晚
+  for (const [day, rec] of Object.entries(usage)) {
+    if (!inMonth(day) || !rec) continue;
+    daySet.add(day);
+    activeMin += rec.activeMin || 0;
+    pets += rec.pets || 0;
+    pokes += rec.pokes || 0;
+    throws += rec.throws || 0;
+    const late = rec.last - dayStartMs(day);
+    if (rec.activeMin > 0 && (lateness === null || late > lateness)) {
+      lateness = late;
+      latest = rec.last;
+    }
+  }
+  for (const l of letters) if (inMonth(l.day) && (l.kind === 'daily' || l.kind === 'welcome')) daySet.add(l.day);
+
+  // 最长连续几天
+  let streak = 0;
+  let run = 0;
+  let prev = null;
+  for (const day of [...daySet].sort()) {
+    run = prev && dayDiff(prev, day) === 1 ? run + 1 : 1;
+    streak = Math.max(streak, run);
+    prev = day;
+  }
+
+  // 去过的地方、带回的礼物
+  const seenBefore = new Set(letters.filter((l) => l.kind === 'daily' && l.day < start).map((l) => l.place));
+  const places = {};
+  const newPlaces = [];
+  const giftCount = { common: 0, rare: 0, legendary: 0 };
+  const highlights = [];
+  for (const l of letters) {
+    if (l.kind !== 'daily' || !inMonth(l.day)) continue;
+    places[l.place] = (places[l.place] || 0) + 1;
+    if (!seenBefore.has(l.place) && !newPlaces.includes(l.place)) newPlaces.push(l.place);
+    const g = l.gift && GIFTS[l.gift];
+    if (g) {
+      giftCount[g.rarity] += 1;
+      if (g.rarity !== 'common' && !highlights.includes(l.gift)) highlights.push(l.gift);
+    }
+  }
+  highlights.sort((a, b) => RARITY_RANK[GIFTS[a].rarity] - RARITY_RANK[GIFTS[b].rarity]);
+
+  // 图鉴：这个月之前有几件、到月底有几件（按礼物第一次到手的那天算）
+  let albumBefore = 0;
+  let albumAfter = 0;
+  for (const rec of Object.values(gifts)) {
+    if (!rec || !rec.firstDay) continue;
+    if (rec.firstDay < start) albumBefore += 1;
+    if (rec.firstDay <= end) albumAfter += 1;
+  }
+
+  return {
+    days: daySet.size,
+    streak,
+    places,
+    newPlaces,
+    gifts: giftCount,
+    highlights,
+    albumBefore,
+    albumAfter,
+    pets,
+    pokes,
+    throws,
+    activeMin,
+    latest,
+    lateness,
+    latestLate: lateness !== null && lateness >= LATE_AFTER,
+  };
+}
+
+/** 把一年的几份月小结合成一份 */
+function combineSummaries(summaries) {
+  const out = {
+    days: 0,
+    streak: 0,
+    places: {},
+    newPlaces: [],
+    gifts: { common: 0, rare: 0, legendary: 0 },
+    highlights: [],
+    albumBefore: 0,
+    albumAfter: 0,
+    pets: 0,
+    pokes: 0,
+    throws: 0,
+    activeMin: 0,
+    latest: null,
+    lateness: null,
+    latestLate: false,
+  };
+  for (const s of summaries) {
+    out.days += s.days;
+    out.streak = Math.max(out.streak, s.streak);
+    for (const [id, n] of Object.entries(s.places)) out.places[id] = (out.places[id] || 0) + n;
+    for (const r of Object.keys(out.gifts)) out.gifts[r] += s.gifts[r] || 0;
+    for (const id of s.highlights) if (!out.highlights.includes(id)) out.highlights.push(id);
+    out.albumAfter = Math.max(out.albumAfter, s.albumAfter);
+    out.pets += s.pets;
+    out.pokes += s.pokes;
+    out.throws += s.throws;
+    out.activeMin += s.activeMin;
+    if (s.lateness !== null && (out.lateness === null || s.lateness > out.lateness)) {
+      out.lateness = s.lateness;
+      out.latest = s.latest;
+      out.latestLate = s.latestLate;
+    }
+  }
+  out.highlights = out.highlights.filter((id) => GIFTS[id]).sort((a, b) => RARITY_RANK[GIFTS[a].rarity] - RARITY_RANK[GIFTS[b].rarity]);
+  return out;
+}
+
+function monthlyReport(month, summary, { day, now, installId }) {
+  const rng = makeRng(hash(`${installId}|report|${month}`));
+  return {
+    id: `m-${month}`,
+    day,
+    at: now,
+    kind: 'monthly',
+    period: month,
+    summary,
+    ending: Math.floor(rng() * BASE.report.monthEndings.length),
+    opened: false,
+  };
+}
+
+function yearlyReview(year, summaries, { day, now, installId }) {
+  const summary = combineSummaries(summaries);
+  if (summary.days < MIN_YEAR_DAYS) return null;
+  const rng = makeRng(hash(`${installId}|review|${year}`));
+  return {
+    id: `y-${year}`,
+    day,
+    at: now,
+    kind: 'yearly',
+    period: year,
+    summary,
+    ending: Math.floor(rng() * BASE.report.yearEndings.length),
+    opened: false,
+  };
+}
+
+/**
+ * 新的一天到了（或者第一次运行）：决定要来哪些信，放进信箱。
+ * 会直接修改 mail（存档里的"邮局"部分）。返回这次新来的信（可能是 0、1 或 2 封）。
+ *
+ * mail 的样子：{ installId, letters, gifts, lastDay, streak, bestStreak, welcomed, monthly }
+ */
+function advanceDay(mail, { day, now, usage = {} }) {
+  const added = [];
+  const push = (letter) => {
+    mail.letters.push(letter);
+    added.push(letter);
+  };
+
+  // 第一次运行：见面信。用 welcomed 记住"已经见过面了"，这样就算你把见面信删了，它也不会再寄一次
+  if (!mail.welcomed) {
+    push(welcomeLetter({ day, now }));
+    mail.welcomed = true;
+    mail.lastDay = day;
+    mail.streak = 1;
+    mail.bestStreak = Math.max(mail.bestStreak || 0, 1);
+    return added;
+  }
+  if (mail.lastDay === day) return added;
+  const lastDay = mail.lastDay;
+  const gap = lastDay ? dayDiff(lastDay, day) : 1;
+  if (gap <= 0) return added; // 电脑的日期被往回调了：等日子追上来再说
+
+  mail.streak = gap === 1 ? (mail.streak || 0) + 1 : 1;
+  mail.bestStreak = Math.max(mail.bestStreak || 0, mail.streak);
+  push(generateLetter({ day, now, installId: mail.installId, history: mail.letters, owned: mail.gifts, usage, lastDay, streak: mail.streak }));
+
+  // 跨进了新的一个月：给上个月写一份小结；够条件的话再寄一封月报（跨年的话换成年度回顾）。
+  // 报告放在当天的信后面，所以拆信时会先看到它
+  if (lastDay && monthOf(lastDay) !== monthOf(day)) {
+    const month = monthOf(lastDay);
+    const summary = summarizeMonth(month, { letters: mail.letters, usage, gifts: mail.gifts });
+    mail.monthly[month] = summary;
+    const kept = Object.keys(mail.monthly).sort();
+    while (kept.length > MONTHS_KEPT) delete mail.monthly[kept.shift()];
+
+    const existing = new Set(mail.letters.map((l) => l.id));
+    const context = { day, now, installId: mail.installId };
+    const year = month.slice(0, 4);
+    if (year !== day.slice(0, 4)) {
+      const months = Object.keys(mail.monthly)
+        .filter((key) => key.startsWith(`${year}-`))
+        .sort()
+        .map((key) => mail.monthly[key]);
+      const review = yearlyReview(year, months, context);
+      if (review && !existing.has(review.id)) push(review);
+    } else if (summary.days >= MIN_MONTH_DAYS && !existing.has(`m-${month}`)) {
+      push(monthlyReport(month, summary, context));
+    }
+  }
+
+  mail.lastDay = day;
+  if (mail.letters.length > MAX_LETTERS) mail.letters.splice(0, mail.letters.length - MAX_LETTERS);
+  return added;
+}
+
 // ---------------------------------------------------------------- 把信变成文字
 
 const at = (list, i) => (list && list.length ? list[((i % list.length) + list.length) % list.length] : '');
@@ -280,9 +519,102 @@ function describeGift(id, lang) {
   return { id, emoji: g.emoji, rarity: g.rarity, rarityLabel: C.rarity[g.rarity], name, line: fill(C.giftLine, { gift: name }) };
 }
 
+const MONTHS_EN_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const monthName = (lang, m) => (lang === 'zh' ? `${m} 月` : MONTHS_EN_LONG[m - 1]);
+
+/** 某个时刻是几月几号（按日历，不按"凌晨 4 点为界"）：11 月 18 日 / Nov 18 */
+function formatShortDate(lang, ms) {
+  const d = new Date(ms);
+  return lang === 'zh' ? `${d.getMonth() + 1} 月 ${d.getDate()} 日` : `${MONTHS_EN[d.getMonth()]} ${d.getDate()}`;
+}
+
+/**
+ * 把月报 / 年度回顾写成文字，外加几个"数据格子"（stats）。
+ * 每一句都按数据挑合适的说法：比如一次都没熬夜就夸你，熬夜了就提醒你。
+ */
+function renderReport(letter, lang, C) {
+  const R = C.report;
+  const S = letter.summary;
+  const yearly = letter.kind === 'yearly';
+  const lines = [];
+  const stats = [];
+  const stat = (key, n, emoji) => stats.push({ key, emoji, value: fill(R.units[key], { n }), label: R.stats[key] });
+  const month = yearly ? 0 : Number(letter.period.slice(5, 7));
+
+  const title = yearly ? fill(R.yearTitle, { year: letter.period }) : fill(R.monthTitle, { month: lang === 'zh' ? month : MONTHS_EN_LONG[month - 1], year: letter.period.slice(0, 4) });
+
+  // 一起过了几天
+  if (yearly) lines.push(fill(R.yearDays, { days: S.days, streak: S.streak }));
+  else lines.push(fill(S.streak >= 3 ? R.monthDaysStreak : R.monthDays, { days: S.days, streak: S.streak }));
+  stat('days', S.days, '📅');
+  if (S.streak >= 2) stat('streak', S.streak, '🔥');
+
+  // 去了哪些地方
+  const visited = Object.entries(S.places)
+    .filter(([id]) => C.places[id])
+    .sort((a, b) => b[1] - a[1]);
+  if (visited.length === 1) {
+    lines.push(fill(R.placesFew, { places: C.places[visited[0][0]].name }));
+  } else if (visited.length > 1) {
+    if (visited[0][1] === 1) lines.push(fill(R.placesAllOnce, { count: visited.length }));
+    else lines.push(fill(R.places, { count: visited.length, place: C.places[visited[0][0]].name, times: visited[0][1] }));
+    const fresh = S.newPlaces.filter((id) => C.places[id]);
+    if (!yearly && fresh.length >= 1 && fresh.length <= 3 && fresh.length < visited.length) {
+      lines.push(fill(R.newPlaces, { places: fresh.map((id) => C.places[id].name).join(R.joiner) }));
+    }
+  }
+  if (visited.length) stat('places', visited.length, '🗺️');
+
+  // 带回的礼物
+  const giftTotal = S.gifts.common + S.gifts.rare + S.gifts.legendary;
+  const best = S.highlights.find((id) => GIFTS[id] && C.giftNames[id]);
+  if (giftTotal && best) lines.push(fill(R.giftsHighlight, { count: giftTotal, gift: C.giftNames[best], emoji: GIFTS[best].emoji }));
+  else if (giftTotal) lines.push(fill(R.gifts, { count: giftTotal }));
+  else if (!yearly) lines.push(R.noGifts);
+  if (giftTotal) stat('gifts', giftTotal, '🎁');
+  if (yearly && S.albumAfter) lines.push(fill(R.albumYear, { after: S.albumAfter, total: Object.keys(GIFTS).length }));
+  else if (!yearly && S.albumAfter > S.albumBefore) lines.push(fill(S.albumBefore ? R.album : R.albumFirst, { before: S.albumBefore, after: S.albumAfter }));
+
+  // 你对它做了什么
+  if (S.pets > 0) lines.push(fill(S.throws >= 3 ? R.petsThrows : R.pets, { pets: S.pets, throws: S.throws }));
+  else if (!yearly) lines.push(R.noPets);
+  if (S.pets > 0) stat('pets', S.pets, '✋');
+
+  // 一起在电脑前待了多久
+  const hours = Math.round(S.activeMin / 60);
+  if (hours >= 1) {
+    lines.push(fill(R.hours, { hours }));
+    stat('hours', hours, '⏰');
+  }
+
+  // 最晚的一次
+  if (S.latest) {
+    const time = formatTime(lang, S.latest);
+    const date = formatShortDate(lang, S.latest);
+    if (yearly) lines.push(fill(R.lateYear, { date, time }));
+    else if (S.latestLate) lines.push(fill(R.lateBad, { date, time, next: monthName(lang, (month % 12) + 1) }));
+    else lines.push(fill(R.lateGood, { time }));
+  }
+
+  lines.push(at(yearly ? R.yearEndings : R.monthEndings, letter.ending));
+
+  // 照片：月报用这个月最常去的地方；年度回顾用挂着灯笼的夜市，热闹一点
+  let scene = 'home';
+  let place = 'home';
+  if (yearly) {
+    scene = 'night';
+    place = 'nightMarket';
+  } else if (visited.length) {
+    const info = PLACES.find((p) => p.id === visited[0][0]);
+    scene = info.scene;
+    place = info.id;
+  }
+  return { title, scene, place, lines, stats };
+}
+
 /**
  * 把一封信变成可以直接显示的文字。
- * @returns { id, day, kind, opened, scene, title, dateText, lines, gift, sign }
+ * @returns { id, day, kind, opened, scene, place, title, dateText, lines, gift, stats, sign }
  */
 function renderLetter(letter, lang, { name, species } = {}) {
   const C = CONTENT[lang] || CONTENT.en;
@@ -290,8 +622,17 @@ function renderLetter(letter, lang, { name, species } = {}) {
   const lines = [];
   let title;
   let scene;
+  let place = letter.kind === 'welcome' ? 'home' : letter.place;
+  let stats = null;
 
-  if (letter.kind === 'welcome') {
+  if (letter.kind === 'monthly' || letter.kind === 'yearly') {
+    const report = renderReport(letter, lang, C);
+    title = report.title;
+    scene = report.scene;
+    place = report.place;
+    stats = report.stats;
+    lines.push(...report.lines);
+  } else if (letter.kind === 'welcome') {
     title = C.welcome.place;
     scene = 'home';
     lines.push(...C.welcome.lines);
@@ -317,10 +658,11 @@ function renderLetter(letter, lang, { name, species } = {}) {
     kind: letter.kind,
     opened: !!letter.opened,
     scene,
-    place: letter.kind === 'welcome' ? 'home' : letter.place,
+    place,
     title,
     dateText: formatDate(lang, letter.day),
     lines,
+    stats,
     gift: letter.gift ? describeGift(letter.gift, lang) : null,
     sign: fill(C.sign, { name: name || C.defaultName }),
   };
@@ -359,6 +701,19 @@ function validateContent() {
     for (const [lang, C] of Object.entries(CONTENT)) if (!C.giftNames[id]) problems.push(`${lang}: 礼物 ${id} 没有名字`);
     if (!GIFTS[id].special && !PLACES.some((p) => p.gifts.includes(id))) problems.push(`礼物 ${id} 在任何地点都捡不到`);
   }
+  // 月报和年度回顾的句子
+  const REPORT_TEXT = ['monthTitle', 'yearTitle', 'monthDays', 'monthDaysStreak', 'yearDays', 'places', 'placesFew', 'placesAllOnce', 'newPlaces', 'joiner', 'gifts', 'giftsHighlight', 'noGifts', 'album', 'albumFirst', 'albumYear', 'pets', 'petsThrows', 'noPets', 'hours', 'lateBad', 'lateGood', 'lateYear'];
+  const STAT_KEYS = ['days', 'streak', 'places', 'gifts', 'pets', 'hours'];
+  for (const [lang, C] of Object.entries(CONTENT)) {
+    const R = C.report || {};
+    for (const key of REPORT_TEXT) if (typeof R[key] !== 'string') problems.push(`${lang}: 缺少 report.${key}`);
+    for (const key of STAT_KEYS) {
+      if (!R.stats || typeof R.stats[key] !== 'string') problems.push(`${lang}: 缺少 report.stats.${key}`);
+      if (!R.units || typeof R.units[key] !== 'string') problems.push(`${lang}: 缺少 report.units.${key}`);
+    }
+  }
+  same('report.monthEndings', (zh.report || {}).monthEndings, (en.report || {}).monthEndings);
+  same('report.yearEndings', (zh.report || {}).yearEndings, (en.report || {}).yearEndings);
   return problems;
 }
 
@@ -368,9 +723,13 @@ module.exports = {
   addDays,
   generateLetter,
   welcomeLetter,
+  advanceDay,
+  summarizeMonth,
   renderLetter,
   album,
   validateContent,
   PLACES,
   GIFTS,
+  MAX_LETTERS,
+  LETTER_ID,
 };
