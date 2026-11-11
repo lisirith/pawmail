@@ -1,0 +1,21 @@
+{
+  "name": "pawmail",
+  "productName": "Pawmail",
+  "version": "0.1.0",
+  "private": true,
+  "description": "爪爪来信 Pawmail — a tiny desktop pet that writes you a letter every day.",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "preview": "node tools/dev-server.js",
+    "sim": "node tools/sim-brain.mjs",
+    "selftest": "electron . --selftest=tools/shots/selftest --userdata=tools/shots/selftest-userdata"
+  },
+  "devDependencies": {
+    "electron": "^45.3.0"
+  },
+  "dependencies": {
+    "koffi": "^3.3.7"
+  }
+}

@@ -1,0 +1,5 @@
+# 让 Git 自动处理换行符
+* text=auto
+# .bat 文件必须用 Windows 的换行（CRLF），否则双击运行会出错
+*.bat text eol=crlf
+*.png binary

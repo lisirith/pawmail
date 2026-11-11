@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pawmail</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- 舞台 = 整个透明窗口。宠物、气泡、菜单都在里面 -->
+    <div id="stage">
+      <canvas id="pet"></canvas>
+      <div id="bubble" class="bubble"><span class="bubble-text"></span></div>
+      <div id="menu" class="menu" hidden></div>
+      <pre id="hud" hidden></pre>
+    </div>
+    <!-- 只在浏览器预览时显示的假任务栏 -->
+    <div id="fake-taskbar"></div>
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

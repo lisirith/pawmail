@@ -1,0 +1,10 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+Thumbs.db
+# 调试时生成的截图
+tools/shots/
+# 每个人自己电脑上的 Claude 本地设置
+.claude/settings.local.json

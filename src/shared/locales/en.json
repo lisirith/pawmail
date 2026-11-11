@@ -1,0 +1,38 @@
+{
+  "appName": "Pawmail",
+  "menu": {
+    "animal": "Animal",
+    "cat": "Cat",
+    "panda": "Panda",
+    "display": "Show",
+    "top": "On top",
+    "desktop": "Desktop only",
+    "topLong": "Always on top",
+    "desktopLong": "Desktop only (windows cover it)",
+    "size": "Size",
+    "small": "S",
+    "medium": "M",
+    "large": "L",
+    "language": "Language",
+    "sleep": "Put to sleep",
+    "wake": "Wake up",
+    "comeBack": "Call it back",
+    "quit": "Quit Pawmail"
+  },
+  "say": {
+    "firstRun": "Hi there! Right-click me to open the menu~",
+    "hello": ["Hi!", "I'm here~", "Hello!"],
+    "welcomeBack": ["You're back!", "Welcome back~", "I missed you!"],
+    "annoyed": ["Hmph!", "Stop poking!", "Not talking to you!"],
+    "dizzy": ["Dizzy...", "Everything's spinning...", "@_@"],
+    "caught": ["Gotcha!", "Ha!"],
+    "lonely": ["Play with me~", "Look at me~"],
+    "cat": {
+      "hello": ["Meow~", "Hi!", "I'm here~"],
+      "caught": ["Gotcha!", "Meow!"]
+    },
+    "panda": {
+      "hello": ["Hi!", "I'm here~", "Mm-hm~"]
+    }
+  }
+}

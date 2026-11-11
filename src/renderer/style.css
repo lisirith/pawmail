@@ -1,0 +1,190 @@
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+  font-family: 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', sans-serif;
+}
+
+body.over-pet {
+  cursor: grab;
+}
+body.dragging {
+  cursor: grabbing;
+}
+
+#stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+}
+
+#pet {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  will-change: transform;
+  /* 浅色光晕 + 深色投影：不管桌面背景是深是浅，宠物的轮廓都看得清 */
+  filter: drop-shadow(0 0 1.2px rgba(255, 255, 255, 0.85)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.28));
+}
+
+/* ---------- 说话气泡 ---------- */
+
+.bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: max-content;
+  max-width: 230px;
+  padding: 6px 12px;
+  background: #fffdf8;
+  border: 2px solid #5b3a24;
+  border-radius: 14px;
+  box-shadow: 0 3px 10px rgba(40, 20, 5, 0.2);
+  color: #4b2f1c;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  will-change: transform, opacity;
+}
+.bubble.show {
+  opacity: 1;
+}
+.bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 11px;
+  height: 11px;
+  background: #fffdf8;
+  border-right: 2px solid #5b3a24;
+  border-bottom: 2px solid #5b3a24;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* ---------- 右键菜单 ---------- */
+
+.menu {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 232px;
+  padding: 9px;
+  background: #fffaf2;
+  border: 2px solid #5b3a24;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(40, 20, 5, 0.28);
+  color: #4b2f1c;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.menu[hidden] {
+  display: none;
+}
+.menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 1px 4px;
+}
+.menu-label {
+  opacity: 0.75;
+  white-space: nowrap;
+}
+.seg {
+  display: flex;
+  padding: 2px;
+  background: #f3e6d3;
+  border-radius: 10px;
+}
+.seg-btn,
+.menu-item {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.seg-btn {
+  padding: 4px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.seg-btn:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
+.seg-btn.active {
+  background: #f5a652;
+  font-weight: 700;
+}
+.menu-sep {
+  height: 1px;
+  margin: 2px 0;
+  background: #ead9c2;
+}
+.menu-item {
+  padding: 7px 8px;
+  border-radius: 9px;
+  text-align: left;
+}
+.menu-item:hover {
+  background: #f3e6d3;
+}
+.menu-item.danger:hover {
+  background: #ffe1dc;
+  color: #b3261e;
+}
+
+/* ---------- 开发用的状态面板 ---------- */
+
+#hud {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  margin: 0;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: rgba(15, 18, 25, 0.72);
+  color: #d7f5d0;
+  font: 11px/1.45 Consolas, 'Cascadia Mono', monospace;
+  pointer-events: none;
+}
+#hud[hidden] {
+  display: none;
+}
+
+/* ---------- 浏览器预览（npm run preview）专用：假桌面 + 假任务栏 ---------- */
+
+#fake-taskbar {
+  display: none;
+}
+body.preview {
+  position: relative;
+  background: linear-gradient(160deg, #7fb2e5 0%, #b9d7f0 45%, #f6e3c5 100%);
+}
+body.preview #stage {
+  bottom: 48px;
+}
+body.preview #fake-taskbar {
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48px;
+  background: rgba(24, 28, 38, 0.88);
+}
