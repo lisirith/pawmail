@@ -17,14 +17,12 @@ function createMockApi() {
   const deleted = new Set();
   let name = params.get('name');
   const load = async () => {
-    const query = new URLSearchParams({
-      lang: params.get('lang') || 'zh',
-      species: params.get('species') || 'cat',
-      unread: params.get('unread') || '1',
-      name: name || '',
-      from: params.get('from') || '', // 比如 from=2026-10-20&days=80：从这天起模拟，能看到月报和年度回顾
-      days: params.get('days') || '',
-    });
+    // 网址上的参数原样转给预览服务器（from、days、cultures、birthday、ask……见 tools/dev-server.js）
+    const query = new URLSearchParams(location.search);
+    if (!query.has('lang')) query.set('lang', 'zh');
+    if (!query.has('species')) query.set('species', 'cat');
+    if (!query.has('unread')) query.set('unread', '1');
+    query.set('name', name || '');
     const data = await (await fetch(`/__mock/mail?${query}`)).json();
     data.letters = data.letters.filter((l) => !deleted.has(l.id));
     for (const letter of data.letters) if (opened.has(letter.id)) letter.opened = true;
@@ -47,6 +45,11 @@ function createMockApi() {
       ids.forEach((id) => deleted.add(id));
       push();
       return { ok: true, removed: ids.length };
+    },
+    async setProfile(next) {
+      console.log('[预览] 保存资料：', JSON.stringify(next));
+      window.__lastProfile = next;
+      return { ok: true };
     },
     async savePostcard(dataUrl) {
       window.__lastPostcard = dataUrl; // 预览时不存文件，留着给检查用
@@ -189,7 +192,7 @@ function renderBar() {
 
   const nameButton = $('pet-name');
   nameButton.textContent = name || ui.rename;
-  nameButton.title = ui.rename;
+  nameButton.title = ui.aboutButton;
 
   const unread = letters().some((l) => !l.opened);
   const tabs = [
@@ -288,6 +291,20 @@ function paperView(letter) {
   for (const line of letter.lines) body.append(el('p', '', line));
   paper.append(body);
 
+  // "一个小问题"：信里直接带着一张小表格
+  if (letter.kind === 'ask') {
+    const box = el('div', 'ask-box');
+    const done = (message) => box.replaceChildren(el('div', 'ask-done', message));
+    box.append(
+      profileForm({
+        withName: false,
+        onSaved: () => done(ui.askThanks),
+        onLater: state.data.profile.asked ? null : () => done(ui.askLater),
+      })
+    );
+    paper.append(box);
+  }
+
   // 礼物
   if (letter.gift) {
     const gift = el('div', 'gift');
@@ -329,7 +346,130 @@ function boxIcon(letter) {
   if (!letter.opened) return isReport(letter) ? '🌟' : '💌';
   if (letter.kind === 'yearly') return '🏆';
   if (letter.kind === 'monthly') return '📊';
+  if (letter.kind === 'ask') return '❓';
   return letter.gift ? letter.gift.emoji : '✉️';
+}
+
+// ---------------------------------------------------------------- 生日和节日的表格
+
+/** 'YYYY-MM-DD' → 11 月 26 日 / November 26 */
+function shortDate(day) {
+  const { ui } = state.data;
+  const m = Number(day.slice(5, 7));
+  return fillText(ui.dateShort, { month: m, day: Number(day.slice(8, 10)), monthName: (ui.months || [])[m - 1] || m });
+}
+
+/**
+ * 一张表格：（它的名字、）你的生日、你过哪些节日。
+ * withName：要不要包括名字那一栏；onSaved：保存成功后；onLater："以后再说"（不传就没有这个按钮）
+ */
+function profileForm({ withName, onSaved, onLater }) {
+  const { ui, profile, groups, name } = state.data;
+  const form = el('div', 'profile-form');
+
+  let nameInput = null;
+  if (withName) {
+    nameInput = el('input', 'naming-input');
+    nameInput.type = 'text';
+    nameInput.maxLength = 16;
+    nameInput.placeholder = ui.namePlaceholder;
+    nameInput.value = name || '';
+    const row = el('label', 'form-row');
+    row.append(el('span', 'form-label', ui.nameLabel), nameInput);
+    form.append(row);
+  }
+
+  // 生日：月份、日期两个下拉框（不问年份）。都选"—"就是不告诉它
+  const [bm, bd] = profile.birthday ? profile.birthday.split('-').map(Number) : [0, 0];
+  const month = el('select', 'form-select');
+  const day = el('select', 'form-select');
+  month.append(new Option('—', '0'));
+  for (let m = 1; m <= 12; m++) month.append(new Option(ui.months && /[a-z]/i.test(ui.months[0]) ? ui.months[m - 1] : String(m), String(m)));
+  const fillDays = () => {
+    const keep = Number(day.value) || bd;
+    const max = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][(Number(month.value) || 1) - 1];
+    day.replaceChildren(new Option('—', '0'));
+    for (let d = 1; d <= max; d++) day.append(new Option(String(d), String(d)));
+    day.value = String(keep && keep <= max ? keep : 0);
+  };
+  month.value = String(bm);
+  fillDays();
+  day.value = String(bd);
+  month.addEventListener('change', fillDays);
+  const birthday = el('div', 'form-row');
+  const pickers = el('span', 'form-pickers');
+  pickers.append(month, el('span', 'form-unit', ui.monthPick), day, el('span', 'form-unit', ui.dayPick));
+  birthday.append(el('span', 'form-label', ui.birthdayLabel), pickers);
+  form.append(birthday);
+
+  // 节日：可以多选
+  form.append(el('div', 'form-label block', ui.culturesLabel));
+  const boxes = [];
+  const list = el('div', 'culture-list');
+  for (const group of groups) {
+    const item = el('label', 'culture-item');
+    const box = el('input');
+    box.type = 'checkbox';
+    box.value = group.id;
+    box.checked = profile.cultures.includes(group.id);
+    boxes.push(box);
+    const text = el('span', 'culture-text');
+    text.append(el('span', 'culture-name', `${group.emoji} ${group.name}`), el('span', 'culture-examples', group.examples));
+    item.append(box, text);
+    list.append(item);
+  }
+  form.append(list, el('div', 'form-hint', ui.alwaysIncluded));
+  if (state.data.next) form.append(el('div', 'form-hint next', fillText(ui.nextFestival, { name: state.data.next.name, date: shortDate(state.data.next.day) })));
+
+  // 按钮
+  const actions = el('div', 'form-actions');
+  if (onLater) {
+    actions.append(
+      button('btn ghost', ui.later, async () => {
+        await api.setProfile({ skip: true });
+        onLater();
+      })
+    );
+  }
+  const save = button('btn primary', ui.profileSave, async () => {
+    const m = Number(month.value);
+    const d = Number(day.value);
+    const next = {
+      birthday: m && d ? `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null,
+      cultures: boxes.filter((b) => b.checked).map((b) => b.value),
+    };
+    save.disabled = true;
+    try {
+      if (nameInput && nameInput.value.trim() && nameInput.value.trim() !== name) {
+        state.data.name = nameInput.value.trim();
+        api.setName(state.data.name);
+      }
+      const result = await api.setProfile(next);
+      if (result && result.ok) {
+        state.data.profile = { ...state.data.profile, ...next, asked: true };
+        toast(ui.profileSaved);
+        renderBar();
+        if (onSaved) onSaved();
+      } else {
+        toast(ui.failed);
+      }
+    } finally {
+      save.disabled = false;
+    }
+  });
+  actions.append(save);
+  form.append(actions);
+  return form;
+}
+
+/** "关于你"卡片：点顶栏上的名字打开。名字、生日、节日都在这里改 */
+function showAbout() {
+  const { ui } = state.data;
+  const card = el('div', 'naming-card about-card');
+  const { canvas, ctx } = makeCanvas(64, 64, 'naming-face small');
+  drawFace(ctx, 64, state.data.species, { eyes: 'happy', mouth: 'smile', mouthOpen: 0.4, blush: 0.8 });
+  card.append(canvas, el('div', 'naming-title', ui.aboutTitle), el('div', 'naming-hint', ui.aboutHint), profileForm({ withName: true, onSaved: closeModal }));
+  openModal(card, true);
 }
 
 /** 信箱：按月份分组，最新的在最上面。每封信、每个月都可以删 */
@@ -403,21 +543,30 @@ function confirmDelete(ids, title) {
 
 // ---------------------------------------------------------------- 礼物图鉴
 
+/** 图鉴：上面是平常出门捡到的礼物，下面是节日限定（只列出你过的节日的礼物） */
 function albumView() {
   const { ui, album } = state.data;
   const view = el('section', 'view');
-  const have = album.filter((g) => g.count > 0).length;
-  view.append(el('div', 'album-head', ui.collected.replace('{have}', have).replace('{total}', album.length)));
-  const grid = el('div', 'album');
-  for (const gift of album) {
-    const owned = gift.count > 0;
-    const item = el('div', owned ? `album-item ${gift.rarity}` : `album-item missing ${gift.rarity}`);
-    item.title = owned ? `${capitalize(gift.name)} · ${gift.rarityLabel}` : `${ui.unknownGift} · ${gift.rarityLabel}`;
-    item.append(el('div', 'album-emoji', owned ? gift.emoji : '？'), el('div', 'album-name', owned ? capitalize(gift.name) : gift.rarityLabel));
-    if (gift.count > 1) item.append(el('div', 'album-count', `×${gift.count}`));
-    grid.append(item);
-  }
-  view.append(grid);
+  const section = (items, title) => {
+    const have = items.filter((g) => g.count > 0).length;
+    view.append(el('div', 'album-head', fillText(title, { have, total: items.length })));
+    const grid = el('div', 'album');
+    for (const gift of items) {
+      const owned = gift.count > 0;
+      const item = el('div', owned ? `album-item ${gift.rarity}` : `album-item missing ${gift.rarity}`);
+      item.title = owned ? `${capitalize(gift.name)} · ${gift.rarityLabel}` : `${ui.unknownGift} · ${gift.rarityLabel}`;
+      item.append(el('div', 'album-emoji', owned ? gift.emoji : '？'), el('div', 'album-name', owned ? capitalize(gift.name) : gift.rarityLabel));
+      if (gift.count > 1) item.append(el('div', 'album-count', `×${gift.count}`));
+      grid.append(item);
+    }
+    view.append(grid);
+  };
+  section(
+    album.filter((g) => g.section !== 'festival'),
+    ui.collected
+  );
+  const festival = album.filter((g) => g.section === 'festival');
+  if (festival.length) section(festival, ui.festivalSection);
   return view;
 }
 
@@ -478,7 +627,9 @@ function showNaming(after) {
 // ---------------------------------------------------------------- 启动
 
 $('close').addEventListener('click', () => api.close());
-$('pet-name').addEventListener('click', () => showNaming());
+// 点顶栏上的名字：还没起名字就先起名字，起好了就打开"关于你"（名字、生日、节日都能改）
+$('pet-name').addEventListener('click', () => (state.data && state.data.name ? showAbout() : showNaming()));
+$('avatar').addEventListener('click', () => state.data && state.data.name && showAbout());
 
 window.addEventListener('keydown', (e) => {
   if (!state.data) return;

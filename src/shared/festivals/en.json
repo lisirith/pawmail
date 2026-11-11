@@ -1,0 +1,157 @@
+{
+  "groups": {
+    "chinese": { "name": "Chinese festivals", "examples": "Spring Festival, Lantern, Qingming, Dragon Boat, Qixi, Mid-Autumn, Winter Solstice" },
+    "cnPublic": { "name": "Mainland China public holidays", "examples": "Labour Day, National Day" },
+    "western": { "name": "Western holidays", "examples": "Valentine's Day, Easter, Halloween, Christmas" },
+    "us": { "name": "US holidays", "examples": "Independence Day, Thanksgiving" }
+  },
+
+  "festivals": {
+    "newYear": {
+      "name": "New Year's Day",
+      "letters": [
+        ["Happy New Year!", "At midnight I counted down with everyone on the rooftop. The fireworks started halfway through, so I counted again from the top.", "Take good care of me this year too."],
+        ["The first letter of the year is for you.", "I made a list of New Year's wishes: go out more, bring back more gifts, get my head patted more.", "What's your wish? You can whisper it to me."]
+      ]
+    },
+    "birthday": {
+      "name": "Your birthday",
+      "letters": [
+        ["Happy birthday!", "I didn't go anywhere today. I've been making this since early morning. I spread the frosting myself, so it's a bit wonky. Please don't mind.", "May the happy days in your new year outnumber the hairs on my back."],
+        ["It's your birthday!", "I brought out all the {snack} I've been saving. It's all yours today. That's a promise.", "Thank you for coming into the world, and thank you for coming onto my desktop."]
+      ]
+    },
+    "anniversary": {
+      "name": "Our anniversary",
+      "letters": [
+        ["We've known each other for {yearsText} now.", "Do you remember? {YearsText} ago today, I ran onto your desktop for the first time, so nervous I tripped over my own feet.", "I remember every letter since then. Take good care of me from here on, too."],
+        ["Today is our anniversary: {yearsText} since we met.", "I read through the whole mailbox from the start. We've been to so many places together.", "Today's gift is a photo album, and it's full of us."]
+      ]
+    },
+
+    "chuxi": {
+      "name": "Lunar New Year's Eve",
+      "letters": [
+        ["It's Lunar New Year's Eve!", "I helped put up the spring couplets, a little crooked. At the reunion dinner my job was to wait under the table for dumplings to drop.", "Tonight you're supposed to stay up, so I won't nag you about bedtime."],
+        ["Happy New Year's Eve!", "When the firecrackers started I hid under the blanket. By the time it was quiet again, dinner had already begun.", "Staying up tonight doesn't count. Enjoy it."]
+      ]
+    },
+    "springFestival": {
+      "name": "Spring Festival",
+      "letters": [
+        ["Happy Lunar New Year! Wishing you good fortune!", "I went to the temple fair. The lion dancer's lion winked at me, so I winked back.", "Here's a red envelope for you. May the new year go smoothly."],
+        ["Happy New Year!", "I went around wishing everyone a happy new year, said it about a hundred times, and came home with a pocket full of sweets.", "This red envelope is for you. May everything go your way this year."]
+      ]
+    },
+    "lantern": {
+      "name": "Lantern Festival",
+      "letters": [
+        ["Happy Lantern Festival!", "I went to the lantern fair and even solved a riddle: \"A little ball of fur that writes letters every day.\" The answer was me.", "I saved you a bowl of sweet rice balls. Eat them while they're warm."],
+        ["It's the Lantern Festival, and the moon is so round.", "I walked down the street with a little rabbit lantern. Every other lantern was brighter than me.", "The rice balls have sesame inside. I tasted one. Just one."]
+      ]
+    },
+    "qingming": {
+      "name": "Qingming",
+      "letters": [
+        ["Today is Qingming.", "I took a walk outside town. The grass is green again and the willows are soft. I brought back a little willow sprig.", "If there's someone you're missing today, take your time remembering them. I'm right here with you."],
+        ["It drizzled a little this Qingming.", "I saw someone flying a kite on the hillside, the string let out so far it felt like it could carry words a long way.", "No need to hurry today. Take it slowly."]
+      ]
+    },
+    "dragonBoat": {
+      "name": "Dragon Boat Festival",
+      "letters": [
+        ["Wishing you a peaceful Dragon Boat Festival!", "I watched the dragon boat races by the river. The drums went boom boom boom, and so did my heart.", "This zongzi is for you. I wrapped it myself, so the shape is a bit unusual."],
+        ["It's the Dragon Boat Festival.", "Someone hung a fragrant sachet on me. I've been sniffing it all day.", "Do you like your zongzi sweet or savoury? I brought one of each... well, there's only one left."]
+      ]
+    },
+    "qixi": {
+      "name": "Qixi",
+      "letters": [
+        ["Today is Qixi.", "They say the magpies build a bridge across the sky tonight. I waited at the observatory for ages. I saw lots of stars and no bridge, but I did find a feather.", "May you get to see the ones you want to see."],
+        ["It's Qixi, and the stars seem extra bright.", "I looked: the Cowherd star and the Weaver star are separated by a very wide Milky Way.", "Lucky for us, there's only a screen between you and me."]
+      ]
+    },
+    "midAutumn": {
+      "name": "Mid-Autumn Festival",
+      "letters": [
+        ["Happy Mid-Autumn Festival!", "I waited for the moon on the rooftop and watched it climb slowly out from behind the buildings, round and bright.", "Half the mooncake is yours. You get the bigger half."],
+        ["It's Mid-Autumn, the night of the roundest moon.", "I made a wish on the moon. My wish: that you look up at it tonight too.", "The mooncake is lotus paste. I saved you a piece."]
+      ]
+    },
+    "winterSolstice": {
+      "name": "Winter Solstice",
+      "letters": [
+        ["Today is the Winter Solstice, the shortest day of the year.", "It got dark so early that I came home early too and made a hot bowl of dumplings for you.", "A full belly keeps the cold away."],
+        ["Happy Winter Solstice!", "It's so cold out that I rolled myself up into a little ball.", "From today, the days get a little longer."]
+      ]
+    },
+
+    "labourDay": {
+      "name": "Labour Day",
+      "letters": [
+        ["Happy Labour Day!", "I did some work today too: I dusted your desktop and tidied up the mailbox.", "Thanks for all your hard work. Here's a little medal."],
+        ["The May Day holiday is here!", "I heard everywhere would be crowded, so I just walked around the park downstairs. The lawn was covered in people.", "Get some rest. You've earned it."]
+      ]
+    },
+    "nationalDay": {
+      "name": "National Day",
+      "letters": [
+        ["Happy holiday week!", "I went to the train station. So many people, all carrying big bags, as if they were going somewhere very far away.", "Whether you're travelling or lounging at home, have a happy time."],
+        ["Golden Week has begun!", "I took a holiday photo: me, a flock of pigeons, and a kid who happened to walk by.", "Remember to eat on time, even on holiday."]
+      ]
+    },
+
+    "valentine": {
+      "name": "Valentine's Day",
+      "letters": [
+        ["Happy Valentine's Day!", "The streets were full of roses and chocolate. I bought one bar and couldn't bring myself to eat it.", "So it's yours."],
+        ["Today is Valentine's Day.", "I don't really understand Valentine's Day, but I know that when you like someone, you want to write to them every day.", "And look: I write to you every day. Chocolate for you."]
+      ]
+    },
+    "easter": {
+      "name": "Easter",
+      "letters": [
+        ["Happy Easter!", "I went egg hunting in the flower field and found seven. Six of them were rocks.", "The one real egg is for you."],
+        ["Today is Easter.", "A rabbit lent me a pair of ears and said they'd suit the day.", "I hid an egg for you. Okay, fine: it's in this letter."]
+      ]
+    },
+    "halloween": {
+      "name": "Halloween",
+      "letters": [
+        ["Trick or treat!", "I went out under a white sheet to collect sweets, got spooked by a real black cat, and nearly lost the sheet.", "Half the sweets are yours, so no tricks, please."],
+        ["Happy Halloween!", "I went door to door in my little pumpkin hat, and everyone said I was the roundest pumpkin of the night.", "Pumpkin candy for you. Shh, don't tell the other little ghosts."]
+      ]
+    },
+    "christmas": {
+      "name": "Christmas",
+      "letters": [
+        ["Merry Christmas!", "I waited by the chimney all night. No Santa, but I did see the first snow of the year.", "As for what's in the gift box, you'll have to open it yourself."],
+        ["It's Christmas Day.", "I put on a Santa hat and stamped a loop of footprints in the snow. From the sky it should look like a Christmas tree.", "Stay warm and cosy today."]
+      ]
+    },
+
+    "independence": {
+      "name": "Independence Day",
+      "letters": [
+        ["Happy Fourth of July!", "The fireworks were so loud I watched the whole show with my paws over my ears. It was beautiful.", "I brought you a sparkler. Make a wish when you light it."],
+        ["It's Independence Day.", "There were barbecues all over the park, and I followed the smell around all afternoon.", "A sparkler for you. Let's watch the fireworks tonight."]
+      ]
+    },
+    "thanksgiving": {
+      "name": "Thanksgiving",
+      "letters": [
+        ["Happy Thanksgiving!", "I thought about what I'm thankful for: you switching on the computer every day, you patting my head, you reading my letters.", "I brought you a slice of pumpkin pie."],
+        ["It's Thanksgiving.", "Everyone gathered for a big dinner. I sat beside the table and pretended I'd been invited too.", "Thank you for always being here."]
+      ]
+    }
+  },
+
+  "ask": {
+    "title": "A little question",
+    "lines": [
+      "I'd like to know you a little better.",
+      "When's your birthday? I'd like to have a surprise ready.",
+      "And which holidays do you celebrate? If you tell me, I'll dress up for them."
+    ]
+  }
+}

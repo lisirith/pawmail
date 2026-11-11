@@ -6,6 +6,7 @@ import { getSpecies } from './pet/species/index.js';
 import { Pet } from './pet/pet.js';
 import { Brain } from './pet/brain.js';
 import { RIG, drawHeadOnly } from './pet/draw.js';
+import { lookById } from './pet/looks.js';
 import { makePose, poseDistance, copyPose } from './pet/pose.js';
 import { Bubble } from './ui/bubble.js';
 import { PetMenu } from './ui/menu.js';
@@ -13,17 +14,18 @@ import { clamp, damp, rand, TAU } from './util/math.js';
 
 const bridge = createBridge();
 
-/** 把宠物的头画成一张小图，交给后台当托盘图标 */
-function makeTrayIcon(species) {
+/** 把宠物的头画成一张小图，交给后台当托盘图标。过节戴着帽子的话，托盘图标也戴着 */
+function makeTrayIcon(species, look) {
   const size = 64;
   const c = document.createElement('canvas');
   c.width = size;
   c.height = size;
   const g = c.getContext('2d');
-  const k = size / (2 * (species.head.rx + 8));
-  g.translate(size / 2, size / 2 + species.earReach * 0.35 * k);
+  const hat = look && look.head;
+  const k = size / (2 * (species.head.rx + 8)) * (hat ? 0.82 : 1); // 戴帽子时缩小一点，帽子才放得下
+  g.translate(size / 2, size / 2 + (species.earReach * 0.35 + (hat ? 12 : 0)) * k);
   g.scale(k, k);
-  drawHeadOnly(g, species, makePose({ blush: 0.5 }));
+  drawHeadOnly(g, species, makePose({ blush: 0.5 }), hat ? { head: look.head } : null);
   return c.toDataURL('image/png');
 }
 
@@ -92,6 +94,16 @@ async function main() {
     if (menu.isOpen) menu.render(buildMenu());
   });
 
+  // 节日：后台每 5 秒看一次今天过不过节，变了就告诉我们。换装扮、打节日招呼
+  let festival = null;
+  function applyFestival(next, { greet = true } = {}) {
+    festival = next || null;
+    pet.setLook(festival ? lookById(festival.look) : null);
+    brain.setFestival(festival, { greet });
+    bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look));
+  }
+  bridge.on('festival', (next) => applyFestival(next));
+
   // ------------------------------------------------------------ 画布
 
   let dpr = 1;
@@ -110,7 +122,7 @@ async function main() {
   // 和画得复杂不复杂、窗口大不大都没关系。所以宠物发呆时那些不到 1 个像素的细微变化
   // （呼吸、尾巴慢慢摆）先攒着，攒够大约 1 个像素再画。动作快的时候自然每帧都画，不受影响。
   const REDRAW_PX = 0.75; // 物理像素
-  const drawn = { pose: makePose(), rot: 0, species: null, mode: '', k: 0, fx: 0, at: 0, transform: '', carry: false, carryLift: 0 };
+  const drawn = { pose: makePose(), rot: 0, species: null, mode: '', k: 0, fx: 0, at: 0, transform: '', carry: false, carryLift: 0, look: null, sheetLift: 0 };
   let redraws = 0;
 
   function render(nowMs) {
@@ -118,6 +130,10 @@ async function main() {
     const k = S * dpr; // 宠物坐标里的 1，等于多少物理像素
     const O = pet.out;
     const fxCount = pet.fx.items.length;
+    // 飘着的特效：宠物安静时每秒画 12 次就够了，其余时候每秒 30 次；
+    // 只有节日的背景特效（雪花、彩带、火星）在飘时，每秒 10 次就够了，免得过节那天特别费电
+    const lively = fxCount > 0 && pet.fx.items.some((item) => !item.ambient);
+    const fxInterval = lively ? (pet.style.fps <= 20 ? 80 : 30) : 100;
     const dirty =
       drawn.species !== pet.sp ||
       drawn.mode !== pet.mode ||
@@ -125,11 +141,12 @@ async function main() {
       drawn.fx !== fxCount ||
       drawn.carry !== pet.carry ||
       drawn.carryGold !== pet.carryGold ||
+      drawn.look !== pet.look ||
       Math.abs(pet.carryLift - drawn.carryLift) * 70 * k > REDRAW_PX ||
+      Math.abs(pet.sheetLift - drawn.sheetLift) * 80 * k > REDRAW_PX ||
       poseDistance(O, drawn.pose) * k > REDRAW_PX ||
       Math.abs(pet.rot - drawn.rot) * 120 * k > REDRAW_PX ||
-      // 飘着的特效：宠物安静时每秒画 12 次就够了，其余时候每秒 30 次
-      (fxCount > 0 && nowMs - drawn.at > (pet.style.fps <= 20 ? 80 : 30)) ||
+      (fxCount > 0 && nowMs - drawn.at > fxInterval) ||
       (O.eyes === 'dizzy' && nowMs - drawn.at > 30); // 转圈的眼睛是随时间转的
     if (dirty) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -145,6 +162,8 @@ async function main() {
       drawn.carry = pet.carry;
       drawn.carryGold = pet.carryGold;
       drawn.carryLift = pet.carryLift;
+      drawn.look = pet.look;
+      drawn.sheetLift = pet.sheetLift;
       drawn.at = nowMs;
       redraws += 1;
     }
@@ -416,7 +435,7 @@ async function main() {
           vrot: 3,
         });
       }
-      bridge.setTrayIcon(makeTrayIcon(pet.sp));
+      bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look));
     }
     if (settings.scale !== prev.scale) {
       world.scale = settings.scale;
@@ -535,11 +554,15 @@ async function main() {
   const tx = clamp(Math.abs(savedX - edge) <= maxRun ? savedX : edge - from * rand(220, 420) * S, 80 * S, Math.max(80 * S, world.width - 80 * S));
   brain.start('arrive', { from, tx });
   const firstRun = !settings.firstRunDone;
-  brain.queue.push(['greet', { line: firstRun ? 'firstRun' : 'hello', sayFor: firstRun ? 7 : 2.4, dur: firstRun ? 2.6 : 1.9 }]);
+  applyFestival(init.festival, { greet: false }); // 过节的话，跑进来时就已经穿好装扮了
+  if (firstRun || !festival) {
+    brain.queue.push(['greet', { line: firstRun ? 'firstRun' : 'hello', sayFor: firstRun ? 7 : 2.4, dur: firstRun ? 2.6 : 1.9 }]);
+  }
+  if (festival) brain.queue.push(['festiveGreet', {}]); // 过节：用节日招呼代替平常的"嗨"
   brain.onMail(mail.unread, false); // 启动时就有没拆的信：打完招呼后把信举给你看
   if (firstRun) bridge.setSetting('firstRunDone', true);
 
-  bridge.setTrayIcon(makeTrayIcon(pet.sp));
+  bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look));
 
   if (showHud) hud.hidden = false;
   if (init.dev && !init.preview) {

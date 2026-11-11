@@ -128,7 +128,71 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
 
   await testMail();
   await testReports();
+  await testFestivals();
   return finish();
+
+  // ---------------------------------------------------------------- 生日、节日、装扮
+
+  async function testFestivals() {
+    const L = require('./letters');
+    const F = require('../shared/festivals/catalog');
+
+    check('农历节日用官方表：2027 年春节是 2 月 6 日（电脑自带的农历会算成 7 日）', F.festivalOn('2027-02-06', { cultures: ['chinese'] }) === 'springFestival' && F.festivalOn('2027-02-07', { cultures: ['chinese'] }) === null);
+    check('没选的节日组不过：只选了中华传统节日，万圣节不算', F.festivalOn('2026-10-31', { cultures: ['chinese'] }) === null && F.festivalOn('2026-10-31', { cultures: ['western'] }) === 'halloween');
+
+    // 在信纸窗口里填表（和你在"一个小问题"那封信里点"就这样"是同一条路）
+    const win = mail.open({ view: 'box' });
+    await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+    await wait(800);
+    const mjs = (code) => win.webContents.executeJavaScript(`(async () => { ${code} })()`, true);
+    const bad = await mjs(`return await window.pawmailMail.setProfile({ birthday: '13-40', cultures: ['chinese'] });`);
+    check('不合法的生日会被拒绝', bad && bad.ok === false && store.data.settings.birthday === null, bad);
+    const good = await mjs(`return await window.pawmailMail.setProfile({ birthday: '12-03', cultures: ['chinese', 'western', 'nonsense'] });`);
+    const s = store.data.settings;
+    check('保存生日和节日（不认识的节日组会被去掉）', good.ok && s.birthday === '12-03' && JSON.stringify(s.cultures) === '["chinese","western"]' && s.profileAsked === true, {
+      birthday: s.birthday,
+      cultures: s.cultures,
+    });
+    const profile = { birthday: s.birthday, cultures: s.cultures, asked: s.profileAsked };
+    const birthday = L.festivalToday('2026-12-03', mail.data, profile);
+    const halloween = L.festivalToday('2026-10-31', mail.data, profile);
+    check('12 月 3 日是你的生日，10 月 31 日是万圣节', birthday && birthday.id === 'birthday' && birthday.look === 'birthday' && halloween && halloween.id === 'halloween', {
+      birthday,
+      halloween,
+    });
+
+    // 图鉴里出现"节日限定"一栏
+    await mjs(`__mail.go('album'); return true;`);
+    await wait(300);
+    const albumHeads = await mjs(`return document.querySelectorAll('.album-head').length;`);
+    check('图鉴分成普通礼物和节日限定两栏', albumHeads === 2, { albumHeads });
+    mail.close();
+    await wait(200);
+
+    // 让宠物过一次万圣节：换上白布，打招呼时把白布撩起来、喊 Boo
+    overlay.send('festival', { id: 'halloween', day: 'selftest', look: 'ghost', greet: 'boo' });
+    await wait(300);
+    const ghost = await js(`
+      const P = window.__pawmail;
+      const dressed = !!(P.pet.look && P.pet.look.cover === 'sheet');
+      const queued = P.brain.queue.some((q) => q[0] === 'festiveGreet');
+      P.brain.queue.length = 0;
+      P.brain.start('festiveGreet');
+      P.run(1.0);
+      return { dressed, queued, lift: +P.pet.sheetLift.toFixed(2), boo: P.pet.fx.items.some((i) => i.type === 'boo') };
+    `);
+    check('万圣节：宠物披上白布，打招呼时撩起白布喊 Boo', ghost.dressed && ghost.queued && ghost.lift > 0.8 && ghost.boo, ghost);
+    // 白布放下来再截图（等一会儿，让窗口把新的一帧画出来）
+    await js(`const P = window.__pawmail; P.brain.start('idle'); P.run(1.2); return true;`);
+    await wait(500);
+    const image = await overlay.win.webContents.capturePage({ x: Math.max(0, Math.round(info.x - 220)), y: Math.max(0, Math.round(info.y - 330)), width: 440, height: 334 });
+    fs.writeFileSync(path.join(outDir, 'halloween.png'), image.toPNG());
+
+    overlay.send('festival', null);
+    await wait(300);
+    const plain = await js(`const P = window.__pawmail; P.run(0.5); return { look: P.pet.look, lift: +P.pet.sheetLift.toFixed(2) };`);
+    check('节日结束，脱下装扮', plain.look === null && plain.lift < 0.1, plain);
+  }
 
   // ---------------------------------------------------------------- 月报、年度回顾、删信
 
@@ -164,6 +228,14 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
     check('每个月都存了一份小结（年度回顾要用）', Object.keys(mailData.monthly).filter((k) => k.startsWith(`${year}-`)).length >= 1, {
       months: Object.keys(mailData.monthly),
     });
+
+    // 节日：还没告诉它过哪些节日，所以按语言猜；元旦是所有人都过的
+    const festivalLetters = mailData.letters.filter((l) => l.kind === 'festival');
+    const newYear = festivalLetters.find((l) => l.festival === 'newYear' && l.day === `${year + 1}-01-01`);
+    check('元旦那天的信是节日信，附节日限定礼物', !!newYear && L.GIFTS[newYear.gift].rarity === 'festival' && !!mailData.gifts[newYear.gift], {
+      festivals: festivalLetters.map((l) => `${l.festival}@${l.day}`),
+    });
+    check('拆完见面信后，收到"一个小问题"', mailData.letters.some((l) => l.kind === 'ask'));
 
     // 在信纸窗口里打开年度回顾：应该有数据格子；明信片是 1080×1920 的长图
     const win = mail.open({ view: 'letter', id: review.id });
@@ -224,8 +296,8 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
     const DAY_MS = 86400000;
     const now = Date.now();
     // 从一份干净的"邮局"开始，这样每次自检的结果都一样
-    Object.assign(store.data.mail, { letters: [], gifts: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, monthly: {} });
-    store.data.settings.petName = null;
+    Object.assign(store.data.mail, { letters: [], gifts: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, metDay: null, askSent: false, monthly: {} });
+    Object.assign(store.data.settings, { petName: null, birthday: null, cultures: null, profileAsked: false });
     mail.test = { dir: outDir }; // 明信片存到自检的输出文件夹，不弹资源管理器、不动剪贴板
 
     mail.check(now, true);

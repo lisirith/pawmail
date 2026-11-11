@@ -367,6 +367,108 @@ export const ACTIVITIES = {
     },
   }),
 
+  /**
+   * 过节那天第一次见到你：打个节日招呼。
+   * style：bow 作揖拜年 | cheer 欢呼蹦跳 | gaze 坐下抬头看月亮（星星） | boo 吓你一下（万圣节）
+   */
+  festiveGreet: (b, p) => {
+    const festival = b.festival;
+    const style = p.style || (festival && festival.greet) || 'cheer';
+    return {
+      style,
+      dur: style === 'gaze' ? 4.5 : 2.6,
+      said: false,
+      booed: false,
+      update(b, dt, t) {
+        const pet = b.pet;
+        const T = pet.target;
+        if (!this.said && t > 0.2) {
+          this.said = true;
+          const key = p.line || (festival && `festivals.${festival.id}`);
+          if (key) b.say(key, 3.4);
+        }
+        const k = clamp(t / 0.3, 0, 1) * clamp((this.dur - t) / 0.3, 0, 1);
+        pet.style.fps = 60;
+        pet.style.gaze = 'none';
+
+        if (this.style === 'bow') {
+          // 两只手在胸前合起来，上下拜两拜
+          const bob = t > 0.3 && t < 2.1 ? Math.max(0, Math.sin((t - 0.3) * 7)) : 0;
+          T.armL = T.armR = -1.15 * k;
+          T.headY += 5 * bob;
+          T.lookY = 0.25 + 0.45 * bob;
+          T.eyes = 'happy';
+          T.mouth = 'smile';
+          T.mouthOpen = 0.35 * k;
+          T.blush = 0.9;
+        } else if (this.style === 'gaze') {
+          // 坐下，抬头看天上的月亮
+          pet.style.fps = 30;
+          T.crouch = 1;
+          T.lookY = -0.95 * k;
+          T.lookX = 0.25 * k;
+          T.headY -= 2 * k;
+          T.blush = 0.75;
+          if (t > 1.8) T.mouth = 'o';
+        } else if (this.style === 'boo') {
+          if (pet.look && pet.look.cover) {
+            // 披着白布：先把白布撩起来，再"Boo!"一下
+            pet.style.sheetLift = t < 1.7 ? 1 : 0;
+            if (t > 0.7 && t < 1.6) {
+              T.armL = T.armR = 2.1;
+              T.eyes = 'wide';
+              T.mouth = 'o';
+              T.mouthOpen = 1;
+              T.lift = bell((t - 0.7) / 0.9) * 14;
+            }
+          } else {
+            T.lift = t > 0.6 && t < 1.2 ? bell((t - 0.6) / 0.6) * 18 : 0;
+            if (t > 0.6) {
+              T.armL = T.armR = 2.1 * k;
+              T.eyes = 'wide';
+              T.mouth = 'o';
+            }
+          }
+          if (t > 0.75 && !this.booed) {
+            this.booed = true;
+            pet.fx.spawn('boo', { x: 36, y: pet.headTop() + 4, life: 1.3, size: 1.1 });
+            pet.squashSpring.kick(2.5);
+          }
+        } else {
+          // 欢呼：蹦两下
+          const hopping = t < 0.9;
+          const u = (t % 0.45) / 0.45;
+          T.lift = hopping ? bell(u) * 18 * k : 0;
+          T.armL = T.armR = (0.5 + (hopping ? bell(u) : 0.6) * 1.3) * k;
+          T.eyes = 'happy';
+          T.mouth = 'smile';
+          T.mouthOpen = 0.7 * k;
+          T.blush = 0.9;
+        }
+        return t >= this.dur;
+      },
+    };
+  },
+
+  /** 万圣节披着白布：时不时把白布撩起来，偷偷看你一眼 */
+  peekSheet: () => ({
+    dur: rand(2.4, 3.6),
+    update(b, dt, t) {
+      const pet = b.pet;
+      const T = pet.target;
+      const up = t > 0.15 && t < this.dur - 0.6;
+      pet.style.sheetLift = up ? 1 : 0;
+      pet.style.fps = 60;
+      pet.style.gaze = up ? 'cursor' : 'auto';
+      if (up && t > 0.6) {
+        T.mouth = 'smile';
+        T.mouthOpen = 0.35;
+        T.blush = 0.85;
+      }
+      return t >= this.dur;
+    },
+  }),
+
   /** 开心地蹦两下 */
   hop: (b, p) => ({
     count: p.count ?? 2,

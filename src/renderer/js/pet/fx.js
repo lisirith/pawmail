@@ -116,7 +116,43 @@ const DRAW = {
     ctx.fillStyle = 'rgba(236, 226, 210, 0.85)';
     ctx.fill();
   },
+  /** 圣诞节：慢慢飘下来的雪花 */
+  snow(ctx, it) {
+    ctx.translate(it.x + Math.sin(it.age * 1.3 + it.phase) * 8, it.y);
+    ctx.rotate(it.rot);
+    ctx.beginPath();
+    const r = 5.5 * it.size;
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI;
+      ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      ctx.lineTo(-Math.cos(a) * r, -Math.sin(a) * r);
+    }
+    // 先画一圈淡蓝色的边，再画白色：在白墙和深色桌面上都看得见
+    ctx.strokeStyle = 'rgba(90, 120, 180, 0.75)';
+    ctx.lineWidth = 3.2;
+    ctx.stroke();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.7;
+    ctx.stroke();
+  },
+  /** 新年、生日：彩带纸屑 */
+  confetti(ctx, it) {
+    ctx.translate(it.x, it.y);
+    ctx.rotate(it.rot);
+    ctx.scale(1, Math.cos(it.age * 8 + it.phase)); // 翻转
+    ctx.fillStyle = it.color;
+    ctx.fillRect(-3.5 * it.size, -1.8 * it.size, 7 * it.size, 3.6 * it.size);
+  },
+  /** 吓你一下 */
+  boo(ctx, it, u, pop) {
+    ctx.translate(it.x, it.y);
+    ctx.rotate(-0.12);
+    ctx.scale(pop, pop);
+    text(ctx, 'Boo!', 18 * it.size, '#6b5bd6');
+  },
 };
+
+export const CONFETTI_COLORS = ['#ff6f8d', '#ffd54f', '#7fc8ff', '#8ed081', '#c39bff'];
 
 export class Fx {
   constructor() {

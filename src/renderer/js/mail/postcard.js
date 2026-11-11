@@ -3,6 +3,7 @@
 import { getSpecies } from '../pet/species/index.js';
 import { drawPet } from '../pet/draw.js';
 import { makePose } from '../pet/pose.js';
+import { lookById } from '../pet/looks.js';
 import { drawScene, scenePose, hashText, GROUND } from './scenes.js';
 
 // 信的正文用带点手写感的字体：英文和数字用 Segoe Print，中文用楷体（都是 Windows 自带的）
@@ -11,7 +12,7 @@ const UI_FONT = "'Segoe UI', 'Microsoft YaHei UI', sans-serif";
 const EMOJI_FONT = "'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif";
 const INK = '#4b2f1c';
 const MUTED = '#9a7b5a';
-const RARITY_COLOR = { common: '#b89b78', rare: '#3f8ae0', legendary: '#e09a00' };
+const RARITY_COLOR = { common: '#b89b78', rare: '#3f8ae0', legendary: '#e09a00', festival: '#e8453c' };
 
 export const capitalize = (text) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : text);
 
@@ -30,7 +31,13 @@ export function drawPhoto(ctx, w, h, letter, speciesId) {
   // 一圈淡淡的白边，让它在深色的夜景里也看得清
   ctx.shadowColor = 'rgba(255, 255, 255, 0.85)';
   ctx.shadowBlur = 2.5 * s;
-  drawPet(ctx, getSpecies(speciesId), makePose(scenePose(report ? 4 : seed)), { time: 0.3 }); // 月报、年度回顾：举手欢呼
+  // 节日信：照片里它也穿着那天的装扮，抱着节日的东西
+  const look = lookById(letter.look);
+  let pose = scenePose(report ? 4 : seed); // 月报、年度回顾：举手欢呼
+  if (letter.kind === 'festival') {
+    pose = look && look.held ? { armL: -0.75, armR: -0.75, eyes: 'happy', mouth: 'smile', mouthOpen: 0.4, blush: 0.8 } : scenePose(4);
+  }
+  drawPet(ctx, getSpecies(speciesId), makePose(pose), { time: 0.3, look });
   ctx.restore();
 }
 

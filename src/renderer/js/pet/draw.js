@@ -7,6 +7,7 @@
 // 以后的衣服就插在这些层之间：下装/上衣在"身体"之后，帽子在"头"之后。
 
 import { TAU, clamp } from '../util/math.js';
+import { drawLookHead, drawLookNeck, drawHeldItem, drawLookCover } from './looks.js';
 
 export const RIG = Object.freeze({
   // 宠物所在的小画布的大小，以及"脚底中心"在这块画布里的位置
@@ -408,7 +409,7 @@ function drawFace(ctx, sp, P, lx, ly, time) {
   if (sp.drawFaceExtras) sp.drawFaceExtras(ctx, lx, ly);
 }
 
-function drawHead(ctx, sp, P, g, time) {
+function drawHead(ctx, sp, P, g, time, look) {
   const pal = sp.palette;
   const { rx, ry } = sp.head;
   const lx = clamp(P.lookX + g.facing * 0.55, -1, 1);
@@ -437,7 +438,7 @@ function drawHead(ctx, sp, P, g, time) {
   ctx.stroke();
 
   drawFace(ctx, sp, P, lx, ly, time);
-  // （以后帽子画在这里）
+  drawLookHead(ctx, look, sp, P, lx, time); // 帽子、兔耳朵……（以后的换装也画在这里）
   ctx.restore();
 }
 
@@ -532,12 +533,14 @@ function drawCarried(ctx, sp, P, g, lift, gold) {
  * @param sp    动物（见 species/）
  * @param P     姿势（见 pose.js）
  * @param opts  { time: 当前时间（秒，转圈眼睛用）, shadow: 是否画影子,
- *               carry: 手里有没有信, carryLift: 信举多高（0 胸前 … 1 头顶）, carryGold: 是不是金色信封 }
+ *               carry: 手里有没有信, carryLift: 信举多高（0 胸前 … 1 头顶）, carryGold: 是不是金色信封,
+ *               look: 节日装扮（见 looks.js）, sheetLift: 万圣节白布撩起来多少 }
  */
 export function drawPet(ctx, sp, P, opts = {}) {
   const pal = sp.palette;
   const g = getGeometry(sp, P);
   const time = opts.time || 0;
+  const look = opts.look || null;
   const carryLift = opts.carry ? clamp(opts.carryLift || 0, 0, 1) : -1; // -1 = 手里没东西
 
   ctx.save();
@@ -583,27 +586,38 @@ export function drawPet(ctx, sp, P, opts = {}) {
   if (!frontL) drawArm(ctx, sp, P, g, -1);
   if (!frontR) drawArm(ctx, sp, P, g, 1);
 
-  if (carryLift >= 0 && carryLift < 0.5) drawCarried(ctx, sp, P, g, carryLift, opts.carryGold); // 抱在胸前：在头的后面
+  if (carryLift >= 0 && carryLift < 0.5) {
+    drawCarried(ctx, sp, P, g, carryLift, opts.carryGold); // 抱在胸前：在头的后面
+  } else if (carryLift < 0 && look && look.held && g.loaf < 0.5) {
+    // 手里没有信的时候，抱着节日的东西（灯笼、月饼……）
+    ctx.save();
+    ctx.translate(g.torsoCx, g.torsoCy + 1);
+    drawHeldItem(ctx, look, time);
+    ctx.restore();
+  }
 
-  drawHead(ctx, sp, P, g, time);
+  drawHead(ctx, sp, P, g, time, look);
+  drawLookNeck(ctx, look, g); // 围巾、香囊挂在下巴下面
 
   if (frontL) drawArm(ctx, sp, P, g, -1);
   if (frontR) drawArm(ctx, sp, P, g, 1);
 
   if (carryLift >= 0.5) drawCarried(ctx, sp, P, g, carryLift, opts.carryGold); // 举起来：在最前面
 
+  drawLookCover(ctx, look, sp, P, g, opts.sheetLift || 0, time); // 万圣节的白布：盖住全身
+
   ctx.restore();
 }
 
-/** 只画头（托盘图标用）。原点在头的中心。 */
-export function drawHeadOnly(ctx, sp, P) {
+/** 只画头（托盘图标用）。原点在头的中心。look：戴着节日的帽子 */
+export function drawHeadOnly(ctx, sp, P, look = null) {
   ctx.save();
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   const g = getGeometry(sp, P);
   g.headCx = 0;
   g.headCy = 0;
-  drawHead(ctx, sp, P, g, 0);
+  drawHead(ctx, sp, P, g, 0, look);
   ctx.restore();
 }
 

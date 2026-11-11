@@ -310,7 +310,26 @@
     "fallenStar": "a star that fell down",
     "gem": "a very shiny stone",
     "moonPiece": "a little piece of the moon",
-    "treasureMap": "a treasure map"
+    "treasureMap": "a treasure map",
+    "partyPopper": "a New Year party popper",
+    "birthdayCake": "a slice of birthday cake",
+    "memoryAlbum": "a photo album of us",
+    "firecracker": "a string of little firecrackers",
+    "redEnvelope": "a red envelope",
+    "tangyuan": "a bowl of sweet rice balls",
+    "willowSprig": "a little willow sprig",
+    "zongzi": "a zongzi",
+    "magpieFeather": "a magpie feather",
+    "mooncake": "a mooncake",
+    "dumplings": "a bowl of solstice dumplings",
+    "medal": "a little Labour Day medal",
+    "travelPhoto": "a holiday photo",
+    "chocolate": "a bar of chocolate",
+    "easterEgg": "an Easter egg",
+    "pumpkinCandy": "a pumpkin candy",
+    "presentBox": "a Christmas present",
+    "sparkler": "a sparkler",
+    "pie": "a slice of pumpkin pie"
   },
 
   "report": {
@@ -357,7 +376,7 @@
     }
   },
 
-  "rarity": { "common": "Common", "rare": "Rare", "legendary": "Legendary" },
+  "rarity": { "common": "Common", "rare": "Rare", "legendary": "Legendary", "festival": "Holiday" },
   "giftLine": "Enclosed: {gift}",
   "defaultName": "Your little one",
   "sign": "— {name}",

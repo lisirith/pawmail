@@ -26,6 +26,8 @@ const COOLDOWN = {
   chase: 90,
   seekUser: 900,
   showMail: 150, // 手里有信没拆时，大约每两三分钟举起来提醒一次
+  festiveGreet: 600, // 过节时，大约每十分钟再打一次节日招呼
+  peekSheet: 25, // 万圣节披着白布时，时不时撩起来看你一眼
 };
 
 /** 现在有多"深夜"：白天是 0，晚上 11 点开始升高，凌晨 0~6 点是 1，早上 8 点回到 0 */
@@ -45,6 +47,7 @@ export class Brain {
     this.clock = clock || (() => new Date()); // 现在几点（模拟测试时可以换成假的时钟）
     this.stat = stat || (() => {}); // 记一次互动（摸头、戳、弄晕），第二天的信里会提到
     this.hasMail = false; // 手里有没有一封等你拆的信
+    this.festival = null; // 今天过的节：{ id, day, look, greet }
 
     this.needs = { energy: 0.85, boredom: 0.25, social: 0.35 };
     this.mood = 0.65;
@@ -299,6 +302,8 @@ export class Brain {
       hop: (0.03 + 1.2 * Math.max(0, this.mood - 0.7)) * e,
       chase: this.#canChase() ? (0.3 + 2.4 * this.curiosity) * e * (0.6 + bo) : 0,
       seekUser: n.social > 0.75 && this.world.pointer.inside ? (n.social - 0.75) * 4 : 0,
+      festiveGreet: this.festival ? 0.12 : 0,
+      peekSheet: this.pet.look && this.pet.look.cover ? 0.8 : 0,
     };
     for (const name of Object.keys(s)) {
       s[name] *= this.#cooldown(name);
@@ -321,6 +326,20 @@ export class Brain {
 
   onRelease() {
     if (this.pet.mode === 'air') this.start('falling');
+  }
+
+  /**
+   * 今天过不过节变了（换装扮是画面那边做的，这里只管行为）。
+   * greet：要不要马上打个节日招呼（启动时由 app.js 自己安排顺序，所以传 false）
+   */
+  setFestival(festival, { greet = true } = {}) {
+    const prev = this.festival;
+    this.festival = festival || null;
+    const changed = festival && (!prev || prev.id !== festival.id || prev.day !== festival.day);
+    if (changed && greet) {
+      this.queue.push(['festiveGreet', {}]);
+      if (this.name === 'sleep' && !this.current.forced) this.start('wake');
+    }
   }
 
   /**

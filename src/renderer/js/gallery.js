@@ -1,9 +1,12 @@
 // 开发用的"姿势图鉴"：把每种动物的每个姿势都画一遍。
 // 运行 npm run preview 后打开 http://localhost:5177/gallery
+//   ?looks=1        改成看节日装扮
+//   ?bg=dark        只看深色背景
 
 import { SPECIES } from './pet/species/index.js';
 import { makePose } from './pet/pose.js';
 import { drawPet } from './pet/draw.js';
+import { LOOKS } from './pet/looks.js';
 
 const POSES = [
   ['站立', {}],
@@ -27,30 +30,48 @@ const POSES = [
 const params = new URLSearchParams(location.search);
 const backgrounds = (params.get('bg') || 'light,dark,photo').split(',');
 const only = params.get('species');
+const showLooks = params.get('looks') === '1';
+const onlyLooks = params.get('only') ? params.get('only').split(',') : null; // 比如 &only=ghost,santa
 
 const grid = document.getElementById('grid');
 const dpr = window.devicePixelRatio || 1;
 const W = 150;
-const H = 160;
+const H = 175;
+
+function cell(row, name, sp, pose, opts) {
+  const figure = document.createElement('figure');
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  canvas.style.height = `${H}px`;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.translate(W / 2, H - 12);
+  drawPet(ctx, sp, makePose(pose), { time: 0.3, ...opts });
+  const caption = document.createElement('figcaption');
+  caption.textContent = name;
+  figure.append(canvas, caption);
+  row.append(figure);
+}
 
 for (const bg of backgrounds) {
   for (const sp of Object.values(SPECIES)) {
     if (only && sp.id !== only) continue;
     const row = document.createElement('div');
     row.className = `row bg-${bg}`;
-    for (const [name, overrides] of POSES) {
-      const cell = document.createElement('figure');
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(W * dpr);
-      canvas.height = Math.round(H * dpr);
-      const ctx = canvas.getContext('2d');
-      ctx.scale(dpr, dpr);
-      ctx.translate(W / 2, H - 12);
-      drawPet(ctx, sp, makePose(overrides), { time: 0.3 });
-      const caption = document.createElement('figcaption');
-      caption.textContent = name;
-      cell.append(canvas, caption);
-      row.append(cell);
+    if (showLooks) {
+      for (const [id, look] of Object.entries(LOOKS)) {
+        if (onlyLooks && !onlyLooks.includes(id)) continue;
+        const holding = look.held ? { armL: -0.75, armR: -0.75 } : {};
+        if (look.cover) {
+          for (const lift of [0, 0.5, 1]) cell(row, `${id} ${lift}`, sp, { eyes: lift > 0.5 ? 'happy' : 'open', mouth: lift > 0.5 ? 'smile' : 'cat', mouthOpen: 0.5 }, { look, sheetLift: lift });
+        } else {
+          cell(row, id, sp, { ...holding, blush: 0.6 }, { look });
+          cell(row, `${id} 坐`, sp, { ...holding, crouch: 1, tailCurl: 0.4 }, { look });
+        }
+      }
+    } else {
+      for (const [name, overrides] of POSES) cell(row, name, sp, overrides, {});
     }
     grid.append(row);
   }

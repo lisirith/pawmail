@@ -82,8 +82,28 @@ const GIFTS = {
   gem: { emoji: '💎', rarity: 'legendary' },
   moonPiece: { emoji: '🌙', rarity: 'legendary' },
   treasureMap: { emoji: '📜', rarity: 'legendary' },
+  // —— 节日限定：只有节日那天的信里有（见 ../festivals/catalog.js） ——
+  partyPopper: { emoji: '🎉', rarity: 'festival', special: true },
+  birthdayCake: { emoji: '🎂', rarity: 'festival', special: true },
+  memoryAlbum: { emoji: '📔', rarity: 'festival', special: true },
+  firecracker: { emoji: '🧨', rarity: 'festival', special: true },
+  redEnvelope: { emoji: '🧧', rarity: 'festival', special: true },
+  tangyuan: { emoji: '🥣', rarity: 'festival', special: true },
+  willowSprig: { emoji: '🌿', rarity: 'festival', special: true },
+  zongzi: { emoji: '🍙', rarity: 'festival', special: true },
+  magpieFeather: { emoji: '🐦', rarity: 'festival', special: true },
+  mooncake: { emoji: '🥮', rarity: 'festival', special: true },
+  dumplings: { emoji: '🥟', rarity: 'festival', special: true },
+  medal: { emoji: '🏅', rarity: 'festival', special: true },
+  travelPhoto: { emoji: '📸', rarity: 'festival', special: true },
+  chocolate: { emoji: '🍫', rarity: 'festival', special: true },
+  easterEgg: { emoji: '🥚', rarity: 'festival', special: true },
+  pumpkinCandy: { emoji: '🎃', rarity: 'festival', special: true },
+  presentBox: { emoji: '🎁', rarity: 'festival', special: true },
+  sparkler: { emoji: '🎇', rarity: 'festival', special: true },
+  pie: { emoji: '🥧', rarity: 'festival', special: true },
 };
 
-const RARITIES = ['common', 'rare', 'legendary'];
+const RARITIES = ['common', 'rare', 'legendary', 'festival'];
 
 module.exports = { PLACES, GIFTS, RARITIES };

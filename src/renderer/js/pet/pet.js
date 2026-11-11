@@ -10,7 +10,7 @@
 import { TAU, clamp, damp, Spring, rand, chance, wobble, bell, sign, random, pickWeighted } from '../util/math.js';
 import { makePose, resetPose, POSE_KEYS, HALF_LIFE } from './pose.js';
 import { drawPet, hitTest, getGeometry, RIG } from './draw.js';
-import { Fx } from './fx.js';
+import { Fx, CONFETTI_COLORS } from './fx.js';
 
 const GRAVITY = 2400; // 像素/秒²（按宠物大小缩放）
 
@@ -52,11 +52,16 @@ export class Pet {
       blink: true,
       fps: 30, // 这个动作需要多流畅
       carryLift: 0, // 手里的信举多高：0 抱在胸前 … 1 举过头顶
+      sheetLift: 0, // 万圣节的白布撩起来多少：0 盖着 … 1 撩到头顶
     };
 
     this.carry = false; // 手里有没有一封等你拆的信
     this.carryGold = false; // 没拆的信里有月报或年度回顾：拿的是金色信封
     this.carryLift = 0;
+
+    this.look = null; // 节日装扮（见 looks.js）；null = 平常的样子
+    this.sheetLift = 0;
+    this.lookFxClock = 0;
 
     this.sleepy = 0; // 0…1：越困眼皮越重、眨眼越慢
     this.blink = { wait: rand(1, 3), t: -1, dur: 0.16, again: false };
@@ -67,6 +72,12 @@ export class Pet {
 
   setSpecies(species) {
     this.sp = species;
+  }
+
+  /** 换上（或脱下）节日装扮 */
+  setLook(look) {
+    this.look = look || null;
+    this.lookFxClock = 0;
   }
 
   /** 头顶（含耳朵）在宠物坐标里的 y，特效用它来决定从哪里冒出来 */
@@ -89,6 +100,7 @@ export class Pet {
     s.blink = true;
     s.fps = 30;
     s.carryLift = 0;
+    s.sheetLift = 0;
   }
 
   finish(dt) {
@@ -97,6 +109,8 @@ export class Pet {
     for (let i = 0; i < steps; i++) this.#physics(dt / steps);
     this.#micro(dt);
     this.carryLift = damp(this.carryLift, this.carry ? this.style.carryLift : 0, 0.07, dt);
+    this.sheetLift = damp(this.sheetLift, this.look && this.look.cover ? this.style.sheetLift : 0, 0.09, dt);
+    this.#lookFx(dt);
 
     const P = this.pose;
     const T = this.target;
@@ -124,6 +138,34 @@ export class Pet {
     }
 
     this.fx.update(dt);
+  }
+
+  /**
+   * 节日装扮带的特效：圣诞节飘雪、新年和生日偶尔撒一把彩带、仙女棒冒火星。
+   * 这些是"背景特效"（ambient），画面那边会用比较低的频率重画它们，免得过节那天特别费电。
+   */
+  #lookFx(dt) {
+    const type = this.look && this.look.fx;
+    if (!type || this.mode !== 'ground') return;
+    this.lookFxClock -= dt;
+    if (this.lookFxClock > 0) return;
+    const top = this.headTop();
+    if (type === 'snow') {
+      this.lookFxClock = rand(0.6, 1.1);
+      this.fx.spawn('snow', { ambient: true, x: rand(-120, 120), y: top - rand(10, 60), vy: rand(14, 22), life: rand(5, 7), size: rand(0.7, 1.15), rot: rand(0, 3), vrot: rand(-0.6, 0.6), phase: rand(0, 6) });
+    } else if (type === 'confetti') {
+      this.lookFxClock = rand(4, 7);
+      for (let i = 0; i < 9; i++) {
+        this.fx.spawn('confetti', { ambient: true, x: rand(-30, 30), y: top + 8, vx: rand(-70, 70), vy: -rand(60, 110), ay: 140, life: rand(1.6, 2.3), size: rand(0.8, 1.2), rot: rand(0, 3), vrot: rand(-6, 6), phase: rand(0, 6), color: CONFETTI_COLORS[i % CONFETTI_COLORS.length] });
+      }
+    } else if (type === 'sparks' && !this.carry) {
+      this.lookFxClock = rand(0.3, 0.5);
+      const g = getGeometry(this.sp, this.pose);
+      for (let i = 0; i < 2; i++) {
+        const a = rand(0, TAU);
+        this.fx.spawn('spark', { ambient: true, x: g.torsoCx + 14, y: g.torsoCy - 29, vx: Math.cos(a) * rand(25, 45), vy: Math.sin(a) * rand(25, 45) - 10, ay: 40, life: rand(0.35, 0.6), size: rand(0.35, 0.55), vrot: 4 });
+      }
+    }
   }
 
   /** 这一帧之后还有没有东西在动（决定要不要保持高帧率） */
@@ -159,8 +201,9 @@ export class Pet {
     if (Math.abs(T.facing) > 0.3) T.tailSide = -sign(T.facing);
     else T.tailSide = this.pose.tailSide >= 0 ? 1 : -1;
 
-    // 手里有信、而这个动作又没用到手：两只手把信抱在胸前
-    if (this.carry && this.mode === 'ground' && T.armL === 0 && T.armR === 0 && T.loaf < 0.5) {
+    // 手里有信（或者节日的灯笼、月饼……）、而这个动作又没用到手：两只手抱在胸前
+    const holding = this.carry || (this.look && this.look.held);
+    if (holding && this.mode === 'ground' && T.armL === 0 && T.armR === 0 && T.loaf < 0.5) {
       T.armL = -0.75;
       T.armR = -0.75;
     }
@@ -432,6 +475,8 @@ export class Pet {
       carry: this.carry,
       carryLift: this.carryLift,
       carryGold: this.carryGold,
+      look: this.look,
+      sheetLift: this.sheetLift,
     });
     ctx.restore();
     this.fx.draw(ctx);

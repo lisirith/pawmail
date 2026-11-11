@@ -6,6 +6,7 @@ const { BrowserWindow, ipcMain, clipboard, nativeImage, shell, app, screen } = r
 const path = require('node:path');
 const fs = require('node:fs');
 const L = require('./letters');
+const F = require('../shared/festivals/catalog');
 
 const ID = L.LETTER_ID;
 const PNG_PREFIX = 'data:image/png;base64,';
@@ -18,13 +19,19 @@ class Mail {
    * @param getContext  () => { lang, name, species, ui }  当前语言、宠物名字、动物、信纸窗口用的文字
    * @param onChange    信或礼物有变化时调用（主程序会存档，并通知宠物"有新信"）
    * @param setName     (name) => void  给宠物起名字
+   * @param getProfile  () => { birthday, cultures, asked }  你的生日、过哪些节日、问过没有
+   * @param setProfile  ({ birthday, cultures } | { skip: true }) => void
+   * @param now         () => 现在的时间戳（开发时可以快进）
    * @param dev         开发模式
    */
-  constructor({ store, getContext, onChange, setName, dev = false }) {
+  constructor({ store, getContext, onChange, setName, getProfile, setProfile, now = Date.now, dev = false }) {
     this.store = store;
     this.getContext = getContext;
     this.onChange = onChange;
     this.setName = setName;
+    this.getProfile = getProfile;
+    this.setProfile = setProfile;
+    this.now = now;
     this.dev = dev;
     this.win = null;
     this.target = null; // 窗口打开后要显示哪一页
@@ -45,12 +52,12 @@ class Mail {
   /**
    * 看看是不是该来信了。每隔几秒调用一次，很便宜。
    * 规则（具体见 letters.js 的 advanceDay）：第一次运行立刻有一封"见面信"；
-   * 之后每到新的一天（凌晨 4 点为界），你回到电脑前时来一封；跨月时再多一封月报或年度回顾。
+   * 之后每到新的一天（凌晨 4 点为界），你回到电脑前时来一封（过节的话是节日信）；跨月时再多一封月报或年度回顾。
    * @returns 这次有没有来新信
    */
   check(now, present) {
     if (this.data.welcomed && !present) return false;
-    const added = L.advanceDay(this.data, { day: L.logicalDay(now), now, usage: this.store.data.usage });
+    const added = L.advanceDay(this.data, { day: L.logicalDay(now), now, usage: this.store.data.usage, profile: this.getProfile() });
     if (!added.length) return false;
     this.onChange();
     this.refresh();
@@ -100,13 +107,20 @@ class Mail {
       if (rendered.gift) rendered.gift.isNew = !letter.opened && !owned[rendered.gift.id]; // 第一次拿到这种礼物
       return rendered;
     });
+    const profile = this.getProfile();
+    const T = L.FESTIVAL_TEXT[ctx.lang] || L.FESTIVAL_TEXT.en;
+    // 下一个节日（"关于你"那张表格里显示，让你知道选了之后会发生什么）
+    const next = F.nextFestival(L.logicalDay(this.now()), { ...profile, metDay: this.data.metDay });
     return {
       lang: ctx.lang,
       ui: ctx.ui,
       name: ctx.name,
       species: ctx.species,
       letters,
-      album: L.album(owned, ctx.lang),
+      album: L.album(owned, ctx.lang, F.activeFestivals(profile.cultures)),
+      profile: { birthday: profile.birthday, cultures: profile.cultures, asked: profile.asked },
+      groups: F.GROUPS.map((g) => ({ id: g.id, emoji: g.emoji, name: T.groups[g.id].name, examples: T.groups[g.id].examples })),
+      next: next ? { name: T.festivals[next.id].name, day: next.day } : null,
       nav: nav || null,
     };
   }
@@ -169,7 +183,11 @@ class Mail {
   }
 
   close() {
-    if (this.win && !this.win.isDestroyed()) this.win.close();
+    // 先"忘掉"这个窗口再关：关窗口要花一点时间，如果这期间又要打开信纸，就开一个新的，
+    // 而不是把正在关闭的那个拿来用（实测：拿来用的话，它关完就消失了）
+    const win = this.win;
+    this.win = null;
+    if (win && !win.isDestroyed()) win.close();
   }
 
   /** 登记信纸窗口发来的消息。只调用一次。 */
@@ -197,6 +215,19 @@ class Mail {
     ipcMain.on('pawmail-mail:set-name', (event, name) => {
       if (!mine(event) || typeof name !== 'string') return;
       this.setName(name.trim().slice(0, 16));
+    });
+
+    // 你的生日和过的节日（或者"以后再说"）。具体的检查在 store.js 的 isValidSetting 里
+    ipcMain.handle('pawmail-mail:set-profile', (event, profile) => {
+      if (!mine(event) || !profile || typeof profile !== 'object') return { ok: false };
+      if (profile.skip === true) {
+        this.setProfile({ skip: true });
+        return { ok: true };
+      }
+      const birthday = profile.birthday === null || typeof profile.birthday === 'string' ? profile.birthday : undefined;
+      const cultures = F.sanitizeCultures(profile.cultures);
+      if (birthday === undefined || !cultures) return { ok: false };
+      return { ok: this.setProfile({ birthday, cultures }) !== false };
     });
 
     // 把明信片存成图片：放到"图片\Pawmail"文件夹里，然后在资源管理器里指给你看

@@ -18,7 +18,8 @@ const { Store, LANGUAGES, isValidSetting, sanitizePet } = require('./store');
 const { Overlay } = require('./overlay');
 const { PetTray } = require('./tray');
 const { Mail } = require('./mail');
-const { logicalDay } = require('./letters');
+const { logicalDay, festivalToday } = require('./letters');
+const F = require('../shared/festivals/catalog');
 const native = require('./native');
 
 const args = process.argv.slice(1);
@@ -44,8 +45,22 @@ let tray = null;
 let mail = null;
 let quitting = false;
 
-/** 现在的时间。开发时加 --x-newday 会让它快一天，用来马上看到"第二天的来信"。 */
-const clockOffset = DEV && args.includes('--x-newday') ? 24 * 3600 * 1000 : 0;
+/**
+ * 现在的时间。开发时可以"穿越"：
+ *   --x-newday            快一天，马上看到"第二天的来信"
+ *   --x-date=2026-10-31   跳到那一天（时刻不变），看看那天过节是什么样子
+ * 都要配合 --userdata 用，免得把真正存档里的日期弄乱。
+ */
+const clockOffset = (() => {
+  if (!DEV) return 0;
+  const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(flag('x-date') || '');
+  if (date) {
+    const now = new Date();
+    const target = new Date(Number(date[1]), Number(date[2]) - 1, Number(date[3]), now.getHours(), now.getMinutes(), now.getSeconds());
+    return target.getTime() - now.getTime();
+  }
+  return args.includes('--x-newday') ? 24 * 3600 * 1000 : 0;
+})();
 const nowMs = () => Date.now() + clockOffset;
 
 // ---------------------------------------------------------------- 设置和文字
@@ -80,15 +95,46 @@ function applyAutoStart(enabled) {
 
 function setSetting(key, value) {
   if (key === 'petName' && typeof value === 'string') value = value.trim();
-  if (!isValidSetting(key, value)) return;
-  if (store.data.settings[key] === value) return;
+  if (!isValidSetting(key, value)) return false;
+  if (JSON.stringify(store.data.settings[key]) === JSON.stringify(value)) return true;
   store.data.settings[key] = value;
   store.saveSoon();
   if (key === 'displayMode') overlay.setDisplayMode(value);
   if (key === 'autoStart') applyAutoStart(value);
   overlay.send('settings', effectiveSettings());
   if (tray) tray.refresh();
-  if (mail && (key === 'language' || key === 'species' || key === 'petName')) mail.refresh();
+  if (mail && ['language', 'species', 'petName', 'birthday', 'cultures', 'profileAsked'].includes(key)) mail.refresh();
+  if (['language', 'birthday', 'cultures'].includes(key)) refreshFestival();
+  return true;
+}
+
+// ---------------------------------------------------------------- 生日、节日
+
+/** 你的生日、过哪些节日。还没告诉它的话，节日先按语言猜 */
+function profile() {
+  const s = store.data.settings;
+  return { birthday: s.birthday, cultures: s.cultures || F.defaultCultures(currentLanguage()), asked: s.profileAsked };
+}
+
+/** 保存生日和节日。{ skip: true } = "以后再说"：不再追问，节日照旧按语言猜 */
+function setProfile(next) {
+  if (next.skip) return setSetting('profileAsked', true);
+  if (!isValidSetting('birthday', next.birthday) || !isValidSetting('cultures', next.cultures)) return false;
+  setSetting('birthday', next.birthday);
+  setSetting('cultures', next.cultures);
+  setSetting('profileAsked', true);
+  return true;
+}
+
+let festivalSent = 'unset';
+/** 今天过不过节？变了就告诉宠物（它会换装扮、打招呼） */
+function refreshFestival() {
+  if (!overlay || !mail) return;
+  const today = festivalToday(logicalDay(nowMs()), mail.data, profile());
+  const key = JSON.stringify(today);
+  if (key === festivalSent) return;
+  festivalSent = key;
+  overlay.send('festival', today);
 }
 
 // ---------------------------------------------------------------- 退出
@@ -152,6 +198,7 @@ function startSystemWatch() {
     overlay.send('system', { idle });
     trackUsage(idle);
     mail.check(nowMs(), idle < 120); // 新的一天、而且你在电脑前：来信
+    refreshFestival(); // 过了凌晨 4 点，节日可能开始或结束了
   }, 5000);
   powerMonitor.on('lock-screen', () => overlay.pause());
   powerMonitor.on('unlock-screen', () => overlay.resume());
@@ -170,10 +217,13 @@ function registerIpc() {
 
   ipcMain.handle('pawmail:init', (event) => {
     if (!fromOverlay(event)) return null;
+    const festival = festivalToday(logicalDay(nowMs()), mail.data, profile());
+    festivalSent = JSON.stringify(festival); // 画面一启动就知道了，不用再单独发一次
     return {
       settings: effectiveSettings(),
       pet: store.data.pet,
       mail: mail.summary(),
+      festival,
       strings: STRINGS,
       dev: DEV,
       flags: DEV ? args.filter((a) => a.startsWith('--x-')).map((a) => a.slice(4)) : [], // 开发实验用的开关
@@ -239,6 +289,9 @@ function start() {
       return { lang, name: store.data.settings.petName, species: store.data.settings.species, ui: STRINGS[lang].mail };
     },
     setName: (name) => setSetting('petName', name),
+    getProfile: profile,
+    setProfile,
+    now: nowMs,
     onChange: () => {
       store.saveSoon();
       if (overlay) overlay.send('mail', mail.summary()); // 告诉宠物：有（或没有）没拆的信

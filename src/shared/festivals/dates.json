@@ -1,0 +1,370 @@
+{
+  "source": "Hong Kong Observatory, Gregorian-Lunar Calendar Conversion Tables (https://www.hko.gov.hk/en/gts/time/conversion.htm)",
+  "generated": "2026-11-11",
+  "range": [
+    2025,
+    2060
+  ],
+  "years": {
+    "2025": {
+      "chuxi": "01-28",
+      "springFestival": "01-29",
+      "lantern": "02-12",
+      "qingming": "04-04",
+      "dragonBoat": "05-31",
+      "qixi": "08-29",
+      "midAutumn": "10-06",
+      "winterSolstice": "12-21"
+    },
+    "2026": {
+      "chuxi": "02-16",
+      "springFestival": "02-17",
+      "lantern": "03-03",
+      "qingming": "04-05",
+      "dragonBoat": "06-19",
+      "qixi": "08-19",
+      "midAutumn": "09-25",
+      "winterSolstice": "12-22"
+    },
+    "2027": {
+      "chuxi": "02-05",
+      "springFestival": "02-06",
+      "lantern": "02-20",
+      "qingming": "04-05",
+      "dragonBoat": "06-09",
+      "qixi": "08-08",
+      "midAutumn": "09-15",
+      "winterSolstice": "12-22"
+    },
+    "2028": {
+      "chuxi": "01-25",
+      "springFestival": "01-26",
+      "lantern": "02-09",
+      "qingming": "04-04",
+      "dragonBoat": "05-28",
+      "qixi": "08-26",
+      "midAutumn": "10-03",
+      "winterSolstice": "12-21"
+    },
+    "2029": {
+      "chuxi": "02-12",
+      "springFestival": "02-13",
+      "lantern": "02-27",
+      "qingming": "04-04",
+      "dragonBoat": "06-16",
+      "qixi": "08-16",
+      "midAutumn": "09-22",
+      "winterSolstice": "12-21"
+    },
+    "2030": {
+      "chuxi": "02-02",
+      "springFestival": "02-03",
+      "lantern": "02-17",
+      "qingming": "04-05",
+      "dragonBoat": "06-05",
+      "qixi": "08-05",
+      "midAutumn": "09-12",
+      "winterSolstice": "12-22"
+    },
+    "2031": {
+      "chuxi": "01-22",
+      "springFestival": "01-23",
+      "lantern": "02-06",
+      "qingming": "04-05",
+      "dragonBoat": "06-24",
+      "qixi": "08-24",
+      "midAutumn": "10-01",
+      "winterSolstice": "12-22"
+    },
+    "2032": {
+      "chuxi": "02-10",
+      "springFestival": "02-11",
+      "lantern": "02-25",
+      "qingming": "04-04",
+      "dragonBoat": "06-12",
+      "qixi": "08-12",
+      "midAutumn": "09-19",
+      "winterSolstice": "12-21"
+    },
+    "2033": {
+      "chuxi": "01-30",
+      "springFestival": "01-31",
+      "lantern": "02-14",
+      "qingming": "04-04",
+      "dragonBoat": "06-01",
+      "qixi": "08-01",
+      "midAutumn": "09-08",
+      "winterSolstice": "12-21"
+    },
+    "2034": {
+      "chuxi": "02-18",
+      "springFestival": "02-19",
+      "lantern": "03-05",
+      "qingming": "04-05",
+      "dragonBoat": "06-20",
+      "qixi": "08-20",
+      "midAutumn": "09-27",
+      "winterSolstice": "12-22"
+    },
+    "2035": {
+      "chuxi": "02-07",
+      "springFestival": "02-08",
+      "lantern": "02-22",
+      "qingming": "04-05",
+      "dragonBoat": "06-10",
+      "qixi": "08-10",
+      "midAutumn": "09-16",
+      "winterSolstice": "12-22"
+    },
+    "2036": {
+      "chuxi": "01-27",
+      "springFestival": "01-28",
+      "lantern": "02-11",
+      "qingming": "04-04",
+      "dragonBoat": "05-30",
+      "qixi": "08-28",
+      "midAutumn": "10-04",
+      "winterSolstice": "12-21"
+    },
+    "2037": {
+      "chuxi": "02-14",
+      "springFestival": "02-15",
+      "lantern": "03-01",
+      "qingming": "04-04",
+      "dragonBoat": "06-18",
+      "qixi": "08-17",
+      "midAutumn": "09-24",
+      "winterSolstice": "12-21"
+    },
+    "2038": {
+      "chuxi": "02-03",
+      "springFestival": "02-04",
+      "lantern": "02-18",
+      "qingming": "04-05",
+      "dragonBoat": "06-07",
+      "qixi": "08-07",
+      "midAutumn": "09-13",
+      "winterSolstice": "12-22"
+    },
+    "2039": {
+      "chuxi": "01-23",
+      "springFestival": "01-24",
+      "lantern": "02-07",
+      "qingming": "04-05",
+      "dragonBoat": "05-27",
+      "qixi": "08-26",
+      "midAutumn": "10-02",
+      "winterSolstice": "12-22"
+    },
+    "2040": {
+      "chuxi": "02-11",
+      "springFestival": "02-12",
+      "lantern": "02-26",
+      "qingming": "04-04",
+      "dragonBoat": "06-14",
+      "qixi": "08-14",
+      "midAutumn": "09-20",
+      "winterSolstice": "12-21"
+    },
+    "2041": {
+      "chuxi": "01-31",
+      "springFestival": "02-01",
+      "lantern": "02-15",
+      "qingming": "04-04",
+      "dragonBoat": "06-03",
+      "qixi": "08-03",
+      "midAutumn": "09-10",
+      "winterSolstice": "12-21"
+    },
+    "2042": {
+      "chuxi": "01-21",
+      "springFestival": "01-22",
+      "lantern": "02-05",
+      "qingming": "04-04",
+      "dragonBoat": "06-22",
+      "qixi": "08-22",
+      "midAutumn": "09-28",
+      "winterSolstice": "12-22"
+    },
+    "2043": {
+      "chuxi": "02-09",
+      "springFestival": "02-10",
+      "lantern": "02-24",
+      "qingming": "04-05",
+      "dragonBoat": "06-11",
+      "qixi": "08-11",
+      "midAutumn": "09-17",
+      "winterSolstice": "12-22"
+    },
+    "2044": {
+      "chuxi": "01-29",
+      "springFestival": "01-30",
+      "lantern": "02-13",
+      "qingming": "04-04",
+      "dragonBoat": "05-31",
+      "qixi": "07-31",
+      "midAutumn": "10-05",
+      "winterSolstice": "12-21"
+    },
+    "2045": {
+      "chuxi": "02-16",
+      "springFestival": "02-17",
+      "lantern": "03-03",
+      "qingming": "04-04",
+      "dragonBoat": "06-19",
+      "qixi": "08-19",
+      "midAutumn": "09-25",
+      "winterSolstice": "12-21"
+    },
+    "2046": {
+      "chuxi": "02-05",
+      "springFestival": "02-06",
+      "lantern": "02-20",
+      "qingming": "04-04",
+      "dragonBoat": "06-08",
+      "qixi": "08-08",
+      "midAutumn": "09-15",
+      "winterSolstice": "12-22"
+    },
+    "2047": {
+      "chuxi": "01-25",
+      "springFestival": "01-26",
+      "lantern": "02-09",
+      "qingming": "04-05",
+      "dragonBoat": "05-29",
+      "qixi": "08-27",
+      "midAutumn": "10-04",
+      "winterSolstice": "12-22"
+    },
+    "2048": {
+      "chuxi": "02-13",
+      "springFestival": "02-14",
+      "lantern": "02-28",
+      "qingming": "04-04",
+      "dragonBoat": "06-15",
+      "qixi": "08-16",
+      "midAutumn": "09-22",
+      "winterSolstice": "12-21"
+    },
+    "2049": {
+      "chuxi": "02-01",
+      "springFestival": "02-02",
+      "lantern": "02-16",
+      "qingming": "04-04",
+      "dragonBoat": "06-04",
+      "qixi": "08-05",
+      "midAutumn": "09-11",
+      "winterSolstice": "12-21"
+    },
+    "2050": {
+      "chuxi": "01-22",
+      "springFestival": "01-23",
+      "lantern": "02-06",
+      "qingming": "04-04",
+      "dragonBoat": "06-23",
+      "qixi": "08-23",
+      "midAutumn": "09-30",
+      "winterSolstice": "12-22"
+    },
+    "2051": {
+      "chuxi": "02-10",
+      "springFestival": "02-11",
+      "lantern": "02-25",
+      "qingming": "04-05",
+      "dragonBoat": "06-13",
+      "qixi": "08-12",
+      "midAutumn": "09-19",
+      "winterSolstice": "12-22"
+    },
+    "2052": {
+      "chuxi": "01-31",
+      "springFestival": "02-01",
+      "lantern": "02-15",
+      "qingming": "04-04",
+      "dragonBoat": "06-01",
+      "qixi": "08-01",
+      "midAutumn": "09-07",
+      "winterSolstice": "12-21"
+    },
+    "2053": {
+      "chuxi": "02-18",
+      "springFestival": "02-19",
+      "lantern": "03-05",
+      "qingming": "04-04",
+      "dragonBoat": "06-20",
+      "qixi": "08-20",
+      "midAutumn": "09-26",
+      "winterSolstice": "12-21"
+    },
+    "2054": {
+      "chuxi": "02-07",
+      "springFestival": "02-08",
+      "lantern": "02-22",
+      "qingming": "04-04",
+      "dragonBoat": "06-10",
+      "qixi": "08-10",
+      "midAutumn": "09-16",
+      "winterSolstice": "12-22"
+    },
+    "2055": {
+      "chuxi": "01-27",
+      "springFestival": "01-28",
+      "lantern": "02-11",
+      "qingming": "04-05",
+      "dragonBoat": "05-30",
+      "qixi": "08-29",
+      "midAutumn": "10-05",
+      "winterSolstice": "12-22"
+    },
+    "2056": {
+      "chuxi": "02-14",
+      "springFestival": "02-15",
+      "lantern": "02-29",
+      "qingming": "04-04",
+      "dragonBoat": "06-17",
+      "qixi": "08-17",
+      "midAutumn": "09-24",
+      "winterSolstice": "12-21"
+    },
+    "2057": {
+      "chuxi": "02-03",
+      "springFestival": "02-04",
+      "lantern": "02-18",
+      "qingming": "04-04",
+      "dragonBoat": "06-06",
+      "qixi": "08-06",
+      "midAutumn": "09-13",
+      "winterSolstice": "12-21"
+    },
+    "2058": {
+      "chuxi": "01-23",
+      "springFestival": "01-24",
+      "lantern": "02-07",
+      "qingming": "04-04",
+      "dragonBoat": "06-25",
+      "qixi": "08-25",
+      "midAutumn": "10-02",
+      "winterSolstice": "12-21"
+    },
+    "2059": {
+      "chuxi": "02-11",
+      "springFestival": "02-12",
+      "lantern": "02-26",
+      "qingming": "04-05",
+      "dragonBoat": "06-14",
+      "qixi": "08-14",
+      "midAutumn": "09-21",
+      "winterSolstice": "12-22"
+    },
+    "2060": {
+      "chuxi": "02-01",
+      "springFestival": "02-02",
+      "lantern": "02-16",
+      "qingming": "04-04",
+      "dragonBoat": "06-03",
+      "qixi": "08-02",
+      "midAutumn": "09-09",
+      "winterSolstice": "12-21"
+    }
+  }
+}

@@ -310,7 +310,26 @@
     "fallenStar": "一颗掉下来的星星",
     "gem": "一块亮晶晶的石头",
     "moonPiece": "月亮的一小块",
-    "treasureMap": "一张藏宝图"
+    "treasureMap": "一张藏宝图",
+    "partyPopper": "一个新年礼花筒",
+    "birthdayCake": "一块生日蛋糕",
+    "memoryAlbum": "一本我们的相册",
+    "firecracker": "一串小鞭炮",
+    "redEnvelope": "一个红包",
+    "tangyuan": "一碗汤圆",
+    "willowSprig": "一小枝柳条",
+    "zongzi": "一个粽子",
+    "magpieFeather": "一根喜鹊的羽毛",
+    "mooncake": "一块月饼",
+    "dumplings": "一碗冬至饺子",
+    "medal": "一枚劳动小奖章",
+    "travelPhoto": "一张假期合影",
+    "chocolate": "一块巧克力",
+    "easterEgg": "一颗复活节彩蛋",
+    "pumpkinCandy": "一颗南瓜糖",
+    "presentBox": "一个圣诞礼物盒",
+    "sparkler": "一根仙女棒",
+    "pie": "一块南瓜派"
   },
 
   "report": {
@@ -357,7 +376,7 @@
     }
   },
 
-  "rarity": { "common": "普通", "rare": "稀有", "legendary": "传说" },
+  "rarity": { "common": "普通", "rare": "稀有", "legendary": "传说", "festival": "节日限定" },
   "giftLine": "随信附上：{gift}",
   "defaultName": "你的小家伙",
   "sign": "—— {name}",

@@ -32,7 +32,13 @@ const start = new Date();
 start.setHours(10, 0, 0, 0);
 const mail = { installId: 'simulator', letters: [], gifts: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, monthly: {} };
 const usage = {};
-const stats = { daily: 0, gifts: 0, rarity: { common: 0, rare: 0, legendary: 0 }, places: {}, remarks: {}, reports: [] };
+const stats = { daily: 0, gifts: 0, rarity: { common: 0, rare: 0, legendary: 0, festival: 0 }, places: {}, remarks: {}, reports: [], festivals: [] };
+// 假装你已经填过生日和节日：中文用户过中华传统节日 + 西方节日，英文用户过西方节日 + 美国节日
+const profile = {
+  birthday: '03-14',
+  cultures: lang === 'zh' ? ['chinese', 'cnPublic', 'western'] : ['western', 'us'],
+  asked: true,
+};
 let leftovers = 0;
 
 function print(letter) {
@@ -43,7 +49,7 @@ function print(letter) {
     console.log(`  ${r.dateText}  ${r.title}${r.gift ? ` ${r.gift.emoji}` : ''}`);
     return;
   }
-  const banner = letter.kind === 'monthly' || letter.kind === 'yearly' ? '★★★' : '──';
+  const banner = letter.kind === 'monthly' || letter.kind === 'yearly' ? '★★★' : letter.kind === 'festival' ? '🎉' : '──';
   console.log(`\n${banner} ${r.dateText} ── ${r.title} ${banner}`);
   if (r.stats) console.log(`  [${r.stats.map((s) => `${s.emoji} ${s.value} ${s.label}`).join(' | ')}]`);
   for (const line of r.lines) console.log(`  ${line}`);
@@ -68,7 +74,7 @@ for (let i = 0; i <= days; i++) {
     last.setHours(22, Math.floor(rnd() * 59), 0, 0);
   }
 
-  const added = L.advanceDay(mail, { day, now, usage });
+  const added = L.advanceDay(mail, { day, now, usage, profile });
   usage[day] = {
     first: first.getTime(),
     last: last.getTime(),
@@ -95,6 +101,9 @@ for (let i = 0; i <= days; i++) {
         stats.gifts += 1;
         stats.rarity[L.GIFTS[letter.gift].rarity] += 1;
       }
+    } else if (letter.kind === 'festival') {
+      stats.festivals.push(`${letter.festival}(${letter.day.slice(5)})`);
+      stats.rarity.festival += 1;
     } else if (letter.kind !== 'welcome') {
       stats.reports.push(letter.id);
     }
@@ -103,8 +112,10 @@ for (let i = 0; i <= days; i++) {
 
 console.log('\n════════ 统计 ════════');
 console.log(`一共 ${stats.daily} 封日常来信；其中 ${stats.gifts} 封有礼物（普通 ${stats.rarity.common}，稀有 ${stats.rarity.rare}，传说 ${stats.rarity.legendary}）`);
+console.log(`节日来信：${stats.festivals.join('、') || '（这段时间没有节日）'}`);
 console.log(`月报 / 年度回顾：${stats.reports.join('、') || '（这段时间没有跨月）'}`);
-console.log(`图鉴进度：${Object.keys(mail.gifts).length} / ${Object.keys(L.GIFTS).length}`);
+const regular = Object.keys(L.GIFTS).filter((id) => L.GIFTS[id].rarity !== 'festival');
+console.log(`图鉴进度：${regular.filter((id) => mail.gifts[id]).length} / ${regular.length}（另有节日限定 ${stats.rarity.festival} 件）`);
 console.log(`去过 ${Object.keys(stats.places).length} 个不同的地方；去得最多的：${Object.entries(stats.places).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k}×${v}`).join('、')}`);
 console.log(`"关于你"的话：${Object.entries(stats.remarks).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}×${v}`).join('、')}`);
 console.log(`存档里信件部分的大小：约 ${(JSON.stringify(mail.letters, null, 2).length / 1024).toFixed(0)} KB（${mail.letters.length} 封）`);

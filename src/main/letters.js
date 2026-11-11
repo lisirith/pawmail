@@ -11,10 +11,16 @@
 // 除了每天的信，每月 1 号还有一封"月报"，1 月 1 日那封换成"年度回顾"（见下面的"月报和年度回顾"一节）。
 
 const { PLACES, GIFTS } = require('../shared/letters/catalog');
+const F = require('../shared/festivals/catalog');
 
 const CONTENT = {
   zh: require('../shared/letters/zh.json'),
   en: require('../shared/letters/en.json'),
+};
+// 节日相关的文字（节日名、节日来信、"一个小问题"那封信）
+const FESTIVAL_TEXT = {
+  zh: require('../shared/festivals/zh.json'),
+  en: require('../shared/festivals/en.json'),
 };
 const BASE = CONTENT.zh; // "有几句可选"以中文为准（英文必须一样多，npm run letters 会检查）
 
@@ -24,8 +30,8 @@ const MAX_LETTERS = 800; // 信箱最多留多少封，超过了就删最老的�
 const MIN_MONTH_DAYS = 3; // 这个月一起不到 3 天，就不发月报（数据太少，写出来很空）
 const MIN_YEAR_DAYS = 7; // 这一年一起不到 7 天，就不发年度回顾
 const MONTHS_KEPT = 36; // "每月小结"留最近 36 个月（年度回顾要用）
-/** 信的编号：每天的信用日期（2026-11-11），月报是 m-2026-11，年度回顾是 y-2026 */
-const LETTER_ID = /^(\d{4}-\d{2}-\d{2}|m-\d{4}-\d{2}|y-\d{4})$/;
+/** 信的编号：每天的信（含节日信）用日期（2026-11-11），月报是 m-2026-11，年度回顾是 y-2026，"一个小问题"是 q-2026-11-11 */
+const LETTER_ID = /^(\d{4}-\d{2}-\d{2}|m-\d{4}-\d{2}|y-\d{4}|q-\d{4}-\d{2}-\d{2})$/;
 
 // ---------------------------------------------------------------- 日期
 
@@ -168,6 +174,43 @@ function welcomeLetter({ day, now }) {
   return { id: day, day, at: now, kind: 'welcome', gift: 'pawprint', days: 1, opened: false };
 }
 
+/** "一个小问题"：问你的生日、过哪些节日。信里直接带着一张小表格（见 renderer/js/mail/app.js） */
+function askLetter({ day, now }) {
+  return { id: `q-${day}`, day, at: now, kind: 'ask', opened: false };
+}
+
+/** 今天过什么节、它穿什么、见到你时做什么动作（给宠物窗口用）。不过节返回 null */
+function festivalToday(day, { installId, metDay }, profile = {}) {
+  const id = F.festivalOn(day, { ...profile, metDay });
+  if (!id || !FESTIVAL_TEXT.zh.festivals[id]) return null;
+  const { look } = F.lookFor(id, Number(day.slice(0, 4)), hash(installId || ''));
+  return { id, day, look, greet: F.FESTIVALS[id].greet };
+}
+
+/**
+ * 节日来信：代替那天的普通来信。一定附有那个节日的限定礼物。
+ * 每个节日准备了两封，按年份轮换；万圣节这种有两种装扮的，信也跟着装扮挑。
+ */
+function festivalLetter({ day, now, installId, festival, metDay, gapDays }) {
+  const year = Number(day.slice(0, 4));
+  const { look, variant } = F.lookFor(festival, year, hash(installId));
+  const count = FESTIVAL_TEXT.zh.festivals[festival].letters.length;
+  const years = festival === 'anniversary' && metDay ? year - Number(metDay.slice(0, 4)) : null;
+  return {
+    id: day,
+    day,
+    at: now,
+    kind: 'festival',
+    festival,
+    variant: variant !== null ? variant : hash(`${installId}|${festival}|${year}`) % count,
+    look,
+    years,
+    gift: F.FESTIVALS[festival].gift,
+    days: gapDays,
+    opened: false,
+  };
+}
+
 /**
  * 生成某一天的来信。
  * @param day        今天（logicalDay 的格式）
@@ -267,7 +310,8 @@ function generateLetter({ day, now, installId, history = [], owned = {}, usage =
 // 月报直接用这份小结来写；年度回顾用这一年的 12 份小结来写。
 // 小结是在月初那一刻算好存下来的，所以之后就算你删了旧信，月报和年度回顾的内容也不会变。
 
-const RARITY_RANK = { legendary: 0, rare: 1, common: 2 };
+const RARITY_RANK = { legendary: 0, rare: 1, festival: 2, common: 3 };
+const REGULAR_GIFT_COUNT = Object.values(GIFTS).filter((g) => g.rarity !== 'festival').length;
 const LATE_AFTER = (24 + 0.5 - DAY_START_HOUR) * 3600 * 1000; // 过了凌晨 0 点半还在用电脑，就算"熬夜"
 
 /** 把某个月（格式 2026-11）总结成一份小结 */
@@ -297,7 +341,7 @@ function summarizeMonth(month, { letters = [], usage = {}, gifts = {} } = {}) {
       latest = rec.last;
     }
   }
-  for (const l of letters) if (inMonth(l.day) && (l.kind === 'daily' || l.kind === 'welcome')) daySet.add(l.day);
+  for (const l of letters) if (inMonth(l.day) && (l.kind === 'daily' || l.kind === 'welcome' || l.kind === 'festival')) daySet.add(l.day);
 
   // 最长连续几天
   let streak = 0;
@@ -313,16 +357,19 @@ function summarizeMonth(month, { letters = [], usage = {}, gifts = {} } = {}) {
   const seenBefore = new Set(letters.filter((l) => l.kind === 'daily' && l.day < start).map((l) => l.place));
   const places = {};
   const newPlaces = [];
-  const giftCount = { common: 0, rare: 0, legendary: 0 };
+  const giftCount = { common: 0, rare: 0, legendary: 0, festival: 0 };
   const highlights = [];
   for (const l of letters) {
-    if (l.kind !== 'daily' || !inMonth(l.day)) continue;
-    places[l.place] = (places[l.place] || 0) + 1;
-    if (!seenBefore.has(l.place) && !newPlaces.includes(l.place)) newPlaces.push(l.place);
+    if ((l.kind !== 'daily' && l.kind !== 'festival') || !inMonth(l.day)) continue;
+    if (l.kind === 'daily') {
+      places[l.place] = (places[l.place] || 0) + 1;
+      if (!seenBefore.has(l.place) && !newPlaces.includes(l.place)) newPlaces.push(l.place);
+    }
     const g = l.gift && GIFTS[l.gift];
     if (g) {
-      giftCount[g.rarity] += 1;
-      if (g.rarity !== 'common' && !highlights.includes(l.gift)) highlights.push(l.gift);
+      giftCount[g.rarity] = (giftCount[g.rarity] || 0) + 1;
+      // "最珍贵的礼物"只从稀有、传说里挑（节日限定礼物每个人过节都有，不算稀罕）
+      if ((g.rarity === 'rare' || g.rarity === 'legendary') && !highlights.includes(l.gift)) highlights.push(l.gift);
     }
   }
   highlights.sort((a, b) => RARITY_RANK[GIFTS[a].rarity] - RARITY_RANK[GIFTS[b].rarity]);
@@ -330,8 +377,8 @@ function summarizeMonth(month, { letters = [], usage = {}, gifts = {} } = {}) {
   // 图鉴：这个月之前有几件、到月底有几件（按礼物第一次到手的那天算）
   let albumBefore = 0;
   let albumAfter = 0;
-  for (const rec of Object.values(gifts)) {
-    if (!rec || !rec.firstDay) continue;
+  for (const [id, rec] of Object.entries(gifts)) {
+    if (!rec || !rec.firstDay || !GIFTS[id] || GIFTS[id].rarity === 'festival') continue; // 图鉴进度只算普通的那 38 件
     if (rec.firstDay < start) albumBefore += 1;
     if (rec.firstDay <= end) albumAfter += 1;
   }
@@ -362,7 +409,7 @@ function combineSummaries(summaries) {
     streak: 0,
     places: {},
     newPlaces: [],
-    gifts: { common: 0, rare: 0, legendary: 0 },
+    gifts: { common: 0, rare: 0, legendary: 0, festival: 0 },
     highlights: [],
     albumBefore: 0,
     albumAfter: 0,
@@ -429,9 +476,10 @@ function yearlyReview(year, summaries, { day, now, installId }) {
  * 新的一天到了（或者第一次运行）：决定要来哪些信，放进信箱。
  * 会直接修改 mail（存档里的"邮局"部分）。返回这次新来的信（可能是 0、1 或 2 封）。
  *
- * mail 的样子：{ installId, letters, gifts, lastDay, streak, bestStreak, welcomed, monthly }
+ * mail 的样子：{ installId, letters, gifts, lastDay, streak, bestStreak, welcomed, metDay, askSent, monthly }
+ * profile：{ birthday: 'MM-DD' | null, cultures: [...], asked: 有没有问过你生日和节日 }
  */
-function advanceDay(mail, { day, now, usage = {} }) {
+function advanceDay(mail, { day, now, usage = {}, profile = {} }) {
   const added = [];
   const push = (letter) => {
     mail.letters.push(letter);
@@ -442,11 +490,22 @@ function advanceDay(mail, { day, now, usage = {} }) {
   if (!mail.welcomed) {
     push(welcomeLetter({ day, now }));
     mail.welcomed = true;
+    mail.metDay = mail.metDay || day; // 认识的那天：以后每年这天是"认识纪念日"
     mail.lastDay = day;
     mail.streak = 1;
     mail.bestStreak = Math.max(mail.bestStreak || 0, 1);
     return added;
   }
+
+  // 还没问过你的生日和节日：等你拆完见面信，再寄一封"一个小问题"（只寄一次，不用等到第二天）
+  if (profile.asked === false && !mail.askSent) {
+    const welcome = mail.letters.find((l) => l.kind === 'welcome');
+    if (!welcome || welcome.opened) {
+      push(askLetter({ day, now }));
+      mail.askSent = true;
+    }
+  }
+
   if (mail.lastDay === day) return added;
   const lastDay = mail.lastDay;
   const gap = lastDay ? dayDiff(lastDay, day) : 1;
@@ -454,7 +513,14 @@ function advanceDay(mail, { day, now, usage = {} }) {
 
   mail.streak = gap === 1 ? (mail.streak || 0) + 1 : 1;
   mail.bestStreak = Math.max(mail.bestStreak || 0, mail.streak);
-  push(generateLetter({ day, now, installId: mail.installId, history: mail.letters, owned: mail.gifts, usage, lastDay, streak: mail.streak }));
+
+  // 今天过节吗？过节的话，今天的信换成节日信
+  const festival = F.festivalOn(day, { ...profile, metDay: mail.metDay });
+  if (festival && FESTIVAL_TEXT.zh.festivals[festival]) {
+    push(festivalLetter({ day, now, installId: mail.installId, festival, metDay: mail.metDay, gapDays: gap }));
+  } else {
+    push(generateLetter({ day, now, installId: mail.installId, history: mail.letters, owned: mail.gifts, usage, lastDay, streak: mail.streak }));
+  }
 
   // 跨进了新的一个月：给上个月写一份小结；够条件的话再寄一封月报（跨年的话换成年度回顾）。
   // 报告放在当天的信后面，所以拆信时会先看到它
@@ -566,13 +632,13 @@ function renderReport(letter, lang, C) {
   if (visited.length) stat('places', visited.length, '🗺️');
 
   // 带回的礼物
-  const giftTotal = S.gifts.common + S.gifts.rare + S.gifts.legendary;
+  const giftTotal = Object.values(S.gifts).reduce((sum, n) => sum + (n || 0), 0);
   const best = S.highlights.find((id) => GIFTS[id] && C.giftNames[id]);
   if (giftTotal && best) lines.push(fill(R.giftsHighlight, { count: giftTotal, gift: C.giftNames[best], emoji: GIFTS[best].emoji }));
   else if (giftTotal) lines.push(fill(R.gifts, { count: giftTotal }));
   else if (!yearly) lines.push(R.noGifts);
   if (giftTotal) stat('gifts', giftTotal, '🎁');
-  if (yearly && S.albumAfter) lines.push(fill(R.albumYear, { after: S.albumAfter, total: Object.keys(GIFTS).length }));
+  if (yearly && S.albumAfter) lines.push(fill(R.albumYear, { after: S.albumAfter, total: REGULAR_GIFT_COUNT }));
   else if (!yearly && S.albumAfter > S.albumBefore) lines.push(fill(S.albumBefore ? R.album : R.albumFirst, { before: S.albumBefore, after: S.albumAfter }));
 
   // 你对它做了什么
@@ -624,8 +690,26 @@ function renderLetter(letter, lang, { name, species } = {}) {
   let scene;
   let place = letter.kind === 'welcome' ? 'home' : letter.place;
   let stats = null;
+  let look = null;
+  const T = FESTIVAL_TEXT[lang] || FESTIVAL_TEXT.en;
 
-  if (letter.kind === 'monthly' || letter.kind === 'yearly') {
+  if (letter.kind === 'festival') {
+    const info = F.FESTIVALS[letter.festival];
+    const text = T.festivals[letter.festival];
+    const years = letter.years || 1;
+    const yearsText = lang === 'zh' ? `${years} 年` : years === 1 ? 'one year' : `${years} years`;
+    title = text.name;
+    [scene, place] = info.scene;
+    look = letter.look || null; // 信里的照片上，它也穿着节日装扮
+    for (const line of at(text.letters, letter.variant)) {
+      lines.push(fill(line, { snack, years, yearsText, YearsText: yearsText.charAt(0).toUpperCase() + yearsText.slice(1) }));
+    }
+  } else if (letter.kind === 'ask') {
+    title = T.ask.title;
+    scene = 'home';
+    place = 'home';
+    lines.push(...T.ask.lines);
+  } else if (letter.kind === 'monthly' || letter.kind === 'yearly') {
     const report = renderReport(letter, lang, C);
     title = report.title;
     scene = report.scene;
@@ -663,18 +747,39 @@ function renderLetter(letter, lang, { name, species } = {}) {
     dateText: formatDate(lang, letter.day),
     lines,
     stats,
+    look,
+    festival: letter.festival || null,
     gift: letter.gift ? describeGift(letter.gift, lang) : null,
     sign: fill(C.sign, { name: name || C.defaultName }),
   };
 }
 
-/** 礼物图鉴：按目录顺序列出所有礼物；没拿到的不透露名字 */
-function album(owned, lang) {
-  return Object.keys(GIFTS).map((id) => {
+/**
+ * 礼物图鉴：按目录顺序列出所有礼物；没拿到的不透露名字。
+ * 节日限定礼物单独一组（section: 'festival'），只列出你过的节日的礼物（已经拿到的也一直列着）。
+ * festivalIds：你过的节日
+ */
+function album(owned, lang, festivalIds = []) {
+  const T = FESTIVAL_TEXT[lang] || FESTIVAL_TEXT.en;
+  const festivalOfGift = {};
+  for (const [id, info] of Object.entries(F.FESTIVALS)) festivalOfGift[info.gift] = id;
+  const items = [];
+  for (const id of Object.keys(GIFTS)) {
     const info = describeGift(id, lang);
     const have = owned && owned[id] ? owned[id].count || 1 : 0;
-    return { id, emoji: have ? info.emoji : null, rarity: info.rarity, rarityLabel: info.rarityLabel, name: have ? info.name : null, count: have };
-  });
+    const festival = info.rarity === 'festival' ? festivalOfGift[id] : null;
+    if (festival && !have && !festivalIds.includes(festival)) continue;
+    items.push({
+      id,
+      section: festival ? 'festival' : 'regular',
+      emoji: have ? info.emoji : null,
+      rarity: info.rarity,
+      rarityLabel: festival ? T.festivals[festival].name : info.rarityLabel, // 节日礼物没拿到时，提示是哪个节日的
+      name: have ? info.name : null,
+      count: have,
+    });
+  }
+  return items;
 }
 
 /** 检查中英文内容有没有缺漏、数量对不对得上。返回问题列表（空 = 没问题）。 */
@@ -714,6 +819,25 @@ function validateContent() {
   }
   same('report.monthEndings', (zh.report || {}).monthEndings, (en.report || {}).monthEndings);
   same('report.yearEndings', (zh.report || {}).yearEndings, (en.report || {}).yearEndings);
+
+  // 节日
+  for (const [lang, T] of Object.entries(FESTIVAL_TEXT)) {
+    for (const group of F.GROUPS) if (!T.groups[group.id] || !T.groups[group.id].name) problems.push(`${lang}: 节日组 ${group.id} 没有名字`);
+    if (!T.ask || !Array.isArray(T.ask.lines) || !T.ask.title) problems.push(`${lang}: 缺少"一个小问题"那封信`);
+  }
+  for (const [id, info] of Object.entries(F.FESTIVALS)) {
+    const zf = FESTIVAL_TEXT.zh.festivals[id];
+    const ef = FESTIVAL_TEXT.en.festivals[id];
+    if (!zf || !ef) {
+      problems.push(`节日 ${id} 缺少中文或英文的文字`);
+      continue;
+    }
+    same(`festivals.${id}.letters`, zf.letters, ef.letters);
+    if (Array.isArray(info.look) && zf.letters.length !== info.look.length) problems.push(`节日 ${id} 有 ${info.look.length} 种装扮，信也要正好 ${info.look.length} 封`);
+    if (!GIFTS[info.gift] || GIFTS[info.gift].rarity !== 'festival') problems.push(`节日 ${id} 的礼物 ${info.gift} 不在礼物目录里，或者不是节日限定`);
+  }
+  const thisYear = new Date().getFullYear();
+  if (thisYear + 2 > F.DATE_RANGE[1]) problems.push(`农历节日表只到 ${F.DATE_RANGE[1]} 年，快用完了：请运行 node tools/build-festival-dates.js 往后延`);
   return problems;
 }
 
@@ -724,6 +848,8 @@ module.exports = {
   generateLetter,
   welcomeLetter,
   advanceDay,
+  festivalToday,
+  FESTIVAL_TEXT,
   summarizeMonth,
   renderLetter,
   album,

@@ -25,6 +25,7 @@ function mockMail(query) {
     if (key.includes(`${path.sep}src${path.sep}`)) delete require.cache[key];
   }
   const L = require('../src/main/letters');
+  const F = require('../src/shared/festivals/catalog');
   const lang = query.get('lang') === 'en' ? 'en' : 'zh';
   const species = query.get('species') === 'panda' ? 'panda' : 'cat';
   const name = query.get('name') || null;
@@ -38,6 +39,12 @@ function mockMail(query) {
   const from = /^\d{4}-\d{2}-\d{2}$/.test(query.get('from') || '') ? new Date(`${query.get('from')}T10:00:00`).getTime() : Date.now() - days * DAY_MS;
   const mail = { installId: 'preview', letters: [], gifts: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, monthly: {} };
   const usage = {};
+  // 你的生日和节日：&cultures=chinese,western&birthday=12-03；&ask=1 = 还没问过（会收到"一个小问题"）
+  const profile = {
+    birthday: /^\d{2}-\d{2}$/.test(query.get('birthday') || '') ? query.get('birthday') : null,
+    cultures: F.sanitizeCultures((query.get('cultures') || 'chinese,western,us').split(',')),
+    asked: query.get('ask') !== '1',
+  };
   for (let i = 0; i <= days; i++) {
     if (i > 0 && i % 9 === 4) continue; // 偶尔有一天没开电脑
     const now = from + i * DAY_MS;
@@ -45,7 +52,7 @@ function mockMail(query) {
     const late = new Date(now);
     late.setDate(late.getDate() + 1);
     late.setHours(1, 40, 0, 0);
-    for (const letter of L.advanceDay(mail, { day, now, usage })) {
+    for (const letter of L.advanceDay(mail, { day, now, usage, profile })) {
       letter.opened = true; // 假装每天都拆了信：礼物进图鉴
       if (letter.gift && L.GIFTS[letter.gift]) {
         const have = mail.gifts[letter.gift];
@@ -66,7 +73,20 @@ function mockMail(query) {
     if (rendered.gift) rendered.gift.isNew = !letter.opened && !mail.gifts[rendered.gift.id];
     return rendered;
   });
-  return { lang, ui, name, species, letters, album: L.album(mail.gifts, lang), nav: null };
+  const T = L.FESTIVAL_TEXT[lang];
+  const next = F.nextFestival(L.logicalDay(Date.now()), { ...profile, metDay: mail.metDay });
+  return {
+    lang,
+    ui,
+    name,
+    species,
+    letters,
+    album: L.album(mail.gifts, lang, F.activeFestivals(profile.cultures)),
+    profile,
+    groups: F.GROUPS.map((g) => ({ id: g.id, emoji: g.emoji, name: T.groups[g.id].name, examples: T.groups[g.id].examples })),
+    next: next ? { name: T.festivals[next.id].name, day: next.day } : null,
+    nav: null,
+  };
 }
 
 const server = http.createServer((req, res) => {

@@ -5,7 +5,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 // 后台 → 画面 允许的消息种类
-const INBOUND = new Set(['cursor', 'settings', 'command', 'system', 'save-now', 'mail']);
+const INBOUND = new Set(['cursor', 'settings', 'command', 'system', 'save-now', 'mail', 'festival']);
 
 contextBridge.exposeInMainWorld('pawmail', {
   /** 启动时取一次：设置、存档、所有语言的文字 */

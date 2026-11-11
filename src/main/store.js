@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { MAX_LETTERS } = require('./letters');
+const F = require('../shared/festivals/catalog');
 
 const SCALES = [0.8, 1, 1.3];
 const LANGUAGES = ['zh', 'en'];
@@ -26,7 +27,20 @@ const DEFAULT_SETTINGS = Object.freeze({
   firstRunDone: false,
   petName: null, // 你给它起的名字（信的落款）
   autoStart: false, // 开机自动启动
+  birthday: null, // 你的生日 'MM-DD'（不问年份）
+  cultures: null, // 你过哪些节日组（见 shared/festivals/catalog.js 的 GROUPS）；null = 还没告诉它，先按语言猜
+  profileAsked: false, // 有没有问过你生日和节日（问过一次就不再追问，之后可以在信纸窗口里改）
 });
+
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+function isValidBirthday(v) {
+  if (v === null) return true;
+  const m = /^(\d{2})-(\d{2})$/.exec(typeof v === 'string' ? v : '');
+  if (!m) return false;
+  const month = Number(m[1]);
+  const day = Number(m[2]);
+  return month >= 1 && month <= 12 && day >= 1 && day <= DAYS_IN_MONTH[month - 1];
+}
 
 // 每一项设置允许的取值。画面发来的任何修改都要先过这一关。
 const VALID = {
@@ -37,6 +51,9 @@ const VALID = {
   firstRunDone: (v) => typeof v === 'boolean',
   petName: (v) => v === null || (typeof v === 'string' && v.trim().length >= 1 && v.length <= 16 && !/[\u0000-\u001f<>]/.test(v)),
   autoStart: (v) => typeof v === 'boolean',
+  birthday: isValidBirthday,
+  cultures: (v) => v === null || (Array.isArray(v) && v.length <= 20 && new Set(v).size === v.length && v.every((id) => F.GROUP_IDS.includes(id))),
+  profileAsked: (v) => typeof v === 'boolean',
 };
 
 function isValidSetting(key, value) {
@@ -107,7 +124,7 @@ function sanitizeSummary(raw) {
     streak: n(raw.streak),
     places,
     newPlaces: ids(raw.newPlaces),
-    gifts: { common: n(g.common), rare: n(g.rare), legendary: n(g.legendary) },
+    gifts: { common: n(g.common), rare: n(g.rare), legendary: n(g.legendary), festival: n(g.festival) },
     highlights: ids(raw.highlights),
     albumBefore: n(raw.albumBefore),
     albumAfter: n(raw.albumAfter),
@@ -132,6 +149,21 @@ function sanitizeLetter(raw) {
     return { ...base, id: `${monthly ? 'm' : 'y'}-${raw.period}`, kind: raw.kind, period: raw.period, summary, ending: Math.max(0, int(raw.ending)) };
   }
   if (raw.kind === 'welcome') return { ...base, kind: 'welcome', gift: 'pawprint', days: 1 };
+  if (raw.kind === 'ask') return { ...base, id: `q-${raw.day}`, kind: 'ask' };
+  if (raw.kind === 'festival') {
+    const info = F.FESTIVALS[raw.festival];
+    if (!info) return null;
+    return {
+      ...base,
+      kind: 'festival',
+      festival: raw.festival,
+      variant: Math.max(0, int(raw.variant)),
+      look: typeof raw.look === 'string' && NAME_ID.test(raw.look) ? raw.look : null,
+      years: Number.isInteger(raw.years) && raw.years > 0 ? raw.years : null,
+      gift: info.gift,
+      days: Math.max(1, int(raw.days, 1)),
+    };
+  }
   if (raw.kind !== 'daily' || typeof raw.place !== 'string') return null;
   let remark = null;
   if (raw.remark && typeof raw.remark === 'object' && typeof raw.remark.key === 'string') {
@@ -165,6 +197,8 @@ function sanitizeMail(raw) {
     streak: 0,
     bestStreak: 0,
     welcomed: false, // 见面信寄过没有（就算之后删了，也不会再寄）
+    metDay: null, // 认识的那天（每年这天是认识纪念日）
+    askSent: false, // "一个小问题"那封信寄过没有
     monthly: {}, // 每个月的小结，年度回顾要用
   };
   if (!raw || typeof raw !== 'object') return mail;
@@ -190,6 +224,13 @@ function sanitizeMail(raw) {
   mail.bestStreak = Math.max(mail.streak, int(raw.bestStreak));
   // 旧版本的存档没有 welcomed：只要收到过信，就算见过面了
   mail.welcomed = raw.welcomed === true || mail.letters.length > 0 || !!mail.lastDay;
+  // 旧版本的存档没有 metDay：用见面信的日期，没有见面信就用最早那封信的日期
+  if (DAY.test(raw.metDay)) mail.metDay = raw.metDay;
+  else if (mail.letters.length) {
+    const welcome = mail.letters.find((l) => l.kind === 'welcome');
+    mail.metDay = welcome ? welcome.day : mail.letters.map((l) => l.day).sort()[0];
+  }
+  mail.askSent = raw.askSent === true || mail.letters.some((l) => l.kind === 'ask');
   if (raw.monthly && typeof raw.monthly === 'object') {
     for (const [month, summary] of Object.entries(raw.monthly)) {
       const clean = MONTH.test(month) && sanitizeSummary(summary);

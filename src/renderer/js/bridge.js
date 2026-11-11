@@ -29,7 +29,11 @@ function createMockBridge() {
       }
       // 预览时加 ?mail=1 可以看到"手里有一封没拆的信"的样子；?mail=gold 是金色信封（月报）
       const mail = { unread: params.get('mail') ? 1 : 0, total: 1, special: params.get('mail') === 'gold' };
-      return { settings: { ...settings }, pet: null, mail, strings, dev: true, preview: true, version: 'preview' };
+      // 加 ?festival=halloween&look=ghost&greet=boo 可以看过节的样子
+      const festival = params.get('festival')
+        ? { id: params.get('festival'), day: 'preview', look: params.get('look') || null, greet: params.get('greet') || 'cheer' }
+        : null;
+      return { settings: { ...settings }, pet: null, mail, festival, strings, dev: true, preview: true, version: 'preview' };
     },
     setCapture() {},
     savePet() {},
