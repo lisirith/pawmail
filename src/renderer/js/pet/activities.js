@@ -339,6 +339,34 @@ export const ACTIVITIES = {
     },
   }),
 
+  /** 把信举过头顶，踮着脚蹦：有你的信！ */
+  showMail: (b, p) => ({
+    said: false,
+    update(b, dt, t) {
+      const pet = b.pet;
+      const T = pet.target;
+      const dur = 2.4;
+      if (!this.said) {
+        this.said = true;
+        if (p.say) b.say('mail', 3.4);
+      }
+      const k = clamp(t / 0.3, 0, 1) * clamp((dur - t) / 0.3, 0, 1); // 渐入渐出
+      pet.style.fps = 60;
+      pet.style.gaze = 'none';
+      pet.style.carryLift = k;
+      pet.style.tailSpeed = 3;
+      pet.style.tailAmp = 0.9;
+      T.facing = 0;
+      T.armL = T.armR = 2.15 * k;
+      T.lift = Math.abs(Math.sin(t * 7)) * 5 * k;
+      T.mouth = 'smile';
+      T.mouthOpen = 0.5 * k;
+      T.blush = 0.8;
+      if (k > 0.6) T.eyes = 'happy';
+      return t >= dur;
+    },
+  }),
+
   /** 开心地蹦两下 */
   hop: (b, p) => ({
     count: p.count ?? 2,

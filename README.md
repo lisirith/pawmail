@@ -1,24 +1,34 @@
 # 爪爪来信 Pawmail 🐾
 
 一只住在你电脑桌面上的小动物。它会自己散步、发呆、打瞌睡、追你的鼠标；
-以后，它还会在你每天开机时给你写一封信，讲讲它"昨天"去了哪里，并随信附上一件小礼物。
+你不在的时候它会出门转转，第二天你回到电脑前，它就叼着一封信等你拆——讲讲它去了哪儿，有时还随信附上一件小礼物。
 
-*A tiny pet that lives on your desktop. It wanders, naps and chases your cursor — and (soon) writes you a letter every day about where it went "yesterday", with a little gift attached.*
+*A tiny pet that lives on your desktop. It wanders, naps and chases your cursor. While you're away it goes exploring, and the next day it greets you with a letter about where it went — sometimes with a little gift enclosed.*
 
-> 目前是早期开发版（阶段 1：会动的宠物）。只支持 Windows。
-> *Early development build (Phase 1: a living pet). Windows only for now.*
+> 目前是早期开发版（阶段 2：每日来信）。只支持 Windows。
+> *Early development build (Phase 2: daily letters). Windows only for now.*
 
 ## 现在能做什么
+
+**宠物**
 
 - 🐱 橘猫和 🐼 熊猫，随时可以切换
 - 站在任务栏上走来走去；不在它身上时，鼠标可以直接点到它后面的窗口
 - 会呼吸、眨眼、抖耳朵、摇尾巴，眼睛会跟着你的鼠标
 - 由"精力、无聊、想被关注、心情"驱动，自己决定做什么，不会来回重复固定的几个动作
-- 困了会打哈欠、打瞌睡、趴下睡觉；深夜睡得更多；你离开电脑它也会睡
-- 鼠标在它身上来回蹭 = 摸头（冒爱心）；点一下 = 戳它；双击 = 它会开心地蹦；戳太多次它会生气
-- 可以把它拎起来、甩一甩、扔出去（甩得太狠会晕）
-- 鼠标在它附近晃，它可能会扑过来抓
-- 中文 / English
+- 困了会打哈欠、打瞌睡、趴下睡觉；深夜更容易困；你离开电脑它会一直睡到你回来
+- 摸头、戳、双击、拎起来扔出去（甩得太狠会晕）、它会扑你的鼠标
+
+**每日来信**
+
+- 每到新的一天（凌晨 4 点为界），你回到电脑前时，它会把一封信抱在手里，时不时举过头顶提醒你
+- 信里写它去了哪儿（21 个地方，有的只在特定季节去）、在那儿遇到的小事，以及一句关于你的话——
+  比如"你昨天凌晨 1 点 40 才睡"、"我们已经连续 7 天见面了"、"昨天你把我扔出去 5 次"
+- 大约三分之二的信附有礼物，分普通、稀有、传说三档，一共 38 种，收集在图鉴里
+- 所有来信都留在信箱里，可以随时重读
+- 每封信都能存成一张明信片图片（1080×1440），或者直接复制，粘贴发给朋友
+- 第一次拆信前会请你给它起个名字，以后每封信都用这个名字落款
+- 中文 / English，切换语言后以前的信也会跟着变
 
 ## 怎么运行
 
@@ -36,24 +46,31 @@ npm install
 npm start
 ```
 
+想每天开机自动启动：右键点它，在菜单里把"开机启动"打开。
+
 ## 怎么和它玩
 
 | 操作 | 效果 |
 |---|---|
-| 右键点它 | 打开菜单：换动物、显示方式、大小、语言、哄睡、退出 |
+| 它手里拿着信时，点它一下 | 拆信 |
+| 右键点它 | 菜单：信箱、换动物、显示方式、大小、语言、开机启动、哄睡、退出 |
 | 鼠标在它身上来回移动 | 摸头 |
 | 左键点一下 | 戳它一下 |
 | 双击 | 它开心地蹦两下 |
 | 按住拖动 | 把它拎起来；松手会掉下来，带着速度松手可以把它扔出去 |
 | 托盘图标（屏幕右下角） | 同样的菜单，另外还有"叫它回来" |
 
+在信纸窗口里：顶栏可以拖动窗口，点名字可以改名，键盘 ← → 翻信，Esc 关闭。
+
 找不到托盘图标？Windows 11 会把新图标收进任务栏右边的 `^` 小箭头里。
 
 ## 隐私
 
 - 所有数据只保存在你自己的电脑上（`%APPDATA%\Pawmail\save.json`），不联网、不上传。
-- 它只知道"你现在有没有在用电脑"（为了你离开时去睡觉，以及以后信里那句"你昨天三点才睡哦"）。
-  它**不会**记录你按了什么键、打开了什么程序或网页。
+- 为了写信，它会记下每天的几件事：你第一次和最后一次用电脑的时间、一共用了多少分钟，
+  以及那天你摸了它几次、戳了几次、扔了几次。只保留最近 60 天。
+- 它**不会**记录你按了什么键、打开了什么程序或网页。
+- 明信片只有在你点"存成明信片"时才会保存（在"图片\Pawmail"文件夹里）。
 
 ## 开发
 
@@ -61,14 +78,24 @@ npm start
 npm run dev
 ```
 
-带调试信息启动。加 `-- --x-hud` 可以在屏幕上显示状态面板。
+带调试信息启动，控制台会打印它每次换动作的原因。可以追加的开关：`--x-hud`（屏幕上显示状态面板）、
+`--x-newday`（假装现在是明天，马上收到一封新信）。用 `--x-newday` 时请同时加 `--userdata=某个测试文件夹`，
+免得弄乱你真正的存档。
 
 ```bash
 npm run preview
 ```
 
-不启动 Electron，直接在浏览器里看宠物（<http://localhost:5177/>），改画面时最方便。
-姿势图鉴在 <http://localhost:5177/gallery>。
+不启动 Electron，直接在浏览器里看。宠物：<http://localhost:5177/>（加 `&mail=1` 看它拿着信的样子）；
+信纸窗口：<http://localhost:5177/mail>（加 `?lang=en&species=panda&unread=0` 之类的参数）；
+姿势图鉴：<http://localhost:5177/gallery>。
+
+```bash
+npm run letters
+```
+
+"来信模拟器"：一口气生成几十天的信打印出来，并检查中英文内容有没有缺漏。改了信的文字后用它检查。
+可以加参数，比如 `npm run letters -- 45 en panda`。
 
 ```bash
 npm run sim
@@ -80,49 +107,50 @@ npm run sim
 npm run selftest
 ```
 
-自检：自动检查透明窗口、鼠标穿透、存档等关键功能，结果和截图在 `tools/shots/selftest/`。
+自检：真的启动程序，自动检查透明窗口、鼠标穿透、来信、拆信、明信片、存档等 21 项，
+结果和截图在 `tools/shots/selftest/`。
 
 ### 代码结构
 
 ```
 src/
   main/            后台（Electron 主进程）：和 Windows 打交道的事都在这里
-    main.js          入口：启动、设置、存档、托盘
+    main.js          入口：启动、设置、存档、托盘、记录使用情况
     overlay.js       那块透明的全屏窗口 + 鼠标穿透
+    mail.js          邮局：什么时候来信、保管信和礼物、信纸窗口
+    letters.js       写信：按规则把句子拼成一封信（纯计算，可单独测试）
     tray.js          托盘图标和菜单
     store.js         存档（JSON 文件）
     native.js        直接调用 Windows 的几个小功能
     selftest.js      自检
-  preload/         后台和画面之间的安全通道
-  renderer/        画面：宠物本身。是普通的网页技术，不依赖 Electron
-    js/pet/
-      draw.js        怎么画（所有动物共用的身体）
-      species/       每种动物：配色 + 耳朵、尾巴、花纹
-      pose.js        姿势参数
-      pet.js         位置、物理、呼吸眨眼等小动作
-      activities.js  所有动作（散步、睡觉、追鼠标……）
-      brain.js       大脑：决定下一步做什么
-      fx.js          爱心、Zzz 等小特效
+  preload/         后台和画面之间的安全通道（宠物窗口、信纸窗口各一个）
+  renderer/        画面。是普通的网页技术，不依赖 Electron
+    js/pet/          宠物：怎么画、动作、大脑、特效
+    js/mail/         信纸窗口：读信、信箱、图鉴、风景、明信片
     js/ui/           气泡、右键菜单
-  shared/locales/  所有文字（zh.json / en.json）
-tools/             开发工具：预览服务器、大脑模拟器
+  shared/
+    locales/       界面文字（zh.json / en.json）
+    letters/       信的内容：地点和礼物目录（catalog.js），以及中英文的全部句子
+tools/             开发工具：预览服务器、来信模拟器、大脑模拟器
 ```
 
+想加一个新地点：在 `src/shared/letters/catalog.js` 的 `PLACES` 里加一行，再到 `zh.json`、`en.json` 的 `places` 里各写一段，
+然后运行 `npm run letters` 检查。
 想加一种新动物：在 `src/renderer/js/pet/species/` 里照着 `cat.js` 写一个，再到 `index.js` 登记。
 想加一个新动作：在 `activities.js` 里加一个函数，再到 `brain.js` 的 `scores()` 里给它一个权重。
 
 ## 路线图
 
 - [x] 阶段 1：会动的宠物（透明窗口、猫和熊猫、动作、大脑、互动）
-- [ ] 阶段 2：每日来信、礼物、信箱、明信片分享
+- [x] 阶段 2：每日来信、礼物、信箱、图鉴、明信片、起名字、开机启动
 - [ ] 阶段 3：换装（帽子、衣服……所有动物通用）
 - [ ] 阶段 4：把文件拖给它吃（其实是放进回收站，可以恢复）
 - [ ] 阶段 5：沙滩椅、遮阳伞、小音响、涂鸦
 - [ ] 阶段 6：彩蛋（节日、深夜催你睡觉、电量低它也没精神……）
-- [ ] 阶段 7：打包发布（安装程序、开机自启、itch.io / Steam）
+- [ ] 阶段 7：打包发布（安装程序、itch.io / Steam）
 
 ## 已知情况
 
-- 用 Electron 制作，内存占用大约 350–400 MB。
+- 用 Electron 制作，内存占用大约 400–500 MB。
 - 目前只在主显示器上活动。
-- 美术是用代码画的占位图，以后会换。
+- 美术是用代码画的占位图，以后会换。礼物图标暂时用的是系统自带的 emoji，上 Steam 之前要换成原创图标。

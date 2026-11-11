@@ -16,6 +16,8 @@ function createMockBridge() {
     scale: Number(params.get('scale')) || 1,
     language: params.get('lang') || 'zh',
     firstRunDone: params.get('first') !== '1',
+    petName: null,
+    autoStart: false,
   };
 
   return {
@@ -25,10 +27,17 @@ function createMockBridge() {
       for (const lang of ['zh', 'en']) {
         strings[lang] = await (await fetch(`../shared/locales/${lang}.json`)).json();
       }
-      return { settings: { ...settings }, pet: null, strings, dev: true, preview: true, version: 'preview' };
+      // 预览时加 ?mail=1 可以看到"手里有一封没拆的信"的样子
+      const mail = { unread: Number(params.get('mail')) || 0, total: 1 };
+      return { settings: { ...settings }, pet: null, mail, strings, dev: true, preview: true, version: 'preview' };
     },
     setCapture() {},
     savePet() {},
+    openMail() {
+      console.log('[预览] 这里会打开信纸窗口（预览地址：mail.html）');
+      emit('mail', { unread: 0, total: 1 });
+    },
+    stat() {},
     setSetting(key, value) {
       settings = { ...settings, [key]: value };
       emit('settings', { ...settings });

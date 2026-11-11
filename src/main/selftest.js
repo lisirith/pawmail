@@ -18,7 +18,7 @@ const native = require('./native');
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function run({ overlay, outDir, setSetting }) {
+async function run({ overlay, mail, store, outDir, setSetting }) {
   fs.mkdirSync(outDir, { recursive: true });
   const wc = overlay.win.webContents;
   const js = (code) => wc.executeJavaScript(`(() => { ${code} })()`, true);
@@ -126,7 +126,86 @@ async function run({ overlay, outDir, setSetting }) {
   for (let i = 3; i < bitmap.length; i += 4) if (bitmap[i] > 200) opaque += 1;
   check('窗口背景是透明的，而且画出了宠物', cornerAlpha === 0 && opaque > 2000, { cornerAlpha, opaquePixels: opaque, size });
 
+  await testMail();
   return finish();
+
+  // ---------------------------------------------------------------- 每日来信
+
+  async function testMail() {
+    const DAY_MS = 86400000;
+    const now = Date.now();
+    // 从一份干净的"邮局"开始，这样每次自检的结果都一样
+    Object.assign(store.data.mail, { letters: [], gifts: {}, lastDay: null, streak: 0 });
+    store.data.settings.petName = null;
+    mail.test = { dir: outDir }; // 明信片存到自检的输出文件夹，不弹资源管理器、不动剪贴板
+
+    mail.check(now, true);
+    const first = store.data.mail.letters[0];
+    check('第一次运行，马上收到一封见面信', mail.summary().unread === 1 && first && first.kind === 'welcome');
+    mail.check(now + 60000, true);
+    check('同一天不会来第二封', mail.summary().total === 1);
+    mail.check(now + DAY_MS, false);
+    check('新的一天，但你不在电脑前：先不来信', mail.summary().total === 1);
+    mail.check(now + DAY_MS, true);
+    const daily = store.data.mail.letters[1];
+    check('新的一天，你回到电脑前：来一封新信', mail.summary().total === 2 && daily && daily.kind === 'daily' && !!daily.gift, {
+      place: daily && daily.place,
+      gift: daily && daily.gift,
+    });
+
+    await wait(300);
+    const carrying = await js(`const P = window.__pawmail; P.run(0.3); return { carry: P.pet.carry, hasMail: P.brain.hasMail };`);
+    check('有没拆的信时，宠物把信拿在手里', carrying.carry && carrying.hasMail, carrying);
+
+    // 打开信纸窗口，像你一样：点信封 → 起名字 → 看信
+    const win = mail.open();
+    await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+    await wait(900);
+    const mjs = (code) => win.webContents.executeJavaScript(`(async () => { ${code} })()`, true);
+    const before = await mjs(
+      `return { ready: !!window.__mail, sealed: !!document.querySelector('.sealed-envelope'), letters: window.__mail ? __mail.state.data.letters.length : 0 };`
+    );
+    check('信纸窗口能打开，先看到一封没拆的信', before.ready && before.sealed && before.letters === 2, before);
+
+    await mjs(`document.querySelector('.sealed-envelope').click(); return true;`);
+    await wait(300);
+    const askedName = await mjs(`return !document.getElementById('naming').hidden;`);
+    await mjs(`document.querySelector('.naming-input').value = '年糕'; document.querySelector('.naming-card .btn').click(); return true;`);
+    await wait(1300);
+    const after = await mjs(
+      `const l = __mail.state.data.letters[0]; return { id: l.id, opened: l.opened, name: __mail.state.data.name, sign: l.sign, paper: !!document.querySelector('.paper'), lines: l.lines.length };`
+    );
+    check('第一次拆信前先起名字，然后信被拆开、落款是这个名字', askedName && after.opened && after.paper && after.name === '年糕' && after.sign.includes('年糕'), after);
+    check('后台记下了：名字、这封信已拆、礼物进了图鉴', store.data.settings.petName === '年糕' && mail.summary().unread === 1 && !!store.data.mail.gifts[daily.gift], {
+      unread: mail.summary().unread,
+      gifts: Object.keys(store.data.mail.gifts),
+    });
+
+    await wait(400);
+    fs.writeFileSync(path.join(outDir, 'mail.png'), (await win.webContents.capturePage()).toPNG());
+
+    const saved = await mjs(
+      `const url = __mail.postcard(); const r = await window.pawmailMail.savePostcard(url, __mail.state.id); return { ok: !!(r && r.ok), kb: Math.round(url.length * 0.75 / 1024) };`
+    );
+    const postcard = path.join(outDir, `pawmail-${after.id}.png`);
+    check('能把信存成明信片图片', saved.ok && fs.existsSync(postcard) && fs.statSync(postcard).size > 50000, saved);
+
+    // 把剩下那封也拆掉：宠物手里就没有信了
+    mail.markOpened(first.id);
+    await wait(300);
+    const empty = await js(`const P = window.__pawmail; P.run(0.3); return { carry: P.pet.carry, hasMail: P.brain.hasMail };`);
+    check('信都拆完后，宠物手里不再拿着信', mail.summary().unread === 0 && !empty.carry && !empty.hasMail, empty);
+
+    // 重启后还在吗？把存档写出去再读回来
+    store.saveNow();
+    const reread = JSON.parse(fs.readFileSync(store.file, 'utf8'));
+    check('信和礼物都写进了存档', reread.mail.letters.length === 2 && reread.mail.letters.every((l) => l.opened) && !!reread.mail.gifts.pawprint, {
+      letters: reread.mail.letters.length,
+    });
+
+    mail.close();
+    await wait(200);
+  }
 
   function finish() {
     const passed = results.filter((r) => r.ok).length;

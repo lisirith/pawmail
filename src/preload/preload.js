@@ -5,7 +5,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 // 后台 → 画面 允许的消息种类
-const INBOUND = new Set(['cursor', 'settings', 'command', 'system', 'save-now']);
+const INBOUND = new Set(['cursor', 'settings', 'command', 'system', 'save-now', 'mail']);
 
 contextBridge.exposeInMainWorld('pawmail', {
   /** 启动时取一次：设置、存档、所有语言的文字 */
@@ -15,6 +15,10 @@ contextBridge.exposeInMainWorld('pawmail', {
   savePet: (state) => ipcRenderer.send('pawmail:save-pet', state),
   setSetting: (key, value) => ipcRenderer.send('pawmail:set-setting', key, value),
   setTrayIcon: (dataUrl) => ipcRenderer.send('pawmail:tray-icon', dataUrl),
+  /** 打开信纸窗口（有没拆的信就直接打开那封） */
+  openMail: () => ipcRenderer.send('pawmail:open-mail'),
+  /** 记一次互动：'pet' 摸头 | 'poke' 戳 | 'throw' 扔 | 'dizzy' 弄晕 */
+  stat: (kind) => ipcRenderer.send('pawmail:stat', String(kind)),
   quit: () => ipcRenderer.send('pawmail:quit'),
   log: (...args) => ipcRenderer.send('pawmail:log', args.map((a) => String(a)).join(' ')),
   on: (channel, callback) => {

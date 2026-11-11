@@ -25,6 +25,7 @@ const COOLDOWN = {
   hop: 150,
   chase: 90,
   seekUser: 900,
+  showMail: 150, // 手里有信没拆时，大约每两三分钟举起来提醒一次
 };
 
 /** 现在有多"深夜"：白天是 0，晚上 11 点开始升高，凌晨 0~6 点是 1，早上 8 点回到 0 */
@@ -37,11 +38,13 @@ export function nightFactor(date = new Date()) {
 }
 
 export class Brain {
-  constructor({ pet, world, say, saved, clock }) {
+  constructor({ pet, world, say, saved, clock, stat }) {
     this.pet = pet;
     this.world = world;
     this.sayFn = say || (() => {});
     this.clock = clock || (() => new Date()); // 现在几点（模拟测试时可以换成假的时钟）
+    this.stat = stat || (() => {}); // 记一次互动（摸头、戳、弄晕），第二天的信里会提到
+    this.hasMail = false; // 手里有没有一封等你拆的信
 
     this.needs = { energy: 0.85, boredom: 0.25, social: 0.35 };
     this.mood = 0.65;
@@ -204,6 +207,7 @@ export class Brain {
     this.stroke = this.stroke * Math.pow(0.35, dt) + (over ? Math.min(p.speed, 900) * dt : 0);
     const was = this.petting;
     this.petting = over && this.stroke > (was ? 35 : 110) * S;
+    if (this.petting && !was) this.stat('pet');
     if (this.petting && !was && !REACTIVE.has(this.name) && this.name !== 'sleep' && this.name !== 'petted') {
       this.start('petted');
     }
@@ -233,6 +237,10 @@ export class Brain {
     }
     if (this.userAway && this.t > 2) {
       this.start('sleep', { minDur: 20 });
+      return;
+    }
+    if (this.hasMail && !this.userAway && this.#cooldown('showMail') >= 1 && chance(0.25)) {
+      this.start('showMail', { say: chance(0.3) }); // 信还没拆：再举起来提醒一下
       return;
     }
     if (this.curiosity > 0.5 && this.#canChase() && chance(0.3)) {
@@ -315,8 +323,23 @@ export class Brain {
     if (this.pet.mode === 'air') this.start('falling');
   }
 
+  /**
+   * 信的情况变了。unread = 还有几封没拆；fresh = 是不是刚刚新来了一封。
+   * 有没拆的信时，它会把信抱在手里，并且时不时举起来提醒你。
+   */
+  onMail(unread, fresh) {
+    const had = this.hasMail;
+    this.hasMail = unread > 0;
+    this.pet.carry = this.hasMail;
+    if (this.hasMail && (fresh || !had)) {
+      this.queue.push(['showMail', { say: true }]);
+      if (this.name === 'sleep' && !this.current.forced) this.start('wake'); // 有信来了，醒一醒
+    }
+  }
+
   onLand(impact, dizzy) {
     if (dizzy) {
+      this.stat('dizzy');
       this.reward({ mood: -0.05 });
       this.start('dizzy');
     } else {
@@ -330,6 +353,7 @@ export class Brain {
     if (pet.mode !== 'ground' || this.name === 'arrive') return;
     const now = this.world.time;
     pet.squashSpring.kick(2.4);
+    this.stat('poke');
     this.reward({ social: -0.06, boredom: -0.12 });
     if (this.name === 'annoyed' || this.name === 'dizzy') return;
     if (this.name === 'sleep') {

@@ -1,6 +1,8 @@
 {
   "appName": "Pawmail",
   "menu": {
+    "mailbox": "Mailbox",
+    "mailboxUnread": "Mailbox ({n} new)",
     "animal": "Animal",
     "cat": "Cat",
     "panda": "Panda",
@@ -14,6 +16,10 @@
     "medium": "M",
     "large": "L",
     "language": "Language",
+    "autoStart": "Start at login",
+    "autoStartLong": "Start when I sign in",
+    "on": "On",
+    "off": "Off",
     "sleep": "Put to sleep",
     "wake": "Wake up",
     "comeBack": "Call it back",
@@ -27,6 +33,7 @@
     "dizzy": ["Dizzy...", "Everything's spinning...", "@_@"],
     "caught": ["Gotcha!", "Ha!"],
     "lonely": ["Play with me~", "Look at me~"],
+    "mail": ["You've got pawmail! Click me~", "A letter for you! Click me~", "Look, mail for you!"],
     "cat": {
       "hello": ["Meow~", "Hi!", "I'm here~"],
       "caught": ["Gotcha!", "Meow!"]
@@ -34,5 +41,33 @@
     "panda": {
       "hello": ["Hi!", "I'm here~", "Mm-hm~"]
     }
+  },
+  "mail": {
+    "title": "Pawmail",
+    "tabLetter": "Letter",
+    "tabBox": "Mailbox",
+    "tabAlbum": "Album",
+    "close": "Close",
+    "openHint": "Click to open this letter",
+    "from": "From",
+    "newGift": "New!",
+    "noLetters": "No letters yet. Check back tomorrow.",
+    "unread": "Unopened",
+    "prev": "Older",
+    "next": "Newer",
+    "save": "Save as postcard",
+    "copy": "Copy image",
+    "saved": "Saved to Pictures\\Pawmail",
+    "copied": "Copied. Paste it to a friend",
+    "failed": "That didn't work. Try again?",
+    "collected": "Collected {have} / {total}",
+    "unknownGift": "Not found yet",
+    "nameTitle": "First, give it a name",
+    "nameHint": "Every letter will be signed with this name. You can change it later.",
+    "namePlaceholder": "Its name is…",
+    "nameOk": "That's the one",
+    "rename": "Rename",
+    "suggestions": ["Mochi", "Dango", "Biscuit", "Pudding", "Peanut"],
+    "postcardFooter": "Pawmail · a desktop pet that writes to you every day"
   }
 }

@@ -79,7 +79,16 @@ async function main() {
   const pet = new Pet(getSpecies(settings.species), world);
   const bubble = new Bubble(document.getElementById('bubble'));
   const say = (key, seconds) => bubble.say(i18n.line(key, pet.sp.id), seconds);
-  const brain = new Brain({ pet, world, say, saved: init.pet });
+  const brain = new Brain({ pet, world, say, saved: init.pet, stat: (kind) => bridge.stat(kind) });
+
+  // 来信：后台告诉我们还有几封没拆。有没拆的信时，它会把信抱在手里。
+  let mail = { unread: 0, total: 0, ...(init.mail || {}) };
+  bridge.on('mail', (next) => {
+    const fresh = next.unread > mail.unread;
+    mail = { ...mail, ...next };
+    brain.onMail(mail.unread, fresh);
+    if (menu.isOpen) menu.render(buildMenu());
+  });
 
   // ------------------------------------------------------------ 画布
 
@@ -99,7 +108,7 @@ async function main() {
   // 和画得复杂不复杂、窗口大不大都没关系。所以宠物发呆时那些不到 1 个像素的细微变化
   // （呼吸、尾巴慢慢摆）先攒着，攒够大约 1 个像素再画。动作快的时候自然每帧都画，不受影响。
   const REDRAW_PX = 0.75; // 物理像素
-  const drawn = { pose: makePose(), rot: 0, species: null, mode: '', k: 0, fx: 0, at: 0, transform: '' };
+  const drawn = { pose: makePose(), rot: 0, species: null, mode: '', k: 0, fx: 0, at: 0, transform: '', carry: false, carryLift: 0 };
   let redraws = 0;
 
   function render(nowMs) {
@@ -112,6 +121,8 @@ async function main() {
       drawn.mode !== pet.mode ||
       drawn.k !== k ||
       drawn.fx !== fxCount ||
+      drawn.carry !== pet.carry ||
+      Math.abs(pet.carryLift - drawn.carryLift) * 70 * k > REDRAW_PX ||
       poseDistance(O, drawn.pose) * k > REDRAW_PX ||
       Math.abs(pet.rot - drawn.rot) * 120 * k > REDRAW_PX ||
       // 飘着的特效：宠物安静时每秒画 12 次就够了，其余时候每秒 30 次
@@ -128,6 +139,8 @@ async function main() {
       drawn.mode = pet.mode;
       drawn.k = k;
       drawn.fx = fxCount;
+      drawn.carry = pet.carry;
+      drawn.carryLift = pet.carryLift;
       drawn.at = nowMs;
       redraws += 1;
     }
@@ -139,7 +152,8 @@ async function main() {
       drawn.transform = transform;
       canvas.style.transform = transform;
     }
-    bubble.update(pet.x, pet.y + (pet.headTop() - 6) * S, world.width);
+    // 气泡在头顶上方；它把信举起来的时候，气泡再往上让一让，别挡住信
+    bubble.update(pet.x, pet.y + (pet.headTop() - 6 - (pet.carry ? pet.carryLift * 32 : 0)) * S, world.width);
   }
 
   window.addEventListener('resize', () => {
@@ -214,9 +228,16 @@ async function main() {
     document.body.classList.remove('dragging');
     if (wasDragging) {
       const v = cancelled ? { x: 0, y: 0 } : releaseVelocity();
+      if (Math.hypot(v.x, v.y) > 700 * world.scale) bridge.stat('throw'); // 带着速度松手 = 把它扔出去了
       pet.release(v.x, v.y);
       brain.onRelease();
     } else if (!cancelled) {
+      if (mail.unread > 0 && pet.mode === 'ground') {
+        // 手里有信：点它 = 拆信
+        bridge.openMail();
+        brain.start('hop', { count: 1 });
+        return;
+      }
       const isDouble = world.time - lastClickAt < 0.38;
       lastClickAt = isDouble ? -Infinity : world.time;
       brain.onClick(isDouble);
@@ -301,6 +322,7 @@ async function main() {
     onAction: (id) => {
       menu.close();
       if (id === 'toggleSleep') brain.command(brain.asleep ? 'wake' : 'sleep');
+      else if (id === 'mail') bridge.openMail();
       else if (id === 'quit') {
         save();
         bridge.quit();
@@ -310,7 +332,10 @@ async function main() {
 
   function buildMenu() {
     const t = i18n.t;
+    const mailLabel = mail.unread > 0 ? t('menu.mailboxUnread').replace('{n}', mail.unread) : t('menu.mailbox');
     return [
+      { type: 'action', id: 'mail', label: `📬 ${mailLabel}` },
+      { type: 'separator' },
       {
         type: 'choice',
         key: 'species',
@@ -350,6 +375,16 @@ async function main() {
         options: [
           { value: 'zh', label: '中文' },
           { value: 'en', label: 'English' },
+        ],
+      },
+      {
+        type: 'choice',
+        key: 'autoStart',
+        label: t('menu.autoStart'),
+        value: !!settings.autoStart,
+        options: [
+          { value: true, label: t('menu.on') },
+          { value: false, label: t('menu.off') },
         ],
       },
       { type: 'separator' },
@@ -497,6 +532,7 @@ async function main() {
   brain.start('arrive', { from, tx });
   const firstRun = !settings.firstRunDone;
   brain.queue.push(['greet', { line: firstRun ? 'firstRun' : 'hello', sayFor: firstRun ? 7 : 2.4, dur: firstRun ? 2.6 : 1.9 }]);
+  brain.onMail(mail.unread, false); // 启动时就有没拆的信：打完招呼后把信举给你看
   if (firstRun) bridge.setSetting('firstRunDone', true);
 
   bridge.setTrayIcon(makeTrayIcon(pet.sp));

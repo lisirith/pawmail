@@ -1,20 +1,24 @@
 'use strict';
 // 后台主程序（Electron 的"主进程"）。负责所有要和 Windows 打交道的事：
-// 创建透明窗口、托盘图标、读写存档、知道你有没有在用电脑。
+// 创建透明窗口、托盘图标、读写存档、知道你有没有在用电脑、收发每天的来信。
 // 以后如果想把 Electron 换成别的技术，主要重写 src/main/ 这个文件夹；画面部分（src/renderer/）可以原样保留。
 //
 // 启动参数（开发用）：
-//   --dev                 显示调试面板，并在控制台打印诊断信息
+//   --dev                 在控制台打印诊断信息（它在做什么、为什么）
 //   --devtools            同时打开开发者工具
 //   --userdata=<文件夹>   把存档放到别的文件夹（测试时不会弄乱你真正的存档）
 //   --selftest=<文件夹>   自动检查一遍关键功能，把结果和截图写到这个文件夹，然后退出
 //   --no-gpu              关闭显卡加速（排查画面问题时用）
+//   --x-hud               在屏幕上显示状态面板
+//   --x-newday            假装现在是"明天"（马上收到一封新的来信，测试用）
 
 const { app, ipcMain, powerMonitor, screen } = require('electron');
 const path = require('node:path');
 const { Store, LANGUAGES, isValidSetting, sanitizePet } = require('./store');
 const { Overlay } = require('./overlay');
 const { PetTray } = require('./tray');
+const { Mail } = require('./mail');
+const { logicalDay } = require('./letters');
 const native = require('./native');
 
 const args = process.argv.slice(1);
@@ -24,6 +28,7 @@ const flag = (name) => {
 };
 const SELFTEST_DIR = app.isPackaged ? null : flag('selftest');
 const DEV = args.includes('--dev') || !!SELFTEST_DIR;
+const TEST_PROFILE = !!flag('userdata'); // 用的是测试存档：不去动系统设置（比如开机启动项）
 
 if (flag('userdata')) app.setPath('userData', path.resolve(flag('userdata')));
 if (args.includes('--no-gpu')) app.disableHardwareAcceleration();
@@ -36,7 +41,12 @@ const STRINGS = {
 let store = null;
 let overlay = null;
 let tray = null;
+let mail = null;
 let quitting = false;
+
+/** 现在的时间。开发时加 --x-newday 会让它快一天，用来马上看到"第二天的来信"。 */
+const clockOffset = DEV && args.includes('--x-newday') ? 24 * 3600 * 1000 : 0;
+const nowMs = () => Date.now() + clockOffset;
 
 // ---------------------------------------------------------------- 设置和文字
 
@@ -51,19 +61,34 @@ function effectiveSettings() {
   return { ...store.data.settings, language: currentLanguage() };
 }
 
-function t(key) {
+function t(key, params) {
   const dig = (obj) => key.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
-  return dig(STRINGS[currentLanguage()]) ?? dig(STRINGS.en) ?? key;
+  const text = dig(STRINGS[currentLanguage()]) ?? dig(STRINGS.en) ?? key;
+  return params ? String(text).replace(/\{(\w+)\}/g, (whole, k) => (params[k] === undefined ? whole : params[k])) : text;
+}
+
+function applyAutoStart(enabled) {
+  if (TEST_PROFILE) return;
+  // 开发版是"用 electron.exe 打开这个文件夹"，所以要把文件夹路径作为参数一起登记。
+  // 注意：路径不要自己加引号，Electron 会自动加（实测：自己再加一层，开机时就找不到文件夹了）。
+  app.setLoginItemSettings({
+    openAtLogin: enabled,
+    path: process.execPath,
+    args: app.isPackaged ? [] : [app.getAppPath()],
+  });
 }
 
 function setSetting(key, value) {
+  if (key === 'petName' && typeof value === 'string') value = value.trim();
   if (!isValidSetting(key, value)) return;
   if (store.data.settings[key] === value) return;
   store.data.settings[key] = value;
   store.saveSoon();
   if (key === 'displayMode') overlay.setDisplayMode(value);
+  if (key === 'autoStart') applyAutoStart(value);
   overlay.send('settings', effectiveSettings());
   if (tray) tray.refresh();
+  if (mail && (key === 'language' || key === 'species' || key === 'petName')) mail.refresh();
 }
 
 // ---------------------------------------------------------------- 退出
@@ -78,7 +103,66 @@ function quit() {
   }, 250);
 }
 
-// ---------------------------------------------------------------- 画面发来的消息
+// ---------------------------------------------------------------- 你在不在用电脑、和它玩了几次
+
+/** 今天的使用记录（没有就新建一条） */
+function todayRecord(now) {
+  const usage = store.data.usage;
+  const day = logicalDay(now);
+  if (!usage[day]) {
+    usage[day] = { first: now, last: now, activeMin: 0, pets: 0, pokes: 0, throws: 0, dizzies: 0 };
+    const days = Object.keys(usage).sort();
+    while (days.length > 60) delete usage[days.shift()]; // 只留最近 60 天
+  }
+  return usage[day];
+}
+
+let usageTickAt = 0;
+/**
+ * 每分钟记一笔：今天第一次用电脑是几点、最后一次是几点、一共用了多少分钟。
+ * 第二天的来信会用到（比如"你昨天三点才睡哦"）。
+ * 只记"有没有在用"，不记你做了什么、按了什么键；数据只存在本机。
+ */
+function trackUsage(idleSeconds) {
+  const now = nowMs();
+  if (now - usageTickAt < 60000) return;
+  usageTickAt = now;
+  if (idleSeconds >= 60) return; // 这一分钟你没碰电脑
+  const record = todayRecord(now);
+  record.last = now;
+  record.activeMin += 1;
+  store.saveSoon();
+}
+
+const STAT_FIELDS = { pet: 'pets', poke: 'pokes', throw: 'throws', dizzy: 'dizzies' };
+/** 记一次互动：摸头、戳、扔、弄晕。信里会提到（"昨天你把我扔了 5 次"）。 */
+function bumpStat(kind) {
+  const field = STAT_FIELDS[kind];
+  if (!field) return;
+  const now = nowMs();
+  const record = todayRecord(now);
+  record[field] += 1;
+  record.last = now;
+  store.saveSoon();
+}
+
+function startSystemWatch() {
+  setInterval(() => {
+    const idle = powerMonitor.getSystemIdleTime(); // 你已经多少秒没碰鼠标键盘了
+    overlay.send('system', { idle });
+    trackUsage(idle);
+    mail.check(nowMs(), idle < 120); // 新的一天、而且你在电脑前：来信
+  }, 5000);
+  powerMonitor.on('lock-screen', () => overlay.pause());
+  powerMonitor.on('unlock-screen', () => overlay.resume());
+  powerMonitor.on('suspend', () => {
+    overlay.pause();
+    store.saveNow();
+  });
+  powerMonitor.on('resume', () => overlay.resume());
+}
+
+// ---------------------------------------------------------------- 宠物窗口发来的消息
 
 function registerIpc() {
   // 只接受我们自己那个窗口发来的消息
@@ -89,6 +173,7 @@ function registerIpc() {
     return {
       settings: effectiveSettings(),
       pet: store.data.pet,
+      mail: mail.summary(),
       strings: STRINGS,
       dev: DEV,
       flags: DEV ? args.filter((a) => a.startsWith('--x-')).map((a) => a.slice(4)) : [], // 开发实验用的开关
@@ -121,6 +206,14 @@ function registerIpc() {
     }
   });
 
+  ipcMain.on('pawmail:open-mail', (event) => {
+    if (fromOverlay(event)) mail.open();
+  });
+
+  ipcMain.on('pawmail:stat', (event, kind) => {
+    if (fromOverlay(event)) bumpStat(kind);
+  });
+
   ipcMain.on('pawmail:quit', (event) => {
     if (fromOverlay(event)) quit();
   });
@@ -130,51 +223,6 @@ function registerIpc() {
   });
 }
 
-// ---------------------------------------------------------------- 你在不在用电脑
-
-/** 凌晨 4 点之前算作"前一天"：熬夜到 2 点，那还是今天的事 */
-function logicalDay(now) {
-  const d = new Date(now - 4 * 3600 * 1000);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-let usageTickAt = 0;
-/**
- * 每分钟记一笔：今天第一次用电脑是几点、最后一次是几点、一共用了多少分钟。
- * 以后的"每日来信"会用到（比如"你昨天三点才睡哦"）。
- * 只记"有没有在用"，不记你做了什么、按了什么键；数据只存在本机。
- */
-function trackUsage(idleSeconds) {
-  const now = Date.now();
-  if (now - usageTickAt < 60000) return;
-  usageTickAt = now;
-  if (idleSeconds >= 60) return; // 这一分钟你没碰电脑
-  const usage = store.data.usage;
-  const day = logicalDay(now);
-  const record = usage[day] || (usage[day] = { first: now, last: now, activeMin: 0 });
-  record.last = now;
-  record.activeMin += 1;
-  const days = Object.keys(usage).sort();
-  while (days.length > 60) delete usage[days.shift()]; // 只留最近 60 天
-  store.saveSoon();
-}
-
-function startSystemWatch() {
-  setInterval(() => {
-    const idle = powerMonitor.getSystemIdleTime(); // 你已经多少秒没碰鼠标键盘了
-    overlay.send('system', { idle });
-    trackUsage(idle);
-  }, 5000);
-  powerMonitor.on('lock-screen', () => overlay.pause());
-  powerMonitor.on('unlock-screen', () => overlay.resume());
-  powerMonitor.on('suspend', () => {
-    overlay.pause();
-    store.saveNow();
-  });
-  powerMonitor.on('resume', () => overlay.resume());
-}
-
 // ---------------------------------------------------------------- 启动
 
 function start() {
@@ -182,6 +230,23 @@ function start() {
 
   store = new Store(path.join(app.getPath('userData'), 'save.json'));
   store.load();
+
+  mail = new Mail({
+    store,
+    dev: DEV,
+    getContext: () => {
+      const lang = currentLanguage();
+      return { lang, name: store.data.settings.petName, species: store.data.settings.species, ui: STRINGS[lang].mail };
+    },
+    setName: (name) => setSetting('petName', name),
+    onChange: () => {
+      store.saveSoon();
+      if (overlay) overlay.send('mail', mail.summary()); // 告诉宠物：有（或没有）没拆的信
+      if (tray) tray.refresh();
+    },
+  });
+  mail.register();
+  mail.check(nowMs(), true); // 刚启动 = 你在电脑前。第一次运行会马上有一封"见面信"
 
   registerIpc();
 
@@ -201,7 +266,7 @@ function start() {
     if (args.includes('--devtools')) overlay.win.webContents.openDevTools({ mode: 'detach', activate: false });
     if (SELFTEST_DIR) {
       require('./selftest')
-        .run({ overlay, outDir: path.resolve(SELFTEST_DIR), setSetting })
+        .run({ overlay, mail, store, outDir: path.resolve(SELFTEST_DIR), setSetting })
         .catch((err) => console.error('[selftest] 出错：', err))
         .finally(quit);
     }
@@ -209,9 +274,10 @@ function start() {
   overlay.create(store.data.settings.displayMode);
 
   tray = new PetTray({
-    getModel: () => ({ t, settings: effectiveSettings() }),
+    getModel: () => ({ t, settings: effectiveSettings(), mail: mail.summary() }),
     onSet: setSetting,
     onCommand: (type) => overlay.send('command', { type }),
+    onOpenMail: () => mail.open(),
     onQuit: quit,
   });
   tray.create();
@@ -232,6 +298,7 @@ function logDiagnostics() {
       nativeHelpers: native.available,
       userData: app.getPath('userData'),
       language: currentLanguage(),
+      mail: mail.summary(),
     })
   );
 }
@@ -248,7 +315,7 @@ if (!app.requestSingleInstanceLock()) {
     if (store) store.saveNow();
   });
   app.on('window-all-closed', () => {
-    if (!quitting) return; // 画面崩溃重开的间隙，不要退出整个程序
+    if (!quitting) return; // 画面崩溃重开的间隙、或者只是关了信纸窗口：不要退出整个程序
     app.quit();
   });
   app.whenReady().then(start);

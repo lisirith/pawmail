@@ -51,7 +51,11 @@ export class Pet {
       breathDepth: 1,
       blink: true,
       fps: 30, // 这个动作需要多流畅
+      carryLift: 0, // 手里的信举多高：0 抱在胸前 … 1 举过头顶
     };
+
+    this.carry = false; // 手里有没有一封等你拆的信
+    this.carryLift = 0;
 
     this.sleepy = 0; // 0…1：越困眼皮越重、眨眼越慢
     this.blink = { wait: rand(1, 3), t: -1, dur: 0.16, again: false };
@@ -83,6 +87,7 @@ export class Pet {
     s.breathDepth = 1;
     s.blink = true;
     s.fps = 30;
+    s.carryLift = 0;
   }
 
   finish(dt) {
@@ -90,6 +95,7 @@ export class Pet {
     const steps = this.mode === 'ground' ? 1 : Math.max(1, Math.ceil(dt / 0.02));
     for (let i = 0; i < steps; i++) this.#physics(dt / steps);
     this.#micro(dt);
+    this.carryLift = damp(this.carryLift, this.carry ? this.style.carryLift : 0, 0.07, dt);
 
     const P = this.pose;
     const T = this.target;
@@ -151,6 +157,12 @@ export class Pet {
     T.tail += wobble(t * s.tailSpeed, this.seed + 3) * s.tailAmp;
     if (Math.abs(T.facing) > 0.3) T.tailSide = -sign(T.facing);
     else T.tailSide = this.pose.tailSide >= 0 ? 1 : -1;
+
+    // 手里有信、而这个动作又没用到手：两只手把信抱在胸前
+    if (this.carry && this.mode === 'ground' && T.armL === 0 && T.armR === 0 && T.loaf < 0.5) {
+      T.armL = -0.75;
+      T.armR = -0.75;
+    }
 
     // 困的时候眼皮下垂
     if (this.sleepy > 0.05 && T.eyes === 'open') {
@@ -413,7 +425,12 @@ export class Pet {
     ctx.translate(RIG.anchorX, RIG.anchorY);
     ctx.save();
     ctx.rotate(this.rot);
-    drawPet(ctx, this.sp, this.out, { time: this.time, shadow: this.mode === 'ground' });
+    drawPet(ctx, this.sp, this.out, {
+      time: this.time,
+      shadow: this.mode === 'ground',
+      carry: this.carry,
+      carryLift: this.carryLift,
+    });
     ctx.restore();
     this.fx.draw(ctx);
     ctx.restore();

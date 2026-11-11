@@ -1,0 +1,556 @@
+/* 信纸窗口的样子。窗口本身是透明的，中间这张圆角卡片（#card）才是看得见的部分。 */
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  color: #4b2f1c;
+  font-family: 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', sans-serif;
+  font-size: 14px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+body.preview {
+  background: #8a93a3;
+}
+body.preview #card {
+  left: 14px;
+  top: 14px;
+  right: auto;
+  bottom: auto;
+  width: 444px;
+  height: 672px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+#card {
+  position: absolute;
+  inset: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fffaf2;
+  border: 2px solid #5b3a24;
+  border-radius: 20px;
+  box-shadow: 0 6px 16px rgba(40, 20, 5, 0.3);
+}
+
+/* ---------- 顶栏（按住可以拖动窗口） ---------- */
+
+#bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #f6e6cf;
+  border-bottom: 2px solid #5b3a24;
+  -webkit-app-region: drag;
+}
+#bar button {
+  -webkit-app-region: no-drag;
+}
+#avatar {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+#pet-name {
+  max-width: 96px;
+  padding: 3px 6px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#pet-name:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+#tabs {
+  display: flex;
+  margin-left: auto;
+  padding: 2px;
+  background: #ead7ba;
+  border-radius: 10px;
+}
+#tabs button {
+  position: relative;
+  padding: 4px 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  white-space: nowrap;
+}
+#tabs button:hover {
+  background: rgba(255, 255, 255, 0.55);
+}
+#tabs button.active {
+  background: #f5a652;
+  font-weight: 700;
+}
+#tabs .dot {
+  position: absolute;
+  right: 2px;
+  top: 1px;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid #fffaf2;
+  border-radius: 50%;
+  background: #ff5a5a;
+}
+#close {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+}
+#close:hover {
+  background: #ffd9d2;
+  color: #b3261e;
+}
+
+#main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.view {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+}
+.view::-webkit-scrollbar {
+  width: 8px;
+}
+.view::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: #e2cfb3;
+}
+.empty {
+  padding: 80px 30px;
+  color: #9a7b5a;
+  text-align: center;
+}
+
+/* ---------- 没拆的信 ---------- */
+
+.sealed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  height: 100%;
+}
+.sealed-date {
+  color: #9a7b5a;
+}
+.sealed-envelope {
+  width: 300px;
+  height: 210px;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 10px rgba(40, 20, 5, 0.22));
+  animation: wiggle 2.6s ease-in-out infinite;
+}
+.sealed-envelope:hover {
+  animation-duration: 0.9s;
+}
+.sealed-hint {
+  padding: 7px 16px;
+  border: 2px solid #5b3a24;
+  border-radius: 14px;
+  background: #fffdf8;
+  font-weight: 600;
+}
+.sealed.opening .sealed-envelope {
+  animation: open-up 0.52s ease-in forwards;
+}
+.sealed.opening .sealed-hint,
+.sealed.opening .sealed-date {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-2.5deg);
+  }
+  50% {
+    transform: rotate(2.5deg) translateY(-4px);
+  }
+}
+@keyframes open-up {
+  0% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
+  35% {
+    transform: scale(1.12) rotate(-4deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.75) translateY(60px) rotate(6deg);
+    opacity: 0;
+  }
+}
+
+/* ---------- 拆开的信 ---------- */
+
+.paper {
+  padding: 14px 16px 0;
+}
+.paper.reveal {
+  animation: reveal 0.5s ease-out;
+}
+@keyframes reveal {
+  from {
+    transform: translateY(26px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.photo {
+  display: block;
+  width: 408px;
+  height: 190px;
+  border: 2px solid #5b3a24;
+  border-radius: 14px;
+}
+.letter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 12px 2px 6px;
+  padding-bottom: 8px;
+  border-bottom: 2px dashed #e3cfb2;
+}
+.letter-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+.letter-title small {
+  margin-right: 6px;
+  color: #9a7b5a;
+  font-size: 13px;
+  font-weight: 400;
+}
+.letter-date {
+  flex: none;
+  color: #9a7b5a;
+  font-size: 13px;
+}
+.letter-body {
+  padding: 0 4px;
+  font-family: 'Segoe Print', 'KaiTi', 'STKaiti', 'Microsoft YaHei UI', cursive, sans-serif;
+  font-size: 17px;
+  line-height: 1.75;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.letter-body p {
+  margin: 0 0 6px;
+}
+.gift {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 4px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: #fdefd6;
+}
+.gift-emoji {
+  font-family: 'Segoe UI Emoji', sans-serif;
+  font-size: 30px;
+  line-height: 1;
+}
+.gift-text {
+  flex: 1;
+  font-family: 'Segoe Print', 'KaiTi', 'STKaiti', 'Microsoft YaHei UI', cursive, sans-serif;
+  font-size: 16px;
+}
+.chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.chip.rare {
+  background: #3f8ae0;
+}
+.chip.legendary {
+  background: #e09a00;
+}
+.chip.new {
+  background: #ff5a5a;
+  animation: pop 0.5s ease-out 0.45s backwards;
+}
+@keyframes pop {
+  from {
+    transform: scale(0);
+  }
+  70% {
+    transform: scale(1.25);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+.sign {
+  margin: 8px 6px 0;
+  font-family: 'Segoe Print', 'KaiTi', 'STKaiti', 'Microsoft YaHei UI', cursive, sans-serif;
+  font-size: 18px;
+  text-align: right;
+}
+.actions {
+  /* 信很长需要滚动时，这排按钮始终贴在窗口底部 */
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 10px 0 12px;
+  border-top: 2px dashed #e3cfb2;
+  background: #fffaf2;
+}
+.actions .spacer {
+  flex: 1;
+}
+.btn {
+  padding: 6px 12px;
+  border: 2px solid #5b3a24;
+  border-radius: 11px;
+  background: #fffdf8;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) {
+  background: #f3e6d3;
+}
+.btn.primary {
+  background: #f5a652;
+  font-weight: 700;
+}
+.btn.primary:hover:not(:disabled) {
+  background: #f7b56d;
+}
+.btn.ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.btn:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+/* ---------- 信箱 ---------- */
+
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+}
+.box-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 2px solid #ead9c2;
+  border-radius: 14px;
+  background: #fffdf8;
+  text-align: left;
+}
+.box-item:hover {
+  border-color: #5b3a24;
+}
+.box-item.unread {
+  border-color: #f5a652;
+  background: #fff4e0;
+}
+.box-icon {
+  width: 34px;
+  flex: none;
+  font-family: 'Segoe UI Emoji', sans-serif;
+  font-size: 24px;
+  text-align: center;
+}
+.box-text {
+  flex: 1;
+  min-width: 0;
+}
+.box-title {
+  font-weight: 700;
+}
+.box-preview {
+  overflow: hidden;
+  color: #9a7b5a;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.box-date {
+  flex: none;
+  color: #9a7b5a;
+  font-size: 12px;
+}
+
+/* ---------- 礼物图鉴 ---------- */
+
+.album-head {
+  padding: 14px 16px 4px;
+  font-weight: 700;
+}
+.album {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 8px 12px 14px;
+}
+.album-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-height: 86px;
+  padding: 8px 4px 6px;
+  border: 2px solid #ead9c2;
+  border-radius: 14px;
+  background: #fffdf8;
+  text-align: center;
+}
+.album-item.rare {
+  border-color: #9cc4f2;
+}
+.album-item.legendary {
+  border-color: #f0c35a;
+  background: #fff8e1;
+}
+.album-item.missing {
+  border-style: dashed;
+  background: transparent;
+  color: #c9b79d;
+}
+.album-emoji {
+  font-family: 'Segoe UI Emoji', sans-serif;
+  font-size: 28px;
+  line-height: 1.15;
+}
+.album-name {
+  font-size: 11.5px;
+  line-height: 1.25;
+}
+.album-count {
+  color: #9a7b5a;
+  font-size: 11px;
+}
+
+/* ---------- 提示条和起名字 ---------- */
+
+#toast {
+  position: absolute;
+  left: 50%;
+  bottom: 62px;
+  padding: 7px 14px;
+  border-radius: 12px;
+  background: rgba(60, 38, 20, 0.92);
+  color: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(6px);
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%);
+}
+
+#naming {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(60, 38, 20, 0.45);
+}
+#naming[hidden] {
+  display: none;
+}
+.naming-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 300px;
+  padding: 18px 18px 16px;
+  border: 2px solid #5b3a24;
+  border-radius: 18px;
+  background: #fffaf2;
+  text-align: center;
+}
+.naming-face {
+  width: 84px;
+  height: 84px;
+}
+.naming-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+.naming-hint {
+  color: #9a7b5a;
+  font-size: 12.5px;
+}
+.naming-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid #5b3a24;
+  border-radius: 12px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  text-align: center;
+  outline: none;
+}
+.naming-input:focus {
+  border-color: #f5a652;
+}
+.naming-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.naming-chips button {
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: #f3e6d3;
+}
+.naming-chips button:hover {
+  background: #f5a652;
+}

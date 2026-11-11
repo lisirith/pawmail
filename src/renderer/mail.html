@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pawmail</title>
+    <link rel="stylesheet" href="mail.css" />
+  </head>
+  <body>
+    <!-- 信纸窗口：读信、信箱、礼物图鉴。内容都由 js/mail/app.js 填进来 -->
+    <div id="card">
+      <header id="bar">
+        <canvas id="avatar" width="64" height="64"></canvas>
+        <button id="pet-name" type="button"></button>
+        <nav id="tabs"></nav>
+        <button id="close" type="button">×</button>
+      </header>
+      <main id="main"></main>
+      <div id="toast"></div>
+      <div id="naming" hidden></div>
+    </div>
+    <script type="module" src="js/mail/app.js"></script>
+  </body>
+</html>

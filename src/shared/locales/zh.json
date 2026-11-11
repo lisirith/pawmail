@@ -1,6 +1,8 @@
 {
   "appName": "爪爪来信",
   "menu": {
+    "mailbox": "信箱",
+    "mailboxUnread": "信箱（{n} 封新信）",
     "animal": "动物",
     "cat": "猫",
     "panda": "熊猫",
@@ -14,6 +16,10 @@
     "medium": "中",
     "large": "大",
     "language": "语言",
+    "autoStart": "开机启动",
+    "autoStartLong": "开机时自动启动",
+    "on": "开",
+    "off": "关",
     "sleep": "哄它睡觉",
     "wake": "叫醒它",
     "comeBack": "叫它回来",
@@ -27,6 +33,7 @@
     "dizzy": ["晕…", "天旋地转…", "@_@"],
     "caught": ["抓到啦！", "嘿！"],
     "lonely": ["陪我玩嘛～", "看看我嘛～"],
+    "mail": ["有你的信！点我拆开～", "信来啦！点我一下～", "快看，给你的信！"],
     "cat": {
       "hello": ["喵～", "嗨！", "我来啦～"],
       "caught": ["抓到啦！", "喵！"]
@@ -34,5 +41,33 @@
     "panda": {
       "hello": ["嗨！", "我来啦～", "嗯嘛～"]
     }
+  },
+  "mail": {
+    "title": "爪爪来信",
+    "tabLetter": "来信",
+    "tabBox": "信箱",
+    "tabAlbum": "图鉴",
+    "close": "关闭",
+    "openHint": "点一下，拆开这封信",
+    "from": "来自",
+    "newGift": "新！",
+    "noLetters": "还没有信。明天再来看看吧。",
+    "unread": "未拆",
+    "prev": "上一封",
+    "next": "下一封",
+    "save": "存成明信片",
+    "copy": "复制图片",
+    "saved": "已保存到“图片\\Pawmail”",
+    "copied": "已复制，可以直接粘贴发给朋友",
+    "failed": "没成功，再试一次？",
+    "collected": "已收集 {have} / {total}",
+    "unknownGift": "还没遇到",
+    "nameTitle": "先给它起个名字吧",
+    "nameHint": "以后每封信的落款都是这个名字，之后也能改。",
+    "namePlaceholder": "它叫……",
+    "nameOk": "就叫这个",
+    "rename": "改名字",
+    "suggestions": ["年糕", "团子", "汤圆", "麻薯", "布丁"],
+    "postcardFooter": "爪爪来信 Pawmail · 一只每天给你写信的桌面宠物"
   }
 }

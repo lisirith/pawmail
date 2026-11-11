@@ -441,17 +441,89 @@ function drawHead(ctx, sp, P, g, time) {
   ctx.restore();
 }
 
+/** 一封信（信封）。原点在信封中心。信纸窗口、明信片里也会用到。 */
+export function drawEnvelope(ctx, w = 30, h = 21) {
+  const x = -w / 2;
+  const y = -h / 2;
+  const r = 3;
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fillStyle = '#fffaf0';
+  ctx.fill();
+  ctx.strokeStyle = '#5b3a24';
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+  // 封口的 V 字
+  ctx.beginPath();
+  ctx.moveTo(x + 2, y + 2);
+  ctx.lineTo(0, y + h * 0.56);
+  ctx.lineTo(x + w - 2, y + 2);
+  ctx.lineWidth = 1.7;
+  ctx.stroke();
+  // 封口上的小红心
+  const s = Math.min(w, h) * 0.17;
+  ctx.translate(0, y + h * 0.6);
+  ctx.beginPath();
+  ctx.moveTo(0, s * 0.9);
+  ctx.bezierCurveTo(-s * 1.3, s * 0.05, -s * 0.75, -s * 0.95, 0, -s * 0.3);
+  ctx.bezierCurveTo(s * 0.75, -s * 0.95, s * 1.3, s * 0.05, 0, s * 0.9);
+  ctx.closePath();
+  ctx.fillStyle = '#ff6f8d';
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * 画它手里拿着的信。
+ * lift：0 = 抱在胸前，1 = 举过头顶（提醒你"有信"的时候）。趴下睡觉时，信放在身边的地上。
+ */
+function drawCarried(ctx, sp, P, g, lift) {
+  let x;
+  let y;
+  let rot;
+  if (g.loaf > 0.5) {
+    x = g.torsoRxBot + 13;
+    y = -9;
+    rot = 0.3;
+  } else {
+    const chestY = g.torsoCy + 1;
+    const topY = g.headCy - sp.head.ry - sp.earReach - 15;
+    x = g.torsoCx + (g.headCx - g.torsoCx) * lift;
+    y = chestY + (topY - chestY) * lift;
+    rot = -0.1 + lift * 0.1;
+  }
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  drawEnvelope(ctx);
+  ctx.restore();
+}
+
 /**
  * 画出整只宠物。
  * @param ctx   画布
  * @param sp    动物（见 species/）
  * @param P     姿势（见 pose.js）
- * @param opts  { time: 当前时间（秒，转圈眼睛用）, shadow: 是否画影子 }
+ * @param opts  { time: 当前时间（秒，转圈眼睛用）, shadow: 是否画影子,
+ *               carry: 手里有没有信, carryLift: 信举多高（0 胸前 … 1 头顶） }
  */
 export function drawPet(ctx, sp, P, opts = {}) {
   const pal = sp.palette;
   const g = getGeometry(sp, P);
   const time = opts.time || 0;
+  const carryLift = opts.carry ? clamp(opts.carryLift || 0, 0, 1) : -1; // -1 = 手里没东西
 
   ctx.save();
   ctx.lineJoin = 'round';
@@ -496,10 +568,14 @@ export function drawPet(ctx, sp, P, opts = {}) {
   if (!frontL) drawArm(ctx, sp, P, g, -1);
   if (!frontR) drawArm(ctx, sp, P, g, 1);
 
+  if (carryLift >= 0 && carryLift < 0.5) drawCarried(ctx, sp, P, g, carryLift); // 抱在胸前：在头的后面
+
   drawHead(ctx, sp, P, g, time);
 
   if (frontL) drawArm(ctx, sp, P, g, -1);
   if (frontR) drawArm(ctx, sp, P, g, 1);
+
+  if (carryLift >= 0.5) drawCarried(ctx, sp, P, g, carryLift); // 举起来：在最前面
 
   ctx.restore();
 }

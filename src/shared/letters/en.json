@@ -1,0 +1,321 @@
+{
+  "snack": { "cat": "dried fish", "panda": "bamboo" },
+
+  "openers": [
+    "After you shut the computer yesterday, I snuck off to {place}.",
+    "While you were away, I took a trip to {place}.",
+    "You were asleep, so I went to {place} by myself.",
+    "The moon was lovely last night, so I went out and walked all the way to {place}.",
+    "I went to {place} yesterday! I only meant to look around outside the door.",
+    "Here's a secret: yesterday I slipped away to {place}."
+  ],
+  "longOpeners": [
+    "For the {days} days you were gone, I went on a long trip to {place}.",
+    "I waited {days} days, then decided to go to {place} on my own.",
+    "{days} days apart. I walked all the way to {place}, the farthest I've ever been."
+  ],
+
+  "places": {
+    "seaside": {
+      "name": "the seaside",
+      "events": [
+        "The sand was so hot I walked on tiptoe. A crab followed me sideways the whole time. When I stopped, it stopped.",
+        "I chased the waves for ages. They ran, I chased. They came back, I ran. I still got one foot wet.",
+        "I pressed a row of paw prints into the sand. When I looked back, the sea had wiped them all away. How stingy."
+      ]
+    },
+    "lighthouse": {
+      "name": "the lighthouse",
+      "events": [
+        "The lighthouse stairs made me dizzy. I lost count at step eighty-seven.",
+        "The old keeper shared half a biscuit with me. He said the light stays on every night in case someone can't find the way home.",
+        "I shouted \"Hellooo\" at the sea. After a long while, the sea said it back."
+      ]
+    },
+    "harbor": {
+      "name": "the harbor",
+      "events": [
+        "When the fishing boats came in, there were more seagulls than people. One stole my lunch. I remember its face.",
+        "I tried to help pull a mooring rope. The rope pulled me three steps instead.",
+        "A kid fished all afternoon and caught one shoe. We both agreed it was a pretty good shoe."
+      ]
+    },
+    "hill": {
+      "name": "the little hill",
+      "events": [
+        "I rolled all the way down from the top. I only meant to roll once.",
+        "The wind on the hill blew all my fur to one side. I have a side parting now.",
+        "I lay there watching clouds all afternoon. One looked just like you, only rounder."
+      ]
+    },
+    "teaField": {
+      "name": "the tea field",
+      "events": [
+        "The tea picker said I was too short to reach. So my job was smelling.",
+        "The rows go up the mountain like someone combed its hair. I fell asleep on the third row.",
+        "I took a sip of tea. It was so bitter I squinted, and then a little later it tasted sweet."
+      ]
+    },
+    "hotSpring": {
+      "name": "the hot spring",
+      "events": [
+        "I only soaked my feet, because I wasn't sure whether I would shrink.",
+        "The monkeys by the spring all had their eyes closed. I copied them and really did fall asleep.",
+        "After the bath I was fluffy all over, one whole size bigger than usual."
+      ]
+    },
+    "riverside": {
+      "name": "the riverside",
+      "events": [
+        "I tried skipping stones. The stone didn't skip. I nearly did.",
+        "Someone was flying a kite by the river and the string snapped. We chased it a very long way together.",
+        "I dipped my feet in the river and little fish came to kiss them. It tickled."
+      ]
+    },
+    "flowerField": {
+      "name": "the flower field",
+      "events": [
+        "The flowers were taller than me. When I walked through, all anyone could see was flowers moving.",
+        "I sneezed three times, each one bigger than the last.",
+        "A butterfly landed on my nose. I didn't dare move, and went cross-eyed for a very long time."
+      ]
+    },
+    "mapleValley": {
+      "name": "the maple valley",
+      "events": [
+        "The whole mountain was red and gold. Every step went crunch, so I took a lot of extra steps.",
+        "I wanted to bring you the most perfect leaf. I looked all afternoon and couldn't put any of them down.",
+        "When the wind blew, leaves came down like rain. I waited with my mouth open and caught none."
+      ]
+    },
+    "bambooGrove": {
+      "name": "the bamboo grove",
+      "events": [
+        "The wind in the bamboo grove is green. I promise.",
+        "I hugged a bamboo stalk and shook it for a while. A very angry little bird fell out.",
+        "Bamboo grows so fast. When I sat down it reached my shoulder. When I stood up it was taller than me."
+      ]
+    },
+    "forest": {
+      "name": "the forest",
+      "events": [
+        "I followed a squirrel a long way, and then found out it was lost too.",
+        "There is one enormous tree in the forest. Walking around it took me twenty-six steps.",
+        "I stepped on a twig. It went snap and I scared myself."
+      ]
+    },
+    "orchard": {
+      "name": "the orchard",
+      "events": [
+        "The orchard man said I could pick anything. I picked the reddest one and it was the sourest.",
+        "I waited under a tree for fruit to fall by itself. One did. It landed on my head.",
+        "A bee followed me the whole way. I suspect I smell sweet."
+      ]
+    },
+    "park": {
+      "name": "the park",
+      "events": [
+        "I queued for the slide. The kids in front all said I could cut in. I didn't.",
+        "The pigeons in the park aren't scared of me at all. One of them stepped on my foot.",
+        "An old man was playing chess. I watched all afternoon and understood nothing, but I nodded a lot."
+      ]
+    },
+    "bookstore": {
+      "name": "the old bookshop",
+      "events": [
+        "I found a book with someone's cinema ticket tucked inside. It was ten years old.",
+        "The shopkeeper was dozing. I turned the pages very softly so I wouldn't wake him.",
+        "I can't read, but I looked carefully at the cover of every single book."
+      ]
+    },
+    "trainStation": {
+      "name": "the little train station",
+      "events": [
+        "I watched six trains leave from the platform. I waved at every one.",
+        "The ticket lady stamped the back of my paw. I'm not planning to wash it today.",
+        "When the train pulled in, the wind was so strong it blew my ears flat."
+      ]
+    },
+    "convenience": {
+      "name": "the corner shop downstairs",
+      "events": [
+        "The automatic door never opens for me. I had to jump three times before it noticed.",
+        "I stood by the hot food for a long time. The clerk asked what I wanted. I said I was only there to keep warm.",
+        "I put a coin in the capsule machine. Inside the capsule was another, smaller capsule."
+      ]
+    },
+    "nightMarket": {
+      "name": "the night market",
+      "events": [
+        "The night market smelled so good I had to stop every two steps. After an hour I had gone ten metres.",
+        "The ring-toss man said I'm not allowed to climb into the ring myself. That doesn't count.",
+        "I spent all my pocket money on one stick of candied fruit, and then couldn't reach the top one."
+      ]
+    },
+    "rooftop": {
+      "name": "the rooftop",
+      "events": [
+        "I was counting stars on the roof. Halfway through, one of them moved. It was a plane.",
+        "The city glows at night. I looked for a long time, trying to work out which light was yours.",
+        "Someone's quilt was drying on the roof and it smelled like sunshine. I only leaned on it for a little while."
+      ]
+    },
+    "observatory": {
+      "name": "the observatory",
+      "events": [
+        "The man at the observatory let me look through the telescope. The moon really does have holes. I thought someone had bitten it.",
+        "I asked how far away the stars are. He said the light I'm seeing was sent a very long time ago. Just like a letter.",
+        "I queued for the big telescope for a long time. When my turn came, so did the clouds."
+      ]
+    },
+    "snowfield": {
+      "name": "the snowfield",
+      "events": [
+        "I lay down and made a shape of myself in the snow. When I got up, that me looked thinner than me.",
+        "The snow was so deep I had to pull my foot out again at every step.",
+        "I built a snowman that looks like you. Don't ask whether it does."
+      ]
+    },
+    "frozenLake": {
+      "name": "the frozen lake",
+      "events": [
+        "The ice was so slippery that all four of my feet went their own way.",
+        "There was a fish swimming under the ice. We stared at each other through it for a long time.",
+        "Someone had cut a hole in the ice to fish. I kept watch beside him until I fell asleep."
+      ]
+    }
+  },
+
+  "remarks": {
+    "lateNight": [
+      "By the way, you didn't go to bed until {time} yesterday. I saw. A bit earlier tonight, okay?",
+      "You stayed up until {time} yesterday. I meant to wait up with you, but I couldn't keep my eyes open.",
+      "Your screen was still on at {time} yesterday. Your eyes must be tired."
+    ],
+    "earlyBird": [
+      "You were up at {time} yesterday. Earlier than me.",
+      "You switched on at {time} yesterday. The sun had barely sat down."
+    ],
+    "longDay": [
+      "You sat at the computer for {hours} hours yesterday. Stand up and walk around today, for my sake.",
+      "You used the computer for {hours} hours yesterday. I counted. Remember to drink water."
+    ],
+    "shortDay": [
+      "You only stayed a little while yesterday. Could you stay a bit longer today?"
+    ],
+    "gap": [
+      "You haven't been here for {days} days. I'm not cross. I just looked at the door every day.",
+      "{days} days apart. I saved up more to say than fits in one letter."
+    ],
+    "streak": [
+      "We've now seen each other {days} days in a row. I'm keeping marks on the wall.",
+      "Day {days} in a row with you. I'd like to keep this record going."
+    ],
+    "petted": [
+      "You patted my head {count} times yesterday. I didn't miscount once.",
+      "I got {count} pats yesterday. My fur is extra smooth today."
+    ],
+    "poked": [
+      "You poked me {count} times yesterday. I'm generous, so I'll let it go.",
+      "I was poked {count} times yesterday. Poking is fine. Gentler next time."
+    ],
+    "thrown": [
+      "You threw me {count} times yesterday. I wrote every one down in my little notebook.",
+      "After being thrown {count} times, I've found out I land rather well."
+    ],
+    "dizzy": [
+      "My head is still a tiny bit dizzy. You know who did it."
+    ],
+    "ignored": [
+      "You didn't notice me all day yesterday. I pretended not to mind. Did I do it well?"
+    ],
+    "monday": [
+      "It's Monday. I already sighed for you, so you don't have to."
+    ],
+    "friday": [
+      "It's Friday! I don't know what I'm happy about, but I'm happy because you are."
+    ],
+    "weekend": [
+      "It's the weekend. You don't have to hurry, and neither do I."
+    ],
+    "generic": [
+      "The whole way back I kept thinking: I'm going to tell you first.",
+      "If you're free next time, let's go together.",
+      "I saved you a seat, even though you didn't come.",
+      "It was a long walk home, but I'm not tired at all.",
+      "It was lovely there. It just didn't have you.",
+      "I walked slowly, because I wanted to remember everything to tell you."
+    ]
+  },
+
+  "closers": [
+    "Eat well today.",
+    "Remember to drink water.",
+    "Take good care of me today too.",
+    "Right, I'm going back for a second nap.",
+    "Pat me when you have a moment.",
+    "I ate the last of the {snack} on the way home and didn't save you any.",
+    "Tomorrow's letter, tomorrow."
+  ],
+
+  "noGift": [
+    "I didn't find anything this time. Next time for sure.",
+    "I did pick up something good, but I lost it on the way home."
+  ],
+
+  "welcome": {
+    "place": "your desktop",
+    "lines": [
+      "Hello! This is the first letter I've ever written to you.",
+      "From now on, when you're away, I'll go out and wander by myself. When I'm back I'll write and tell you where I went and what I saw. With luck I'll bring you something small.",
+      "One letter a day at most. Whenever you come, I'll be here."
+    ]
+  },
+
+  "giftNames": {
+    "shell": "a seashell",
+    "pebble": "a very round pebble",
+    "leaf": "a fallen leaf",
+    "mapleLeaf": "a red maple leaf",
+    "chestnut": "a chestnut",
+    "feather": "a feather",
+    "wildflower": "a little wildflower",
+    "mushroom": "a mushroom",
+    "bambooSprig": "a sprig of bamboo",
+    "teaLeaf": "two tea leaves",
+    "bookmark": "an old bookmark",
+    "pencil": "half a pencil",
+    "ticket": "an old train ticket",
+    "yarn": "a ball of yarn",
+    "dango": "a stick of dango",
+    "candy": "a sweet",
+    "strawberry": "a wild strawberry",
+    "tangerine": "a tangerine",
+    "apple": "an apple",
+    "driedFish": "a little dried fish",
+    "balloon": "a balloon",
+    "pawprint": "one of my paw prints",
+    "coin": "a lucky coin",
+    "oldKey": "a key to a door I couldn't find",
+    "bell": "a little bell",
+    "compass": "a compass",
+    "lantern": "a small lantern",
+    "windChime": "a wind chime",
+    "clover": "a four-leaf clover",
+    "kite": "a kite with a snapped string",
+    "scarf": "a little scarf",
+    "snowflake": "a snowflake that won't melt",
+    "marble": "a glass marble",
+    "rainbow": "a small piece of rainbow",
+    "fallenStar": "a star that fell down",
+    "gem": "a very shiny stone",
+    "moonPiece": "a little piece of the moon",
+    "treasureMap": "a treasure map"
+  },
+
+  "rarity": { "common": "Common", "rare": "Rare", "legendary": "Legendary" },
+  "giftLine": "Enclosed: {gift}",
+  "defaultName": "Your little one",
+  "sign": "— {name}",
+  "weekdays": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+}
