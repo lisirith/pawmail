@@ -19,7 +19,32 @@ export const RIG = Object.freeze({
   height: 118, // 站立时的大致身高（不含耳朵）
 });
 
-const LW = 2.6; // 轮廓线粗细
+const LW = 2.4; // 轮廓线粗细
+
+// 每种动物可以在骨架不变的前提下调"胖瘦"：身体宽一点、手脚粗一点（熊猫比猫圆滚滚）。
+// 关节的位置都一样，所以动作、以后的衣服对所有动物照样通用。
+//   torso 身体宽窄 · arm 手臂粗细 · armLen 手臂长短 · foot 脚的大小 · sitSpread 坐下时两只后脚往外分开多少
+//   frontLegs 坐下时手变成"前腿"，直直地撑在两脚中间（猫是这样坐的）
+const DEFAULT_BUILD = Object.freeze({ torso: 1, arm: 1, armLen: 1, foot: 1, sitSpread: 0, frontLegs: false });
+
+// 五官的位置和大小（头的坐标：原点在头的中心）。每种动物在自己的文件里覆盖需要改的几项。
+//   eyeX/eyeY 眼睛中心 · eyeRx/eyeRy 睁眼时的大小 · shine 眼睛里要不要画白色高光
+//   noseY 鼻子（没有鼻子的话就是嘴的上沿） · mouthDy 嘴离鼻子多远 · mouthW 嘴的半宽
+//   blushX/blushY 腮红
+const DEFAULT_FACE = Object.freeze({
+  eyeX: 15.5,
+  eyeY: 4.5,
+  eyeRx: 5.4,
+  eyeRy: 6.8,
+  shine: true,
+  noseY: 12,
+  mouthDy: 2.5,
+  mouthW: 6.2,
+  blushX: 27.5,
+  blushY: 15,
+});
+
+const faceOf = (sp) => sp.face || DEFAULT_FACE;
 
 function ellipse(ctx, cx, cy, rx, ry, rot = 0) {
   ctx.beginPath();
@@ -27,7 +52,7 @@ function ellipse(ctx, cx, cy, rx, ry, rot = 0) {
 }
 
 /** 头的形状：像一块年糕，脸颊比头顶宽一点、下巴平一点 */
-function headPath(ctx, rx, ry) {
+export function headPath(ctx, rx, ry) {
   ctx.beginPath();
   ctx.moveTo(0, -ry);
   ctx.bezierCurveTo(rx * 0.62, -ry, rx, -ry * 0.56, rx, ry * 0.08);
@@ -67,9 +92,10 @@ export function getGeometry(sp, P) {
   const loaf = clamp(P.loaf, 0, 1);
   const low = Math.max(sit, loaf);
   const drop = low * 7;
+  const build = sp.build || DEFAULT_BUILD;
   const torsoRy = 24 * (1 - loaf * 0.28);
-  const torsoRxBot = 25.5 * (1 + sit * 0.1 + loaf * 0.24);
-  const torsoRxTop = 20 * (1 + loaf * 0.22);
+  const torsoRxBot = 25.5 * (1 + sit * 0.1 + loaf * 0.24) * build.torso;
+  const torsoRxTop = 20 * (1 + loaf * 0.22) * build.torso;
   const torsoBottom = -7 + drop;
   const torsoCy = torsoBottom - torsoRy;
   return {
@@ -78,6 +104,7 @@ export function getGeometry(sp, P) {
     loaf,
     low,
     drop,
+    build,
     torsoCx: facing * 1.5,
     torsoCy,
     torsoRy,
@@ -93,11 +120,13 @@ export function getGeometry(sp, P) {
 
 function drawFeet(ctx, sp, P, g) {
   const pal = sp.palette;
-  const { sit, loaf, low, facing } = g;
-  const fx = 12.5 + sit * 7.5 - loaf * 3;
-  const fy = -5.5 - sit * 1.2 + loaf * 2.2;
-  const rx = 10.5 - sit * 1 - loaf * 3.6;
-  const ry = 7 + sit * 1.6 - loaf * 2.4;
+  const { sit, loaf, low, facing, build } = g;
+  const k = build.foot;
+  const fx = (12.5 + sit * (7.5 + build.sitSpread) - loaf * 3) * (0.55 + 0.45 * build.torso);
+  const fy = -5.5 * k - sit * 1.2 + loaf * 2.2;
+  const rx = (10.5 - sit * 1 - loaf * 3.6) * k;
+  const ry = (7 + sit * 1.6 - loaf * 2.4) * k;
+  const paw = sp.paw || { pads: 3 };
   for (const s of [-1, 1]) {
     const ox = s < 0 ? P.footLX : P.footRX;
     const oy = s < 0 ? P.footLY : P.footRY;
@@ -110,21 +139,39 @@ function drawFeet(ctx, sp, P, g) {
     ctx.strokeStyle = pal.outline;
     ctx.lineWidth = LW;
     ctx.stroke();
-    // 坐下时能看到脚底的肉垫
-    if (sit > 0.6 && loaf < 0.3) {
+    if (paw.lines && loaf < 0.5) {
+      // 脚趾缝：脚尖上几道短线（猫的画法）
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = pal.outline;
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      for (let i = 0; i < paw.lines; i++) {
+        const x = (i - (paw.lines - 1) / 2) * rx * 0.36;
+        ctx.moveTo(x, ry * 0.95);
+        ctx.lineTo(x, ry * 0.45);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    // 坐下时能看到脚底的肉垫（一个大肉垫 + 几个小脚趾）
+    if (paw.pads && sit > 0.6 && loaf < 0.3) {
       ctx.save();
       ctx.globalAlpha = clamp((sit - 0.6) / 0.4, 0, 1);
       ctx.fillStyle = pal.pad;
       ctx.translate(cx, cy);
       ctx.rotate(rot);
-      ellipse(ctx, 0, 1.9, 3.5, 2.7);
+      ctx.scale(k, k);
+      ellipse(ctx, 0, 1.9, 3.6, 2.8);
       ctx.fill();
-      for (const [bx, by] of [
-        [-3.7, -2.4],
-        [0, -3.9],
-        [3.7, -2.4],
-      ]) {
-        ellipse(ctx, bx, by, 1.45, 1.45);
+      const toes =
+        paw.pads === 4
+          ? [[-4.4, -1.7], [-1.6, -3.9], [1.6, -3.9], [4.4, -1.7]]
+          : [[-3.7, -2.4], [0, -3.9], [3.7, -2.4]];
+      for (const [bx, by] of toes) {
+        ellipse(ctx, bx, by, 1.4, 1.5);
         ctx.fill();
       }
       ctx.restore();
@@ -136,28 +183,43 @@ function drawArm(ctx, sp, P, g, s) {
   const pal = sp.palette;
   const a = s < 0 ? P.armL : P.armR;
   if (g.loaf > 0.9) return; // 趴着时手收在身体下面
-  const len = 20 * (1 - g.loaf * 0.75);
-  const r = 6.3;
-  const px = s * (20.5 + g.loaf * 3 + g.sit * 1.5) + g.facing * 2.5;
+  const b = g.build;
+  // 猫坐下时，自然垂着的手就是两条前腿：挪到肚子前面，伸直撑到地上
+  const hang = 1 - clamp(Math.abs(a) / 0.9, 0, 1);
+  const legs = b.frontLegs ? g.sit * (1 - g.loaf) * hang : 0;
+  const len = 20 * (b.armLen || 1) * (1 - g.loaf * 0.75) + legs * 7;
+  const r = 6.3 * b.arm;
+  const px = s * ((20.5 + g.loaf * 3 + g.sit * 1.5) * b.torso - legs * 9.5) + g.facing * 2.5;
   const py = g.torsoCy - g.torsoRy * 0.42;
   ctx.save();
   ctx.translate(px, py);
-  ctx.rotate(-s * (0.24 + a));
+  ctx.rotate(-s * (0.24 * (1 - legs) + a));
   capsulePath(ctx, len, r);
   ctx.fillStyle = pal.limb;
   ctx.fill();
   if (pal.pawTip) {
+    // 手尖（猫的"白手套"）；当前腿撑在地上时，整条前腿都是奶白色
+    const tip = 3.5 + legs * (len - 3.5 + r);
     ctx.save();
     capsulePath(ctx, len, r);
     ctx.clip();
     ctx.fillStyle = pal.pawTip;
-    ctx.fillRect(-r - 1, len - 3.5, r * 2 + 2, r + 6);
+    ctx.fillRect(-r - 1, len - tip, r * 2 + 2, r + tip + 3);
     ctx.restore();
+  }
+  // 轮廓线。当前腿时，上面那一截不描边，看起来是从胸口长出来的，而不是两根柱子插在身上
+  ctx.save();
+  if (legs > 0) {
+    const cut = -r - 3 + legs * (len * 0.45 + r + 3);
+    ctx.beginPath();
+    ctx.rect(-r - 4, cut, r * 2 + 8, len + r * 2 + 8);
+    ctx.clip();
   }
   capsulePath(ctx, len, r);
   ctx.strokeStyle = pal.outline;
   ctx.lineWidth = LW;
   ctx.stroke();
+  ctx.restore();
   ctx.restore();
 }
 
@@ -220,8 +282,9 @@ function drawEye(ctx, sp, side, open, shape, narrow, lx, ly, time) {
     ctx.stroke();
     return;
   }
-  const rx = (wide ? 6 : 5.4) * narrow;
-  const ryFull = wide ? 7.6 : 6.8;
+  const F = faceOf(sp);
+  const rx = F.eyeRx * (wide ? 1.12 : 1) * narrow;
+  const ryFull = F.eyeRy * (wide ? 1.12 : 1);
   const ry = ryFull * o;
 
   if (shape === 'annoyed') {
@@ -252,6 +315,7 @@ function drawEye(ctx, sp, side, open, shape, narrow, lx, ly, time) {
     ctx.lineWidth = 1.2;
     ctx.stroke();
   }
+  if (!F.shine) return; // 现在的造型是"豆豆眼"，不画高光
   // 高光：一大一小两个白点，眼睛立刻就有神了
   ctx.fillStyle = '#ffffff';
   const hr = wide ? 2.5 : 2.1;
@@ -266,17 +330,18 @@ function drawEye(ctx, sp, side, open, shape, narrow, lx, ly, time) {
 function drawMouth(ctx, sp, P) {
   const pal = sp.palette;
   const m = P.mouth;
-  const y0 = 2.5; // 鼻子下沿
+  const F = faceOf(sp);
+  const y0 = F.mouthDy; // 嘴的上沿离鼻子多远
+  const w = F.mouthW;
   ctx.strokeStyle = pal.mouthLine;
   ctx.lineWidth = 1.9;
 
+  // ω 形的小嘴（:3）：两道弧在中间碰出一个小尖
   const omega = () => {
     ctx.beginPath();
-    ctx.moveTo(0, y0 - 0.4);
-    ctx.lineTo(0, y0 + 2);
-    ctx.moveTo(-6.2, y0 + 2.2);
-    ctx.quadraticCurveTo(-3.2, y0 + 6.6, 0, y0 + 2.2);
-    ctx.quadraticCurveTo(3.2, y0 + 6.6, 6.2, y0 + 2.2);
+    ctx.moveTo(-w, y0 + 2.2);
+    ctx.quadraticCurveTo(-w * 0.5, y0 + 6.2, 0, y0 + 2.2);
+    ctx.quadraticCurveTo(w * 0.5, y0 + 6.2, w, y0 + 2.2);
     ctx.stroke();
   };
 
@@ -373,36 +438,57 @@ function drawMouth(ctx, sp, P) {
   omega(); // 默认：ω 形的小猫嘴
 }
 
+/**
+ * 腮红：淡淡的一团粉，上面三道小斜线（///）。
+ * 斜线一直都在（这是它的样子），害羞、开心的时候那团粉会变深。
+ */
+function drawBlush(ctx, pal, P, x, y, squeeze) {
+  const k = clamp(P.blush, 0, 1);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(squeeze, 1);
+  if (k > 0.02) {
+    ctx.globalAlpha = k * 0.38;
+    ctx.fillStyle = pal.blush;
+    ellipse(ctx, 0, 0.4, 6.6, 3.6);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 0.5 + 0.5 * k;
+  ctx.strokeStyle = pal.blushLine || pal.blush;
+  ctx.lineWidth = 1.35;
+  ctx.beginPath();
+  for (const i of [-1, 0, 1]) {
+    ctx.moveTo(i * 2.5 + 0.6, -1.8);
+    ctx.lineTo(i * 2.5 - 0.6, 1.8);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawFace(ctx, sp, P, lx, ly, time) {
   const pal = sp.palette;
+  const F = faceOf(sp);
   // 五官跟着视线在脸上滑动一点点，看起来就像头在转（简单的"伪 3D"）
   const eox = lx * 6;
   const eoy = ly * 3.5;
 
-  if (P.blush > 0.02) {
-    ctx.save();
-    ctx.globalAlpha = clamp(P.blush, 0, 1) * 0.75;
-    ctx.fillStyle = pal.blush;
-    for (const s of [-1, 1]) {
-      ellipse(ctx, s * 27.5 + lx * 5, 15 + ly * 3, 6.4 * (1 - 0.25 * Math.max(0, lx * s)), 3.7);
-      ctx.fill();
-    }
-    ctx.restore();
+  for (const s of [-1, 1]) {
+    drawBlush(ctx, pal, P, s * F.blushX + lx * 5, F.blushY + ly * 3, 1 - 0.25 * Math.max(0, lx * s));
   }
 
   for (const s of [-1, 1]) {
     const open = s < 0 ? P.eyeL : P.eyeR;
     const narrow = 1 - 0.22 * Math.max(0, lx * s); // 转向那一侧的眼睛变窄一点
     ctx.save();
-    ctx.translate(s * 15.5 + eox, 4.5 + eoy);
+    ctx.translate(s * F.eyeX + eox, F.eyeY + eoy);
     if (sp.drawEyeBack) sp.drawEyeBack(ctx, s, narrow);
     drawEye(ctx, sp, s, open, P.eyes, narrow, lx, ly, time);
     ctx.restore();
   }
 
   ctx.save();
-  ctx.translate(lx * 8.5, 12 + ly * 4.5);
-  sp.drawNose(ctx);
+  ctx.translate(lx * 8.5, F.noseY + ly * 4.5);
+  if (sp.drawNose) sp.drawNose(ctx);
   drawMouth(ctx, sp, P);
   ctx.restore();
 
@@ -422,17 +508,19 @@ function drawHead(ctx, sp, P, g, time, look) {
   sp.drawEar(ctx, -1, P, lx, ly);
   sp.drawEar(ctx, 1, P, lx, ly);
 
-  headPath(ctx, rx, ry);
+  // 头的轮廓：默认是年糕形；动物可以换成自己的（比如熊猫两颊毛茸茸的）
+  const outline = () => (sp.headPath || headPath)(ctx, rx, ry);
+  outline();
   ctx.fillStyle = pal.fur;
   ctx.fill();
 
   ctx.save();
-  headPath(ctx, rx, ry);
+  outline();
   ctx.clip();
   sp.drawHeadMarkings(ctx, P, lx, ly, sp.head);
   ctx.restore();
 
-  headPath(ctx, rx, ry);
+  outline();
   ctx.strokeStyle = pal.outline;
   ctx.lineWidth = LW;
   ctx.stroke();

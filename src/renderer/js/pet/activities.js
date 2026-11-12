@@ -12,7 +12,7 @@
 import { clamp, rand, chance, sign, wobble, bell, easeInOut, TAU } from '../util/math.js';
 
 // 扒在墙上时，脚离墙（活动范围的边）多远。这个距离让脑袋的侧面刚好贴着墙
-const WALL_GAP = 52;
+const WALL_GAP = 56;
 
 // 走路的几种步态。speed 是每秒走多少像素，stride 是一步的长度（脚才不会打滑）
 const GAITS = {

@@ -114,7 +114,8 @@ npm run preview
 左、上、宽、高占窗口的比例）；节日装扮一览：<http://localhost:5177/src/renderer/gallery.html?looks=1>；
 信纸窗口：<http://localhost:5177/mail>（加 `?lang=en&species=panda&unread=0` 之类的参数；
 `&from=2026-11-20&days=45` 会从那天起模拟 45 天，能看到月报和年度回顾）；
-姿势图鉴：<http://localhost:5177/gallery>。
+姿势图鉴：<http://localhost:5177/gallery>；
+和设定图对照：<http://localhost:5177/src/renderer/gallery.html?compare=1>（需要本机的 `img resource/` 文件夹里有设定图）。
 
 ```bash
 npm run letters
@@ -197,4 +198,5 @@ tools/             开发工具：预览服务器、来信模拟器、大脑模�
 
 - 用 Electron 制作，内存占用大约 450–520 MB。
 - 目前只在主显示器上活动。
-- 美术是用代码画的占位图，以后会换。礼物图标暂时用的是系统自带的 emoji，上 Steam 之前要换成原创图标。
+- 宠物是用代码照着设定图画的（所以能眨眼、转眼珠、做各种动作，放多大都清楚）。
+  礼物图标暂时用的是系统自带的 emoji，上 Steam 之前要换成原创图标。

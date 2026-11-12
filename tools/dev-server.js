@@ -117,8 +117,9 @@ const server = http.createServer((req, res) => {
   }
 
   const file = path.normalize(path.join(ROOT, pathname));
-  const allowed = path.join(ROOT, 'src') + path.sep;
-  if (!file.startsWith(allowed)) {
+  // 只给预览看 src/ 下的文件，再加上"img resource"里的设定图（对照着画造型时用，见 gallery.html?compare=1）
+  const allowed = [path.join(ROOT, 'src') + path.sep, path.join(ROOT, 'img resource') + path.sep];
+  if (!allowed.some((dir) => file.startsWith(dir))) {
     res.writeHead(404);
     return res.end('Not found');
   }

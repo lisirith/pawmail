@@ -2,10 +2,11 @@
 // 运行 npm run preview 后打开 http://localhost:5177/gallery
 //   ?looks=1        改成看节日装扮
 //   ?bg=dark        只看深色背景
+//   ?compare=1      和设定图（img resource 里的图）对照着看，改造型时用
 
 import { SPECIES } from './pet/species/index.js';
 import { makePose } from './pet/pose.js';
-import { drawPet } from './pet/draw.js';
+import { drawPet, getGeometry } from './pet/draw.js';
 import { LOOKS } from './pet/looks.js';
 
 const POSES = [
@@ -57,7 +58,74 @@ function cell(row, name, sp, pose, opts) {
   row.append(figure);
 }
 
-for (const bg of backgrounds) {
+// ?compare=1：和设定图（img resource 里 ChatGPT 画的图）对照。每种动物一行：设定图 | 代码画的 | 两张叠在一起
+// head：设定图里头的中心和半宽（原图像素），用来把两张图对齐到同样大小
+const REFERENCE = {
+  src: '/img resource/ba8d7185-40d5-456b-ab17-12ce9a388f21.png',
+  cat: { head: [1252, 370], rx: 282, pose: { crouch: 1, lookY: -0.15, tailCurl: 0.75, tailSide: 1 } },
+  panda: { head: [475, 340], rx: 300, pose: { crouch: 1, armL: -1.0, armR: -1.0, mouth: 'smile', mouthOpen: 0.9, lookX: 0.35, blush: 1 } },
+};
+
+async function drawCompare() {
+  const img = new Image();
+  img.src = REFERENCE.src;
+  await img.decode();
+  const CW = 330;
+  const CH = 380;
+  const headAt = [CW / 2, CH * 0.4];
+  const headW = 200; // 头在格子里画多宽（像素）
+  for (const sp of Object.values(SPECIES)) {
+    if (only && sp.id !== only) continue;
+    const ref = REFERENCE[sp.id];
+    if (!ref) continue;
+    const row = document.createElement('div');
+    row.className = 'row bg-light';
+    const P = makePose(ref.pose);
+    const g = getGeometry(sp, P);
+    const k = headW / (2 * sp.head.rx);
+    const r = headW / (2 * ref.rx); // 设定图缩小多少
+    const paint = (ctx, which) => {
+      ctx.fillStyle = '#f0ece4';
+      ctx.fillRect(0, 0, CW, CH);
+      if (which !== 'ours') {
+        ctx.save();
+        ctx.globalAlpha = which === 'both' ? 0.45 : 1;
+        ctx.drawImage(img, headAt[0] - ref.head[0] * r, headAt[1] - ref.head[1] * r, img.width * r, img.height * r);
+        ctx.restore();
+      }
+      if (which !== 'ref') {
+        ctx.save();
+        ctx.globalAlpha = which === 'both' ? 0.7 : 1;
+        ctx.translate(headAt[0] - g.headCx * k, headAt[1] - g.headCy * k);
+        ctx.scale(k, k);
+        drawPet(ctx, sp, P, { time: 0.3, shadow: false });
+        ctx.restore();
+      }
+    };
+    for (const [which, label] of [['ref', '设定图'], ['ours', '代码画的'], ['both', '叠在一起']]) {
+      const figure = document.createElement('figure');
+      const canvas = document.createElement('canvas');
+      canvas.width = CW * dpr;
+      canvas.height = CH * dpr;
+      canvas.style.width = `${CW}px`;
+      canvas.style.height = `${CH}px`;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      paint(ctx, which);
+      const caption = document.createElement('figcaption');
+      caption.textContent = `${sp.id} · ${label}`;
+      figure.append(canvas, caption);
+      row.append(figure);
+    }
+    grid.append(row);
+  }
+}
+
+if (params.get('compare') === '1') {
+  drawCompare().catch((err) => console.error(err));
+}
+
+for (const bg of params.get('compare') === '1' ? [] : backgrounds) {
   for (const sp of Object.values(SPECIES)) {
     if (only && sp.id !== only) continue;
     const row = document.createElement('div');
