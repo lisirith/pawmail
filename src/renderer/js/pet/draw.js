@@ -580,9 +580,10 @@ export function drawPet(ctx, sp, P, opts = {}) {
 
   if (feetInFront) drawFeet(ctx, sp, P, g);
 
-  // 手抬得高的时候画在头前面（挥手时才看得见），否则在头后面
-  const frontL = Math.abs(P.armL) > 1.25;
-  const frontR = Math.abs(P.armR) > 1.25;
+  // 手臂一律画在头的下面一层：举起来的时候，靠近肩膀那一截会被头挡住，不会盖住脸颊。
+  // 唯一的例外是"往里收"抬到嘴边的手（小猫舔爪子）：那只爪子本来就该在脸前面
+  const frontL = P.armL < -1.25;
+  const frontR = P.armR < -1.25;
   if (!frontL) drawArm(ctx, sp, P, g, -1);
   if (!frontR) drawArm(ctx, sp, P, g, 1);
 

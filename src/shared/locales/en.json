@@ -23,7 +23,18 @@
     "sleep": "Put to sleep",
     "wake": "Wake up",
     "comeBack": "Call it back",
+    "area": "Play area",
+    "areaEdit": "Draw a play area…",
+    "areaFull": "Whole screen",
+    "areaCustom": "My box",
     "quit": "Quit Pawmail"
+  },
+  "area": {
+    "tip": "Drag out a box — your pet will stay inside it",
+    "tipMove": "Drag the box to move it, or a corner to resize. Its bottom edge is the floor",
+    "ok": "Right here",
+    "full": "Whole screen",
+    "cancel": "Cancel"
   },
   "say": {
     "firstRun": "Hi there! Right-click me to open the menu~",
@@ -34,6 +45,8 @@
     "caught": ["Gotcha!", "Ha!"],
     "lonely": ["Play with me~", "Look at me~"],
     "mail": ["You've got pawmail! Click me~", "A letter for you! Click me~", "Look, mail for you!"],
+    "climb": ["So high~", "Look how high I got!", "Hup!"],
+    "area": ["Nice spot~", "My new turf!", "I'll live here then"],
     "festivals": {
       "newYear": ["Happy New Year! 🎉"],
       "birthday": ["Happy birthday! 🎂", "It's your birthday!"],

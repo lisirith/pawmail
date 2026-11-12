@@ -79,6 +79,14 @@ class PetTray {
         },
         { label: t('menu.language'), submenu: [radio('language', 'zh', '中文'), radio('language', 'en', 'English')] },
         {
+          label: t('menu.area'),
+          submenu: [
+            { label: t('menu.areaEdit'), click: () => this.onCommand('editArea') },
+            { label: t('menu.areaFull'), type: 'radio', checked: !settings.area, click: () => this.onSet('area', null) },
+            ...(settings.area ? [{ label: t('menu.areaCustom'), type: 'radio', checked: true, click: () => this.onCommand('editArea') }] : []),
+          ],
+        },
+        {
           label: t('menu.autoStartLong'),
           type: 'checkbox',
           checked: !!settings.autoStart,

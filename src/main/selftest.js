@@ -126,10 +126,90 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
   for (let i = 3; i < bitmap.length; i += 4) if (bitmap[i] > 200) opaque += 1;
   check('窗口背景是透明的，而且画出了宠物', cornerAlpha === 0 && opaque > 2000, { cornerAlpha, opaquePixels: opaque, size });
 
+  await testArea();
   await testMail();
   await testReports();
   await testFestivals();
   return finish();
+
+  // ---------------------------------------------------------------- 活动范围、爬墙
+
+  async function testArea() {
+    const bad = setSetting('area', { x: 0.6, y: 0, w: 0.6, h: 0.5 }); // 超出窗口右边
+    const odd = setSetting('area', { x: 0.1, y: 0.1, w: 0.5, h: 0.5, extra: 1 }); // 多了不认识的东西
+    check('不合法的活动范围会被拒绝', bad === false && odd === false && store.data.settings.area === null, { bad, odd });
+
+    setSetting('area', { x: 0.25, y: 0.2, w: 0.5, h: 0.75 });
+    await wait(300);
+    const inside = await js(`
+      const P = window.__pawmail;
+      P.brain.start('idle');
+      P.run(2);
+      const A = P.world.area, c = P.world.clip, box = document.getElementById('arena').getBoundingClientRect();
+      const result = {
+        A, clip: c, x: P.pet.x, y: P.pet.y, ground: P.world.groundY,
+        boxOk: Math.abs(box.left - c.left) < 1 && Math.abs(box.top - c.top) < 1 && Math.abs(box.right - c.right) < 1,
+      };
+      // 让它贴着左边站：脑袋有一小截伸到方框外面（看不见），那一截不该"点得到"，方框里面的部分照样点得到
+      const S = P.world.scale;
+      P.pet.x = A.left + 34 * S;
+      P.run(0.05);
+      result.hitOutside = !!P.pet.hit(c.left - 2, P.pet.y - 76 * S);
+      result.hitInside = !!P.pet.hit(c.left + 8, P.pet.y - 76 * S);
+      return result;
+    `);
+    const W = info.w;
+    const H = info.h;
+    check(
+      '设置活动范围后，宠物待在方框里，方框底边就是地面',
+      Math.abs(inside.A.left - 0.25 * W) < 1 && Math.abs(inside.A.bottom - 0.95 * H) < 1 && inside.x > inside.A.left && inside.x < inside.A.right && Math.abs(inside.y - inside.ground) < 0.5 && inside.boxOk && !inside.hitOutside && inside.hitInside,
+      inside
+    );
+
+    setSetting('displayMode', 'desktop'); // "只在桌面"模式：画框时也要先提到最前面，不然会被别的窗口挡住
+    await wait(250);
+    const editing = await js(`const P = window.__pawmail; P.openAreaEditor(); P.run(0.1); return P.areaEditor.isOpen;`);
+    await wait(200);
+    const capturedWhileEditing = overlay.capturing;
+    const onTopWhileEditing = overlay.win.isAlwaysOnTop();
+    await js(`const P = window.__pawmail; P.areaEditor.cancel(); P.setPointer(5, 5); P.run(0.1); return true;`);
+    await wait(200);
+    const backToDesktop = !overlay.win.isAlwaysOnTop();
+    setSetting('displayMode', 'top');
+    await wait(250);
+    check('画活动范围时窗口提到最前面并接住鼠标，取消后恢复原样', editing && capturedWhileEditing && onTopWhileEditing && backToDesktop && !overlay.capturing && !overlay.editing, {
+      editing,
+      capturedWhileEditing,
+      onTopWhileEditing,
+      backToDesktop,
+      after: overlay.capturing,
+    });
+
+    const climb = await js(`
+      const P = window.__pawmail;
+      const S = P.world.scale;
+      P.brain.start('climb', { side: 1, goal: 120 * S });
+      const cur = P.brain.current;
+      let i = 0;
+      while (!(cur.phase === 'cling' && cur.pt > 0.5) && i++ < 2400) P.run(1 / 60);
+      const onWall = { mode: P.pet.mode, gap: P.world.area.right - P.pet.x, height: P.world.groundY - P.pet.y };
+      cur.letGo(P.brain);
+      i = 0;
+      while (P.pet.mode !== 'ground' && i++ < 600) P.run(1 / 60);
+      P.run(1);
+      return { onWall, landed: P.pet.mode, act: P.brain.name, inside: P.pet.x > P.world.area.left && P.pet.x < P.world.area.right };
+    `);
+    check(
+      '爬墙：爬到活动范围右边的墙上挂着，点一下跳回地面，不会摔晕',
+      climb.onWall.mode === 'wall' && climb.onWall.gap < 80 * info.scale && climb.onWall.height > 100 * info.scale && climb.landed === 'ground' && climb.act !== 'dizzy' && climb.inside,
+      climb
+    );
+
+    setSetting('area', null);
+    await wait(300);
+    const back = await js(`const P = window.__pawmail; P.run(1); return { right: P.world.area.right, ground: P.world.groundY, y: P.pet.y };`);
+    check('改回"整个屏幕"', Math.abs(back.right - W) < 1 && Math.abs(back.ground - (H - 3)) < 1 && Math.abs(back.y - back.ground) < 0.5, back);
+  }
 
   // ---------------------------------------------------------------- 生日、节日、装扮
 

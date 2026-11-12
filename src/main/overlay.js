@@ -34,6 +34,7 @@ class Overlay {
     this.displayMode = 'top';
     this.capturing = false;
     this.captureAt = 0;
+    this.editing = false; // 正在画"活动范围"
     this.bounds = { x: 0, y: 0, width: 0, height: 0 };
     this.cursor = { x: NaN, y: NaN, inside: null };
     this.pollTimer = null;
@@ -139,10 +140,19 @@ class Overlay {
     this.win.setIgnoreMouseEvents(!flag);
   }
 
+  /**
+   * 正在画"活动范围"。"只在桌面"模式下窗口压在最底下，画框界面会被别的窗口挡住，
+   * 所以画的时候临时提到最前面，画完再放回去。
+   */
+  setEditing(flag) {
+    this.editing = !!flag;
+    this.setDisplayMode(this.displayMode);
+  }
+
   setDisplayMode(mode) {
     this.displayMode = mode === 'desktop' ? 'desktop' : 'top';
     if (!this.alive) return;
-    if (this.displayMode === 'desktop') {
+    if (this.displayMode === 'desktop' && !this.editing) {
       this.win.setAlwaysOnTop(false);
       native.sendToBottom(this.win); // 压到所有窗口下面，只有桌面露出来的地方才看得到它
     } else {
@@ -156,7 +166,7 @@ class Overlay {
     if (!this.alive) return;
     this.win.setBounds(workArea());
     this.bounds = this.win.getContentBounds();
-    if (this.displayMode === 'desktop') native.sendToBottom(this.win);
+    if (this.displayMode === 'desktop' && !this.editing) native.sendToBottom(this.win);
   }
 
   startPolling() {
@@ -215,6 +225,7 @@ class Overlay {
     this.win = null;
     this.ready = false;
     this.capturing = false;
+    this.editing = false;
   }
 }
 

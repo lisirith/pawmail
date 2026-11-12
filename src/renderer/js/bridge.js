@@ -18,6 +18,11 @@ function createMockBridge() {
     firstRunDone: params.get('first') !== '1',
     petName: null,
     autoStart: false,
+    // 预览时加 ?area=0.3,0.4,0.4,0.6 可以直接看"活动范围"的样子（x,y,宽,高，都是占窗口的比例）
+    area: (() => {
+      const v = (params.get('area') || '').split(',').map(Number);
+      return v.length === 4 && v.every(Number.isFinite) ? { x: v[0], y: v[1], w: v[2], h: v[3] } : null;
+    })(),
   };
 
   return {
@@ -47,6 +52,7 @@ function createMockBridge() {
       emit('settings', { ...settings });
     },
     setTrayIcon() {},
+    setEditing() {},
     quit() {
       console.log('[预览] 这里会退出程序');
     },

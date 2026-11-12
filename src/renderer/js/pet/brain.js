@@ -10,7 +10,7 @@
 // 再按分数"加权随机"抽一个。刚做过的动作有冷却时间，所以不会来回重复同样几个。
 
 import { clamp, damp, pickWeighted, chance } from '../util/math.js';
-import { ACTIVITIES, INTERRUPTIBLE, REACTIVE } from './activities.js';
+import { ACTIVITIES, INTERRUPTIBLE, REACTIVE, wallDistances } from './activities.js';
 
 // 每个动作做完之后，过多少秒才会恢复到正常的出现概率
 const COOLDOWN = {
@@ -25,6 +25,7 @@ const COOLDOWN = {
   hop: 150,
   chase: 90,
   seekUser: 900,
+  climb: 420, // 爬墙很好玩，但爬多了就不稀奇了：最多七分钟一次
   showMail: 150, // 手里有信没拆时，大约每两三分钟举起来提醒一次
   festiveGreet: 600, // 过节时，大约每十分钟再打一次节日招呼
   peekSheet: 25, // 万圣节披着白布时，时不时撩起来看你一眼
@@ -129,6 +130,7 @@ export class Brain {
     if (name === 'walk' || name === 'run') this.reward({ boredom: -0.22 });
     if (name === 'hop') this.reward({ boredom: -0.2, energy: -0.01 });
     if (name === 'chase') this.reward({ energy: -0.015 });
+    if (name === 'climb') this.reward({ boredom: -0.35, energy: -0.02 });
   }
 
   // ------------------------------------------------------------ 每帧
@@ -168,11 +170,11 @@ export class Brain {
     } else {
       let drain = 1 / 9000; // 白天大约能精神 1~1.5 小时
       drain *= 1 + night * 1.5; // 深夜困得快：大约半小时就想睡
-      if (name === 'walk' || name === 'run' || name === 'chase' || name === 'hop') drain *= 3;
+      if (name === 'walk' || name === 'run' || name === 'chase' || name === 'hop' || name === 'climb') drain *= 3;
       n.energy -= dt * drain;
     }
     if (name === 'idle' || name === 'sit' || name === 'lookAround') n.boredom += dt / 300;
-    else if (name === 'walk' || name === 'run' || name === 'chase') n.boredom -= dt / 30;
+    else if (name === 'walk' || name === 'run' || name === 'chase' || name === 'climb') n.boredom -= dt / 30;
     n.social += dt / 2700;
     if (this.petting) {
       n.social -= dt * 0.1;
@@ -264,12 +266,31 @@ export class Brain {
     const w = this.world;
     const p = w.pointer;
     const S = w.scale;
+    const A = w.area;
     if (!p.inside || this.needs.energy < 0.25) return false;
     if (w.time - p.lastMoveAt > 2.5) return false;
+    if (p.x < A.left || p.x > A.right || p.y > A.bottom) return false; // 鼠标在活动范围外面：够不着，不追
     const dx = Math.abs(p.x - pet.x);
     const up = w.groundY - p.y;
     if (dx > 560 * S || dx < 50 * S || up > 300 * S) return false;
     return this.#cooldown('chase') >= 1;
+  }
+
+  /** 能不能去爬墙：离左边或右边的墙不远、墙够高、有精神、手里没拿东西 */
+  #canClimb() {
+    const pet = this.pet;
+    const w = this.world;
+    const S = w.scale;
+    if (this.needs.energy < 0.35 || this.userAway || this.hasMail) return false;
+    if (pet.look && (pet.look.held || pet.look.cover)) return false; // 拿着灯笼、披着白布，不方便爬
+    if (w.groundY - pet.ceilingY() < 150 * S) return false;
+    return this.#wallNear() > 0;
+  }
+
+  /** 离最近的墙有多近：贴着墙是 1，300 像素开外是 0 */
+  #wallNear() {
+    const d = wallDistances(this);
+    return clamp(1 - Math.min(d.left, d.right) / (300 * this.world.scale), 0, 1);
   }
 
   /** 下一个动作是什么？返回 [名字, 参数] */
@@ -302,6 +323,8 @@ export class Brain {
       hop: (0.03 + 1.2 * Math.max(0, this.mood - 0.7)) * e,
       chase: this.#canChase() ? (0.3 + 2.4 * this.curiosity) * e * (0.6 + bo) : 0,
       seekUser: n.social > 0.75 && this.world.pointer.inside ? (n.social - 0.75) * 4 : 0,
+      // 离墙越近越想爬；深夜没那么想爬
+      climb: this.#canClimb() ? (0.25 + 0.9 * bo) * e * (0.6 + 0.6 * this.mood) * (1 - 0.6 * night) * (0.25 + 0.75 * this.#wallNear()) : 0,
       festiveGreet: this.festival ? 0.12 : 0,
       peekSheet: this.pet.look && this.pet.look.cover ? 0.8 : 0,
     };
@@ -356,19 +379,32 @@ export class Brain {
     }
   }
 
-  onLand(impact, dizzy) {
+  /** 落地了。leapt：是它自己（从墙上）跳下来的 */
+  onLand(impact, dizzy, leapt) {
     if (dizzy) {
       this.stat('dizzy');
       this.reward({ mood: -0.05 });
       this.start('dizzy');
     } else {
-      this.start('landed');
+      this.start('landed', { happy: !!leapt });
     }
+  }
+
+  /** 活动范围变了（app.js 已经把宠物挪进新的范围里了）：手上的事先放一放，看看新地方 */
+  onAreaChange() {
+    if (this.pet.mode !== 'ground' || this.name === 'sleep' || this.name === 'arrive') return;
+    this.start('lookAround');
   }
 
   /** 点了它一下（isDouble：是双击的第二下） */
   onClick(isDouble) {
     const pet = this.pet;
+    if (pet.mode === 'wall' && this.current && this.current.letGo) {
+      // 正在爬墙：被点了一下就蹬墙跳下来
+      this.stat('poke');
+      this.current.letGo(this);
+      return;
+    }
     if (pet.mode !== 'ground' || this.name === 'arrive') return;
     const now = this.world.time;
     pet.squashSpring.kick(2.4);
@@ -401,6 +437,15 @@ export class Brain {
   /** 菜单 / 托盘发来的指令 */
   command(type) {
     const pet = this.pet;
+    const A = this.world.area;
+    if (pet.mode === 'wall' && this.current && this.current.letGo && (type === 'sleep' || type === 'comeBack')) {
+      // 正在爬墙：先跳下来，落地之后再去做
+      this.current.letGo(this);
+      this.queue.length = 0;
+      if (type === 'sleep') this.queue.push(['sleep', { forced: true, minDur: 240 }]);
+      else this.queue.push(['walk', { tx: (A.left + A.right) / 2, gait: 'run' }], ['greet', {}]);
+      return;
+    }
     if (pet.mode !== 'ground') return;
     if (type === 'sleep' && this.name !== 'sleep') {
       this.start('sleep', { forced: true, minDur: 240 });
@@ -410,7 +455,7 @@ export class Brain {
       pet.unbounded = false;
       this.queue.length = 0;
       this.queue.push(['greet', {}]);
-      this.start('walk', { tx: this.world.width / 2, gait: 'run' });
+      this.start('walk', { tx: (A.left + A.right) / 2, gait: 'run' }); // 回到活动范围的正中间
     }
   }
 

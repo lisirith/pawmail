@@ -11,6 +11,9 @@
 
 import { clamp, rand, chance, sign, wobble, bell, easeInOut, TAU } from '../util/math.js';
 
+// 扒在墙上时，脚离墙（活动范围的边）多远。这个距离让脑袋的侧面刚好贴着墙
+const WALL_GAP = 52;
+
 // 走路的几种步态。speed 是每秒走多少像素，stride 是一步的长度（脚才不会打滑）
 const GAITS = {
   walk: { speed: 46, stride: 15, lift: 4.5, bob: 1.8, lean: 0.03, sway: 0.03, arm: 0.3 },
@@ -23,6 +26,9 @@ function locomote(b, st, dt, tx, gait, speedMul = 1) {
   const pet = b.pet;
   const T = pet.target;
   const S = b.world.scale;
+  const A = b.world.area;
+  // 目的地在活动范围外面（比如你刚把范围改小了）：走到边上就算到了，免得一直顶着边走
+  if (!pet.unbounded) tx = clamp(tx, A.left + 34 * S, Math.max(A.left + 34 * S, A.right - 34 * S));
   const dx = tx - pet.x;
   const dir = dx >= 0 ? 1 : -1;
   T.facing = dir;
@@ -49,19 +55,30 @@ function locomote(b, st, dt, tx, gait, speedMul = 1) {
   return Math.abs(tx - pet.x) < 0.75;
 }
 
-/** 挑一个要走去的地方：离现在 minDist ~ maxDist，且不出屏幕 */
+/** 挑一个要走去的地方：离现在 minDist ~ maxDist，且不出活动范围 */
 function pickWalkTarget(b, minDist, maxDist) {
   const pet = b.pet;
-  const w = b.world;
-  const S = w.scale;
-  const lo = 56 * S;
-  const hi = w.width - 56 * S;
-  if (hi <= lo) return w.width / 2;
+  const A = b.world.area;
+  const S = b.world.scale;
+  const lo = A.left + 56 * S;
+  const hi = A.right - 56 * S;
+  const mid = (A.left + A.right) / 2;
+  if (hi <= lo) return mid;
+  // 活动范围很窄的话，"走远一点"也走不了那么远
+  const span = hi - lo;
+  minDist = Math.min(minDist * S, span * 0.3);
+  maxDist = Math.min(maxDist * S, span);
   for (let i = 0; i < 6; i++) {
-    const tx = pet.x + rand(minDist, maxDist) * S * (chance(0.5) ? 1 : -1);
+    const tx = pet.x + rand(minDist, maxDist) * (chance(0.5) ? 1 : -1);
     if (tx >= lo && tx <= hi) return tx;
   }
-  return clamp(pet.x + (pet.x > w.width / 2 ? -1 : 1) * rand(minDist, maxDist) * S, lo, hi);
+  return clamp(pet.x + (pet.x > mid ? -1 : 1) * rand(minDist, maxDist), lo, hi);
+}
+
+/** 离左边、右边的"墙"（活动范围的边）各有多远 */
+export function wallDistances(b) {
+  const A = b.world.area;
+  return { left: b.pet.x - A.left, right: A.right - b.pet.x };
 }
 
 /** 记住动作开始时是站着还是坐着，这样"被摸""打哈欠"之类的动作不会让它突然站起来 */
@@ -330,7 +347,7 @@ export const ACTIVITIES = {
       pet.style.tailAmp = 0.9;
       pet.style.tailSpeed = 3;
       T.facing = 0;
-      T.armR = (1.95 + Math.sin(t * 15) * 0.32) * k;
+      T.armR = (1.6 + Math.sin(t * 15) * 0.3) * k; // 举到脸颊旁边挥（再高的话爪子就藏到头后面看不见了）
       T.mouth = 'smile';
       T.mouthOpen = 0.45 * k;
       T.headTilt += 0.07 * k;
@@ -415,7 +432,7 @@ export const ACTIVITIES = {
             // 披着白布：先把白布撩起来，再"Boo!"一下
             pet.style.sheetLift = t < 1.7 ? 1 : 0;
             if (t > 0.7 && t < 1.6) {
-              T.armL = T.armR = 2.1;
+              T.armL = T.armR = 1.75;
               T.eyes = 'wide';
               T.mouth = 'o';
               T.mouthOpen = 1;
@@ -424,7 +441,7 @@ export const ACTIVITIES = {
           } else {
             T.lift = t > 0.6 && t < 1.2 ? bell((t - 0.6) / 0.6) * 18 : 0;
             if (t > 0.6) {
-              T.armL = T.armR = 2.1 * k;
+              T.armL = T.armR = 1.75 * k;
               T.eyes = 'wide';
               T.mouth = 'o';
             }
@@ -513,7 +530,7 @@ export const ACTIVITIES = {
       if (this.phase === 0) {
         if (this.tx === undefined) {
           const side = pet.x < p.x ? -1 : 1;
-          this.tx = clamp(p.x + side * 80 * S, 56 * S, w.width - 56 * S);
+          this.tx = clamp(p.x + side * 80 * S, w.area.left + 56 * S, Math.max(w.area.left + 56 * S, w.area.right - 56 * S));
         }
         if (locomote(b, this, dt, this.tx, GAITS.walk, 1.2) || t > 9) {
           this.phase = 1;
@@ -575,7 +592,7 @@ export const ACTIVITIES = {
       }
 
       if (this.phase === 'run') {
-        const tx = clamp(p.x, 50 * S, w.width - 50 * S);
+        const tx = clamp(p.x, w.area.left + 50 * S, Math.max(w.area.left + 50 * S, w.area.right - 50 * S));
         const arrived = locomote(b, this, dt, tx, cat ? GAITS.run : GAITS.trot, 1.15);
         pet.style.gaze = 'cursor';
         T.eyes = 'wide';
@@ -729,6 +746,200 @@ export const ACTIVITIES = {
     },
   }),
 
+  // ------------------------------------------------------------ 爬墙
+
+  /**
+   * 爬墙：走到活动范围的左边或右边，扒着边往上爬，爬到一定高度后挂在那里东张西望，
+   * 然后慢慢爬下来，或者蹬一下墙跳下来。爬的时候点它一下，它也会跳下来。
+   * p.side：-1 左边的墙，1 右边的墙（不填就去近的那边）
+   */
+  climb: (b, p) => {
+    const pet = b.pet;
+    const w = b.world;
+    const S = w.scale;
+    const d = wallDistances(b);
+    const side = p.side ?? (d.left <= d.right ? -1 : 1);
+    const cat = pet.sp.id === 'cat';
+    const room = Math.max(0, w.groundY - pet.ceilingY()); // 最多能爬多高
+    return {
+      side,
+      phase: 'walk',
+      pt: 0,
+      cyc: 0, // 手脚交替的节奏
+      climbed: 0, // 已经离地多高（像素）
+      goal: p.goal ?? Math.min(room, Math.max(90 * S, rand(0.35, 1) * Math.min(room, 560 * S))),
+      speed: (cat ? 62 : 42) * S, // 熊猫爬得慢吞吞
+      clingFor: rand(2.6, 5),
+      decided: false,
+      jumped: false,
+      next(phase) {
+        this.phase = phase;
+        this.pt = 0;
+      },
+      /** 扒在墙上时脚的位置：离墙这么远，脑袋刚好贴着墙 */
+      wallX(w) {
+        return side < 0 ? w.area.left + WALL_GAP * w.scale : w.area.right - WALL_GAP * w.scale;
+      },
+      /** 爬的时候被点了一下：蹬墙跳下来 */
+      letGo(b) {
+        if (b.pet.mode === 'wall') this.next('leap');
+      },
+      update(b, dt, t) {
+        const pet = b.pet;
+        const T = pet.target;
+        const w = b.world;
+        const s = pet.style;
+        this.pt += dt;
+
+        if (this.phase === 'walk') {
+          if (locomote(b, this, dt, this.wallX(w), GAITS.walk, 1.15)) this.next('reach');
+          return t > 20; // 怎么也走不到（不该发生）：算了
+        }
+
+        if (this.phase === 'reach') {
+          // 转身面向墙，抬头看看上面，蹲一下，两只手举起来扒住
+          const u = clamp(this.pt / 0.55, 0, 1);
+          s.fps = 60;
+          s.gaze = 'none';
+          T.facing = side * 0.85;
+          T.lookX = side * 0.3;
+          T.lookY = -0.85;
+          T.armL = T.armR = 1.8 * easeInOut(u);
+          T.crouch = 0.3 * bell(u);
+          T.earDroop = -0.15;
+          if (u >= 1) {
+            pet.mode = 'wall';
+            this.next('up');
+          }
+          return false;
+        }
+
+        if (this.phase === 'leap') {
+          // 蹬一下墙，往屋里跳
+          if (!this.jumped) {
+            this.jumped = true;
+            pet.mode = 'air';
+            pet.leapt = true;
+            pet.vx = -side * rand(160, 230) * S;
+            pet.vy = -rand(150, 260) * S;
+            pet.vrot = -side * 1.2;
+          }
+          s.fps = 60;
+          s.gaze = 'none';
+          T.facing = -side * 0.5;
+          T.armL = T.armR = 1.5;
+          T.eyes = 'happy';
+          T.mouth = 'smile';
+          T.mouthOpen = 0.6;
+          T.tailCurl = 1;
+          T.footLY = T.footRY = 3;
+          return this.pt > 6; // 落地时大脑会换成"落地"动作；万一 6 秒还没落地，就不管了
+        }
+
+        if (this.phase === 'done') {
+          T.armL = T.armR = 0.4;
+          return this.pt > 0.35;
+        }
+
+        // 下面这几个阶段都扒在墙上
+        if (pet.mode !== 'wall') return true; // 被别的事打断了（比如被你拎走了）
+        pet.x = this.wallX(w);
+        T.footLX = T.footRX = side * 9; // 脚蹬着墙
+        T.lean = side * 0.03;
+        T.tailCurl = 0; // 尾巴垂下来
+        s.tilt = side * 0.08; // 整个身子往墙那边靠一点
+
+        if (this.phase === 'up' || this.phase === 'down') {
+          const up = this.phase === 'up';
+          s.fps = 60;
+          s.gaze = 'none';
+          s.tailAmp = 0.2;
+          // 一下一下地往上够：两只手轮流往上伸、脚轮流往上蹬；使劲的那一下爬得快，换手时慢
+          this.cyc += dt * (cat ? 6 : 4.4);
+          const sn = Math.sin(this.cyc);
+          const push = 0.2 + 0.8 * Math.abs(sn);
+          this.climbed += (up ? 1 : -1.3) * this.speed * push * dt;
+          // 靠墙的那只爪子扒在墙上，另一只爪子往上够；两只轮流使劲
+          const near = 1.4 + 0.22 * sn;
+          const far = 1.95 - 0.3 * sn;
+          T.armL = side < 0 ? near : far;
+          T.armR = side > 0 ? near : far;
+          T.footLY = Math.max(0, -sn) * 7;
+          T.footRY = Math.max(0, sn) * 7;
+          T.lift += Math.abs(sn) * 1.5;
+          T.facing = side * 0.85;
+          T.lookX = side * 0.2;
+          T.lookY = up ? -0.7 : 0.75; // 往上爬看上面，往下爬看脚下
+          T.earDroop = -0.1;
+          T.blush = 0.55;
+          if (!cat && up) T.mouth = 'wavy'; // 熊猫爬得很吃力
+          if (up && this.climbed >= this.goal) {
+            this.climbed = this.goal;
+            this.next('cling');
+            if (chance(0.25)) b.say('climb');
+          } else if (!up && this.climbed <= 0) {
+            this.climbed = 0;
+            pet.mode = 'ground';
+            pet.y = w.groundY;
+            pet.squashSpring.kick(1.2);
+            this.next('done');
+            return false;
+          } else if (!up && !this.decided && this.climbed < 150 * S) {
+            this.decided = true; // 快到地面了：有时候干脆跳下去
+            if (chance(0.35)) this.next('leap');
+          }
+          pet.y = w.groundY - this.climbed;
+          return false;
+        }
+
+        // cling：一只爪子扒着墙，另一只垂下来放松，脚轻轻晃；转过头来东张西望
+        s.fps = 30;
+        s.gaze = 'none';
+        s.tailAmp = 0.7;
+        s.tailSpeed = 1.6;
+        pet.y = w.groundY - this.climbed;
+        const hang = 0.45 + Math.sin(t * 1.7) * 0.12;
+        T.armL = side < 0 ? 1.5 : hang;
+        T.armR = side > 0 ? 1.5 : hang;
+        T.footLY = Math.max(0, Math.sin(t * 2.2)) * 2.5;
+        T.footRY = Math.max(0, -Math.sin(t * 2.2)) * 2.5;
+        if (this.pt < 1.1) {
+          // 先看看脚下有多高
+          T.facing = side * 0.3;
+          T.lookX = -side * 0.3;
+          T.lookY = 0.85;
+        } else if (this.pt < 2.4) {
+          // 再看看屋子那边
+          T.facing = -side * 0.35;
+          T.lookX = -side * 0.95;
+          T.lookY = -0.05;
+        } else {
+          // 最后看看你，得意地笑
+          if (b.world.pointer.inside) s.gaze = 'cursor';
+          T.facing = -side * 0.15;
+          T.mouth = 'smile';
+          T.mouthOpen = 0.35;
+          T.blush = 0.8;
+        }
+        if (this.pt >= this.clingFor) {
+          // 不太高的话，常常直接跳下去；太高了就老老实实爬下去
+          if (this.climbed < 320 * S && chance(0.55)) this.next('leap');
+          else this.next('down');
+        }
+        return false;
+      },
+      exit(b) {
+        // 爬到一半被打断（比如你把活动范围改了）：松开手掉下去
+        if (b.pet.mode === 'wall') {
+          b.pet.mode = 'air';
+          b.pet.leapt = true;
+          b.pet.vx = -this.side * 60 * b.world.scale;
+          b.pet.vy = 0;
+        }
+      },
+    };
+  },
+
   // ------------------------------------------------------------ 被拎起来、掉下去
 
   /** 被鼠标拎着：四肢垂下来，跟着晃 */
@@ -768,8 +979,8 @@ export const ACTIVITIES = {
       pet.style.fps = 60;
       pet.style.gaze = 'none';
       pet.style.blink = false;
-      T.armL = 1.9 + wobble(t * 14, 3) * 0.35;
-      T.armR = 1.9 + wobble(t * 14, 4) * 0.35;
+      T.armL = 1.65 + wobble(t * 14, 3) * 0.3;
+      T.armR = 1.65 + wobble(t * 14, 4) * 0.3;
       T.eyes = 'wide';
       T.mouth = 'o';
       T.squash = -0.09;
@@ -781,14 +992,25 @@ export const ACTIVITIES = {
     },
   }),
 
-  /** 轻轻落地 */
-  landed: () => ({
+  /** 轻轻落地。happy：自己从墙上跳下来的，落地时是得意的笑脸 */
+  landed: (b, p) => ({
     update(b, dt, t) {
       const pet = b.pet;
+      const T = pet.target;
       pet.style.fps = 60;
+      if (p.happy) {
+        if (t < 0.6) {
+          T.eyes = 'happy';
+          T.mouth = 'smile';
+          T.mouthOpen = 0.5;
+          T.blush = 0.8;
+          T.armL = T.armR = t < 0.25 ? 0.6 : 0.9;
+        }
+        return t >= 0.75;
+      }
       if (t < 0.22) {
-        pet.target.eyes = 'squeeze';
-        pet.target.armL = pet.target.armR = 0.5;
+        T.eyes = 'squeeze';
+        T.armL = T.armR = 0.5;
       }
       return t >= 0.5;
     },
@@ -840,7 +1062,8 @@ export const ACTIVITIES = {
       if (!this.started) {
         this.started = true;
         pet.unbounded = true;
-        pet.x = p.from < 0 ? -70 * S : w.width + 70 * S;
+        // 从活动范围的左边或右边外面跑进来（范围外面是看不见的，所以就像从边上钻出来）
+        pet.x = p.from < 0 ? w.area.left - 70 * S : w.area.right + 70 * S;
         pet.pose.facing = pet.target.facing = p.from < 0 ? 1 : -1;
       }
       const arrived = locomote(b, this, dt, p.tx, GAITS.run, 1);

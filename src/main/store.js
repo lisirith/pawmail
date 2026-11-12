@@ -30,7 +30,17 @@ const DEFAULT_SETTINGS = Object.freeze({
   birthday: null, // 你的生日 'MM-DD'（不问年份）
   cultures: null, // 你过哪些节日组（见 shared/festivals/catalog.js 的 GROUPS）；null = 还没告诉它，先按语言猜
   profileAsked: false, // 有没有问过你生日和节日（问过一次就不再追问，之后可以在信纸窗口里改）
+  area: null, // 活动范围 { x, y, w, h }，都是占整个窗口的比例（0~1）；null = 整个屏幕
 });
+
+/** 活动范围：四个 0~1 之间的数字，方框不能超出窗口，也不能小得离谱 */
+function isValidArea(v) {
+  if (v === null) return true;
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+  const keys = Object.keys(v);
+  if (keys.length !== 4 || !['x', 'y', 'w', 'h'].every((k) => keys.includes(k) && Number.isFinite(v[k]))) return false;
+  return v.x >= 0 && v.y >= 0 && v.w >= 0.03 && v.h >= 0.03 && v.x + v.w <= 1.0001 && v.y + v.h <= 1.0001;
+}
 
 const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 function isValidBirthday(v) {
@@ -54,6 +64,7 @@ const VALID = {
   birthday: isValidBirthday,
   cultures: (v) => v === null || (Array.isArray(v) && v.length <= 20 && new Set(v).size === v.length && v.every((id) => F.GROUP_IDS.includes(id))),
   profileAsked: (v) => typeof v === 'boolean',
+  area: isValidArea,
 };
 
 function isValidSetting(key, value) {

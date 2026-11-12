@@ -256,6 +256,10 @@ function registerIpc() {
     }
   });
 
+  ipcMain.on('pawmail:editing', (event, flag) => {
+    if (fromOverlay(event)) overlay.setEditing(!!flag);
+  });
+
   ipcMain.on('pawmail:open-mail', (event) => {
     if (fromOverlay(event)) mail.open();
   });

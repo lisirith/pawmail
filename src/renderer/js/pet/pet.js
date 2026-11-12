@@ -24,17 +24,18 @@ export class Pet {
     this.out = makePose(); // 最终画出来的姿势（再叠加眨眼、抖耳朵、落地回弹）
 
     // 位置 = 两脚中间踩着的那个点
-    this.x = world.width / 2;
+    this.x = (world.area.left + world.area.right) / 2;
     this.y = world.groundY;
     this.vx = 0;
     this.vy = 0;
-    this.rot = 0; // 整个身体的旋转（被拎着晃、下落翻滚）
+    this.rot = 0; // 整个身体的旋转（被拎着晃、下落翻滚、扒在墙上往墙那边靠）
     this.vrot = 0;
-    this.mode = 'ground'; // ground 在地上 | held 被拎着 | air 在空中
+    this.mode = 'ground'; // ground 在地上 | held 被拎着 | air 在空中 | wall 扒在墙上（位置由爬墙动作控制）
     this.pivot = { x: 0, y: -70 }; // 被抓住的是身体的哪个点
     this.shake = 0; // 被摇晃的剧烈程度（太大就会晕）
     this.bounced = false;
-    this.unbounded = false; // true 时允许走到屏幕外（进场时用）
+    this.leapt = false; // 这次在空中是它自己跳下来的（从墙上跳）：稳稳落地，不会摔晕
+    this.unbounded = false; // true 时允许走到活动范围外面（进场时用）
     this.onLand = null; // 落地时通知大脑
 
     this.squashSpring = new Spring(260, 14); // 落地时"压扁再弹回"
@@ -53,6 +54,7 @@ export class Pet {
       fps: 30, // 这个动作需要多流畅
       carryLift: 0, // 手里的信举多高：0 抱在胸前 … 1 举过头顶
       sheetLift: 0, // 万圣节的白布撩起来多少：0 盖着 … 1 撩到头顶
+      tilt: 0, // 整个身体想歪多少（弧度，正数往右歪）：扒在墙上时往墙那边靠一点
     };
 
     this.carry = false; // 手里有没有一封等你拆的信
@@ -101,11 +103,12 @@ export class Pet {
     s.fps = 30;
     s.carryLift = 0;
     s.sheetLift = 0;
+    s.tilt = 0;
   }
 
   finish(dt) {
     // 被拎着、在空中时，把一帧拆成几小步来算，这样即使帧率低，摆动和下落也不会算飞
-    const steps = this.mode === 'ground' ? 1 : Math.max(1, Math.ceil(dt / 0.02));
+    const steps = this.mode === 'held' || this.mode === 'air' ? Math.max(1, Math.ceil(dt / 0.02)) : 1;
     for (let i = 0; i < steps; i++) this.#physics(dt / steps);
     this.#micro(dt);
     this.carryLift = damp(this.carryLift, this.carry ? this.style.carryLift : 0, 0.07, dt);
@@ -171,11 +174,12 @@ export class Pet {
   /** 这一帧之后还有没有东西在动（决定要不要保持高帧率） */
   get busy() {
     return (
-      this.mode !== 'ground' ||
+      this.mode === 'held' ||
+      this.mode === 'air' || // 扒在墙上不算：爬的时候动作自己会要求流畅，挂着不动时不用那么勤快
+      Math.abs(this.rot - this.style.tilt) > 0.01 ||
       Math.abs(this.vx) > 1 ||
       Math.abs(this.squashSpring.x) > 0.004 ||
-      Math.abs(this.squashSpring.v) > 0.05 ||
-      Math.abs(this.rot) > 0.01
+      Math.abs(this.squashSpring.v) > 0.05
     );
   }
 
@@ -330,6 +334,7 @@ export class Pet {
     this.vx = 0;
     this.vy = 0;
     this.bounced = false;
+    this.leapt = false;
   }
 
   /** 松手。vx/vy 是松手瞬间鼠标的速度，所以可以把它"扔"出去。 */
@@ -345,12 +350,19 @@ export class Pet {
     this.bounced = false;
   }
 
+  /** 头顶最高能到哪里（脚的位置）：活动范围的上沿再往下一个身高 */
+  ceilingY() {
+    const w = this.world;
+    return Math.min(w.area.top + 124 * w.scale, w.groundY - 10 * w.scale);
+  }
+
   #physics(dt) {
     const w = this.world;
+    const A = w.area; // 活动范围（没设置时就是整个屏幕）
     const S = w.scale;
     const p = w.pointer;
-    const minX = 34 * S;
-    const maxX = Math.max(minX, w.width - 34 * S);
+    const minX = A.left + 34 * S;
+    const maxX = Math.max(minX, A.right - 34 * S);
 
     if (this.mode === 'held') {
       // 身体像钟摆一样挂在鼠标上：鼠标往右加速，身体就往左甩
@@ -366,8 +378,9 @@ export class Pet {
       const sin = Math.sin(this.rot);
       const px = this.pivot.x * S;
       const py = this.pivot.y * S;
-      const tx = clamp(p.x, 0, w.width);
-      const ty = clamp(p.y, 0, w.height);
+      // 拎着它往活动范围外面拖：它会停在边上，出不去
+      const tx = clamp(p.x, A.left, A.right);
+      const ty = clamp(p.y, A.top, A.bottom);
       const nx = tx - (px * cos - py * sin);
       const ny = Math.min(ty - (px * sin + py * cos), w.groundY);
       this.x = damp(this.x, nx, 0.012, dt);
@@ -392,8 +405,8 @@ export class Pet {
         this.x = maxX;
         this.vx = -Math.abs(this.vx) * 0.45;
       }
-      // 撞到屏幕顶
-      const ceiling = 124 * S;
+      // 撞到活动范围的顶
+      const ceiling = this.ceilingY();
       if (this.y < ceiling && this.vy < 0) {
         this.y = ceiling;
         this.vy = Math.abs(this.vy) * 0.3;
@@ -402,22 +415,35 @@ export class Pet {
       if (this.y >= w.groundY) {
         const impact = this.vy;
         this.y = w.groundY;
-        if (impact > 950 * S && !this.bounced) {
+        if (impact > 950 * S && !this.bounced && !this.leapt) {
           // 摔得重：先弹起来一下
           this.bounced = true;
           this.vy = -impact * 0.24;
           this.squashSpring.kick(clamp(impact / (260 * S), 1.5, 7));
           this.#dust();
         } else {
+          const leapt = this.leapt;
           this.mode = 'ground';
           this.vy = 0;
-          this.squashSpring.kick(clamp(impact / (200 * S), 0.8, 9));
+          // 自己跳下来的：膝盖一弯就站稳了，压扁得没那么厉害
+          this.squashSpring.kick(leapt ? clamp(impact / (330 * S), 0.8, 4) : clamp(impact / (200 * S), 0.8, 9));
           if (impact > 500 * S) this.#dust();
-          const dizzy = this.bounced || this.shake > 1 || impact > 1500 * S;
+          const dizzy = !leapt && (this.bounced || this.shake > 1 || impact > 1500 * S);
           this.bounced = false;
-          if (this.onLand) this.onLand(impact / S, dizzy);
+          this.leapt = false;
+          if (this.onLand) this.onLand(impact / S, dizzy, leapt);
         }
       }
+      return;
+    }
+
+    if (this.mode === 'wall') {
+      // 扒在墙上：位置由爬墙的动作决定，这里只保证它不爬出活动范围、不钻到地下
+      this.vx = 0;
+      this.vy = 0;
+      this.vrot += (-140 * (this.rot - this.style.tilt) - 16 * this.vrot) * dt;
+      this.rot += this.vrot * dt;
+      this.y = clamp(this.y, this.ceilingY(), w.groundY);
       return;
     }
 
@@ -428,7 +454,7 @@ export class Pet {
     } else {
       this.vx = 0;
     }
-    this.vrot += (-140 * this.rot - 16 * this.vrot) * dt;
+    this.vrot += (-140 * (this.rot - this.style.tilt) - 16 * this.vrot) * dt;
     this.rot += this.vrot * dt;
     this.shake = Math.max(0, this.shake - dt * 0.5);
     if (!this.unbounded) this.x = clamp(this.x, minX, maxX);
@@ -456,6 +482,9 @@ export class Pet {
   /** 屏幕上的这个点有没有落在宠物身上？返回 'head' / 'body' / null */
   hit(px, py) {
     const S = this.world.scale;
+    // 活动范围外面的部分是看不见的（比如刚从边上钻进来时），看不见的地方不能点，免得挡住你点下面的东西
+    const c = this.world.clip;
+    if (c && (px < c.left || px > c.right || py < c.top || py > c.bottom)) return null;
     if (Math.abs(px - this.x) > 150 * S || py < this.y - (200 + this.out.lift) * S || py > this.y + 40 * S) return null;
     const l = this.toLocal(px, py);
     return hitTest(this.sp, this.out, l.x, l.y);

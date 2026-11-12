@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('pawmail', {
   savePet: (state) => ipcRenderer.send('pawmail:save-pet', state),
   setSetting: (key, value) => ipcRenderer.send('pawmail:set-setting', key, value),
   setTrayIcon: (dataUrl) => ipcRenderer.send('pawmail:tray-icon', dataUrl),
+  /** 正在画"活动范围"：就算是"只在桌面"模式，也先把窗口提到最前面，画完再放回去 */
+  setEditing: (flag) => ipcRenderer.send('pawmail:editing', !!flag),
   /** 打开信纸窗口（有没拆的信就直接打开那封） */
   openMail: () => ipcRenderer.send('pawmail:open-mail'),
   /** 记一次互动：'pet' 摸头 | 'poke' 戳 | 'throw' 扔 | 'dizzy' 弄晕 */

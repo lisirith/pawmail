@@ -10,6 +10,7 @@ import { lookById } from './pet/looks.js';
 import { makePose, poseDistance, copyPose } from './pet/pose.js';
 import { Bubble } from './ui/bubble.js';
 import { PetMenu } from './ui/menu.js';
+import { AreaEditor } from './ui/area.js';
 import { clamp, damp, rand, TAU } from './util/math.js';
 
 const bridge = createBridge();
@@ -58,7 +59,9 @@ async function main() {
   const world = {
     width: stage.clientWidth,
     height: stage.clientHeight,
-    groundY: stage.clientHeight - 3, // 地面 = 任务栏的上沿
+    area: null, // 活动范围（像素）：{ left, top, right, bottom, custom }，由下面的 layoutArea 算出来
+    clip: null, // 宠物画在哪个框里：框外面的部分看不见，也点不到
+    groundY: stage.clientHeight - 3, // 地面 = 活动范围的底边（没设置时就是任务栏的上沿）
     scale: settings.scale,
     time: 0,
     pointer: {
@@ -77,6 +80,56 @@ async function main() {
     },
     system: { idle: 0 }, // 后台告诉我们：你已经多少秒没碰电脑了
   };
+
+  // ------------------------------------------------------------ 活动范围
+  //
+  // 设置里存的是"占整个窗口的比例"（换了分辨率也大致在同一个位置），这里换算成像素。
+  // 宠物只在这个方框里活动：方框的底边就是地面，左右两边是墙（可以爬），方框外面的部分看不见。
+
+  const arena = document.getElementById('arena');
+  let arenaX = 0; // 方框（裁剪框）左上角在窗口里的位置
+  let arenaY = 0;
+  // 裁剪框比活动范围往上多留一截：头顶冒出来的爱心、ZZZ、跳起来的耳朵不会被切掉一半
+  const ARENA_SPILL = 90;
+  /** 方框最小多大：再小它就转不开身了（宠物调大了，方框也跟着要大一点） */
+  const minAreaSize = (S) => ({ w: 240 * S, h: 190 * S });
+
+  function computeArea() {
+    const W = stage.clientWidth;
+    const H = stage.clientHeight;
+    const f = settings.area;
+    if (!f) return { left: 0, top: 0, right: W, bottom: H, custom: false };
+    // 方框比最小尺寸还小（比如后来把宠物调大了）：底边不动，往上、往两边撑大
+    const min = minAreaSize(world.scale);
+    const w = Math.min(W, Math.max(f.w * W, min.w));
+    const h = Math.min(H, Math.max(f.h * H, min.h));
+    const left = clamp((f.x + f.w / 2) * W - w / 2, 0, W - w);
+    const bottom = clamp((f.y + f.h) * H, h, H);
+    return { left, top: bottom - h, right: left + w, bottom, custom: true };
+  }
+
+  function layoutArea() {
+    world.width = stage.clientWidth;
+    world.height = stage.clientHeight;
+    const A = computeArea();
+    world.area = A;
+    world.groundY = A.bottom - 3;
+    // 裁剪框对齐到物理像素，宠物才不会发虚
+    const ratio = window.devicePixelRatio || 1;
+    const snap = (v) => Math.round(v * ratio) / ratio;
+    const top = A.custom ? Math.max(0, A.top - ARENA_SPILL * world.scale) : 0;
+    const bottom = A.custom ? Math.min(world.height, A.bottom + 4 * world.scale) : world.height; // 底下留一点给影子
+    arenaX = snap(A.left);
+    arenaY = snap(top);
+    const width = snap(A.right) - arenaX;
+    const height = snap(bottom) - arenaY;
+    arena.style.left = `${arenaX}px`;
+    arena.style.top = `${arenaY}px`;
+    arena.style.width = `${width}px`;
+    arena.style.height = `${height}px`;
+    world.clip = { left: arenaX, top: arenaY, right: arenaX + width, bottom: arenaY + height };
+  }
+  layoutArea();
 
   const pet = new Pet(getSpecies(settings.species), world);
   const bubble = new Bubble(document.getElementById('bubble'));
@@ -167,9 +220,9 @@ async function main() {
       drawn.at = nowMs;
       redraws += 1;
     }
-    // 小画布跟着宠物移动（对齐到物理像素，静止时才不会发虚）
-    const left = Math.round((pet.x - RIG.anchorX * S) * dpr) / dpr;
-    const top = Math.round((pet.y - RIG.anchorY * S) * dpr) / dpr;
+    // 小画布跟着宠物移动（对齐到物理像素，静止时才不会发虚）。画布放在活动范围的框里，所以要减去框的位置
+    const left = Math.round((pet.x - RIG.anchorX * S - arenaX) * dpr) / dpr;
+    const top = Math.round((pet.y - RIG.anchorY * S - arenaY) * dpr) / dpr;
     const transform = `translate3d(${left}px, ${top}px, 0)`;
     if (transform !== drawn.transform) {
       drawn.transform = transform;
@@ -180,11 +233,60 @@ async function main() {
   }
 
   window.addEventListener('resize', () => {
-    world.width = stage.clientWidth;
-    world.height = stage.clientHeight;
-    world.groundY = stage.clientHeight - 3;
+    applyArea(); // 分辨率、任务栏变了：活动范围按比例跟着变
     if (window.devicePixelRatio !== dpr) resizeCanvas();
   });
+
+  /** 一闪一闪地"噗"一下（换动物、被挪到新的活动范围时） */
+  function poof() {
+    pet.squashSpring.kick(3);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU;
+      pet.fx.spawn('spark', {
+        x: Math.cos(a) * 34,
+        y: -60 + Math.sin(a) * 44,
+        vx: Math.cos(a) * 36,
+        vy: Math.sin(a) * 36,
+        life: 0.6,
+        vrot: 3,
+      });
+    }
+  }
+
+  /**
+   * 活动范围变了（你画了新方框、换了分辨率、把宠物调大了）：重新算范围，再把宠物放进去。
+   * announce：是你刚画的新方框，宠物会说句话
+   */
+  function applyArea({ announce = false } = {}) {
+    const before = world.area;
+    layoutArea();
+    const A = world.area;
+    const same = before && before.left === A.left && before.top === A.top && before.right === A.right && before.bottom === A.bottom;
+    if (same || pet.unbounded || pet.mode === 'held') return; // 正在进场、正被你拎着：之后物理会自己把它放进范围里
+    const S = world.scale;
+    if (pet.mode === 'wall') brain.start('falling'); // 正扒在墙上：先松手（爬墙动作一结束就会让它掉下来）
+    const lo = A.left + 40 * S;
+    const hi = Math.max(lo, A.right - 40 * S);
+    const insideX = pet.x >= lo && pet.x <= hi;
+    const insideY = pet.y >= pet.ceilingY() - 1 && pet.y <= world.groundY + 1;
+    if (!insideX || !insideY) {
+      // 跑到范围外面了："噗"地一下出现在范围里离原来最近的地方
+      pet.x = clamp(pet.x, A.left + 70 * S, Math.max(A.left + 70 * S, A.right - 70 * S));
+      pet.y = world.groundY;
+      pet.mode = 'ground';
+      pet.vx = pet.vy = pet.rot = pet.vrot = 0;
+      pet.leapt = pet.bounced = false;
+      poof();
+    } else if (pet.mode === 'ground' && pet.y < world.groundY - 2) {
+      // 还在范围里，但新的地面更低：从原来的高度轻轻跳下去
+      pet.mode = 'air';
+      pet.vx = pet.vy = 0;
+      pet.leapt = true;
+      brain.start('falling');
+    }
+    brain.onAreaChange();
+    if (announce) say('area', 2.6);
+  }
 
   // ------------------------------------------------------------ 鼠标
 
@@ -269,6 +371,7 @@ async function main() {
 
   window.addEventListener('pointerdown', (e) => {
     setPointer(e.clientX, e.clientY);
+    if (areaEditor.isOpen) return; // 正在画活动范围：鼠标归画框用
     if (menu.isOpen) {
       if (!menu.contains(e.target)) menu.close(); // 点菜单外面 = 关闭菜单
       return;
@@ -301,11 +404,15 @@ async function main() {
 
   window.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    if (areaEditor.isOpen) {
+      areaEditor.cancel(); // 画框时点右键 = 取消
+      return;
+    }
     if (menu.isOpen) {
       menu.close();
       return;
     }
-    if (pet.mode === 'ground' && pet.hit(e.clientX, e.clientY)) {
+    if ((pet.mode === 'ground' || pet.mode === 'wall') && pet.hit(e.clientX, e.clientY)) {
       menu.open(buildMenu(), e.clientX, e.clientY, world.width, world.height);
     }
   });
@@ -328,7 +435,7 @@ async function main() {
       wasOver = over;
       document.body.classList.toggle('over-pet', over);
     }
-    const want = !!press || menu.isOpen || over;
+    const want = !!press || menu.isOpen || areaEditor.isOpen || over;
     const now = performance.now();
     // 需要接住鼠标时，每 0.2 秒重新确认一次；万一画面卡死，后台收不到确认就会自动恢复穿透
     if (want !== captureWanted || (want && now - captureSentAt > 200)) {
@@ -346,12 +453,33 @@ async function main() {
       menu.close();
       if (id === 'toggleSleep') brain.command(brain.asleep ? 'wake' : 'sleep');
       else if (id === 'mail') bridge.openMail();
+      else if (id === 'area') openAreaEditor();
       else if (id === 'quit') {
         save();
         bridge.quit();
       }
     },
   });
+
+  // 画活动范围（右键菜单、托盘菜单都能打开）
+  const areaEditor = new AreaEditor(document.getElementById('area-editor'), {
+    t: (key) => i18n.t(key),
+    onDone: (result) => {
+      bridge.setEditing(false);
+      if (result !== undefined) bridge.setSetting('area', result); // undefined = 取消，什么都不改
+    },
+  });
+
+  function openAreaEditor() {
+    if (areaEditor.isOpen) return;
+    menu.close();
+    bubble.hide();
+    const A = world.area;
+    const min = minAreaSize(world.scale);
+    const rect = A.custom ? { x: A.left, y: A.top, w: A.right - A.left, h: A.bottom - A.top } : null;
+    bridge.setEditing(true); // "只在桌面"模式下也先把窗口提到最前面，不然画框界面会被别的窗口挡住
+    areaEditor.open(rect, stage.clientWidth, stage.clientHeight, min.w, min.h);
+  }
 
   function buildMenu() {
     const t = i18n.t;
@@ -411,6 +539,7 @@ async function main() {
         ],
       },
       { type: 'separator' },
+      { type: 'action', id: 'area', label: `🔲 ${t('menu.areaEdit')}` },
       { type: 'action', id: 'toggleSleep', label: brain.asleep ? `☀️ ${t('menu.wake')}` : `🌙 ${t('menu.sleep')}` },
       { type: 'action', id: 'quit', label: `👋 ${t('menu.quit')}`, danger: true },
     ];
@@ -423,24 +552,15 @@ async function main() {
     settings = { ...next };
     if (settings.species !== prev.species) {
       pet.setSpecies(getSpecies(settings.species));
-      pet.squashSpring.kick(3); // 换动物时"噗"地弹一下
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * TAU;
-        pet.fx.spawn('spark', {
-          x: Math.cos(a) * 34,
-          y: -60 + Math.sin(a) * 44,
-          vx: Math.cos(a) * 36,
-          vy: Math.sin(a) * 36,
-          life: 0.6,
-          vrot: 3,
-        });
-      }
+      poof(); // 换动物时"噗"地弹一下
       bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look));
     }
     if (settings.scale !== prev.scale) {
       world.scale = settings.scale;
       resizeCanvas();
+      applyArea(); // 宠物变大了，方框可能要跟着撑大一点
     }
+    if (JSON.stringify(settings.area) !== JSON.stringify(prev.area)) applyArea({ announce: true });
     if (settings.language !== prev.language) {
       i18n.setLanguage(settings.language);
       document.documentElement.lang = i18n.lang;
@@ -449,7 +569,10 @@ async function main() {
   }
 
   bridge.on('settings', applySettings);
-  bridge.on('command', (c) => brain.command(c.type));
+  bridge.on('command', (c) => {
+    if (c.type === 'editArea') openAreaEditor(); // 托盘菜单里的"画一个活动范围…"
+    else brain.command(c.type);
+  });
   bridge.on('system', (s) => {
     if (!xflags.includes('noaway')) Object.assign(world.system, s); // --x-noaway：测试时假装你一直在电脑前
   });
@@ -499,7 +622,7 @@ async function main() {
    */
   function wantedFps() {
     if (forcedFps) return forcedFps;
-    if (press || menu.isOpen || wasOver || pet.busy) return 60;
+    if (press || menu.isOpen || areaEditor.isOpen || wasOver || pet.busy) return 60;
     if (brain.userAway && brain.asleep) return 6; // 你不在、它也睡着了：没人看，几乎不占资源
     return Math.max(pet.style.fps, pet.fx.active ? 20 : 0);
   }
@@ -545,13 +668,16 @@ async function main() {
 
   // ------------------------------------------------------------ 开场
 
-  // 从离"上次待的地方"近的那一边跑进来，挥手打招呼
+  // 从活动范围里离"上次待的地方"近的那一边跑进来，挥手打招呼
   const S = world.scale;
-  const savedX = init.pet && Number.isFinite(init.pet.xFrac) ? init.pet.xFrac * world.width : rand(0.25, 0.75) * world.width;
-  const from = savedX < world.width / 2 ? -1 : 1;
-  const edge = from < 0 ? 0 : world.width;
+  const A0 = world.area;
+  const savedX = init.pet && Number.isFinite(init.pet.xFrac) ? init.pet.xFrac * world.width : A0.left + rand(0.25, 0.75) * (A0.right - A0.left);
+  const from = savedX < (A0.left + A0.right) / 2 ? -1 : 1;
+  const edge = from < 0 ? A0.left : A0.right;
   const maxRun = 460 * S;
-  const tx = clamp(Math.abs(savedX - edge) <= maxRun ? savedX : edge - from * rand(220, 420) * S, 80 * S, Math.max(80 * S, world.width - 80 * S));
+  const lo = A0.left + 80 * S;
+  const hi = Math.max(lo, A0.right - 80 * S);
+  const tx = clamp(Math.abs(savedX - edge) <= maxRun ? savedX : edge - from * rand(220, 420) * S, lo, hi);
   brain.start('arrive', { from, tx });
   const firstRun = !settings.firstRunDone;
   applyFestival(init.festival, { greet: false }); // 过节的话，跑进来时就已经穿好装扮了
@@ -586,6 +712,8 @@ async function main() {
       menu,
       bubble,
       bridge,
+      areaEditor,
+      openAreaEditor,
       settings: () => settings,
       setPointer,
       pause: () => (debug.paused = true),
