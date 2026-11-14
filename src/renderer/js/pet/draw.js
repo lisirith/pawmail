@@ -12,9 +12,10 @@ import { resolveOutfit } from './outfits.js';
 
 export const RIG = Object.freeze({
   // 宠物所在的小画布的大小，以及"脚底中心"在这块画布里的位置
-  // （上方留得多，是因为跳起来、戴帽子、冒爱心都需要地方）
+  // （上方留得多，是因为跳起来、戴帽子、冒爱心都需要地方；
+  //   脚底下也要留够：被拎起来时尾巴整条垂下来，身子一荡，尾巴尖会甩到脚底下面去。npm run artcheck 会检查）
   canvasW: 300,
-  canvasH: 360,
+  canvasH: 420,
   anchorX: 150,
   anchorY: 322,
   height: 118, // 站立时的大致身高（不含耳朵）

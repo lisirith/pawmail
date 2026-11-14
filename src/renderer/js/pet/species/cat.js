@@ -106,7 +106,10 @@ function createCat(coatId = 'tabby') {
       }
     };
     inEar(() => {
-      edge(); ctx.lineTo(side * 13, -29.6); ctx.closePath();
+      // 耳根往头里面多铺一块（头是后画的，会把这块盖住，平时看不见）。
+      // 耳朵往下耷拉、抖动时是绕着耳朵中间转的，靠头顶那一侧的耳根会翘起来；
+      // 多铺的这块就补在缝里，不会和头分开、露出一道缺口（用户反馈）
+      edge(); ctx.lineTo(side * 30, 4); ctx.lineTo(side * 4, -14); ctx.closePath();
     });
     // 路径已经记住耳朵变换，填色回到头部坐标，耳根才没有渐变色接缝。
     ctx.fillStyle = lucky ? patchWash(ctx, side > 0) : headFill(ctx, 44, 31); ctx.fill();
@@ -361,10 +364,23 @@ function createCat(coatId = 'tabby') {
   // 按蓝笔描合完整的花生形外缘；舒展、卷尾和摆动连续变形这条轮廓。
   function drawTail(ctx, P, g) {
     const s = P.tailSide, c = clamp(P.tailCurl + g.sit * 0.2, 0, 1), sway = P.tail, by = g.tailBaseY;
+    // 被拎起来时（tailHang）：整条尾巴绕着尾根往下转，顺着尾巴的走向稍微缩短一点，
+    // 但横着的粗细一点不变——尾巴是圆柱一样的，不能压成纸片（用户反馈）
+    const hang = P.tailHang || 0;
+    const turn = hang * 1.1, tc = Math.cos(turn), ts = Math.sin(turn);
+    const shorten = hang * 0.15;
+    const ux = 0.79, uy = -0.61; // 尾巴大致的走向（从尾根指向尾尖）
     const point = (x, y) => {
       const flex = Math.pow(clamp((x - 16) / 58, 0, 1), 2);
-      return [s * (16 + (x - 16) * lerp(1.06, 0.997, c)) + sway * 6 * flex,
-        by + (y + 9.4) * lerp(0.32, 1.036, c) + sway * 2 * flex];
+      let dx = (x - 16) * lerp(1.06, 0.997, c);
+      let dy = (y + 9.4) * lerp(0.32, 1.036, c);
+      if (hang > 0) {
+        const along = dx * ux + dy * uy; // 只缩"顺着尾巴"的那个方向，粗细方向不缩
+        dx -= along * shorten * ux;
+        dy -= along * shorten * uy;
+        [dx, dy] = [dx * tc - dy * ts, dx * ts + dy * tc];
+      }
+      return [s * (16 + dx) + sway * 6 * flex, by + dy + sway * 2 * flex];
     };
     const move = (x, y) => ctx.moveTo(...point(x, y));
     const curve = (x1, y1, x2, y2, x3, y3) => ctx.bezierCurveTo(...point(x1, y1), ...point(x2, y2), ...point(x3, y3));
@@ -381,7 +397,8 @@ function createCat(coatId = 'tabby') {
       curve(19, -5, 17, -7, 16, -9.4);
       ctx.closePath();
     };
-    shape(); ctx.fillStyle = furWash(ctx, s * 50, by - 24, 58); ctx.fill();
+    const wash = hang > 0 ? point(50, -32.6) : [s * 50, by - 24]; // 尾巴垂下来时，明暗也跟着转下来
+    shape(); ctx.fillStyle = furWash(ctx, wash[0], wash[1], 58); ctx.fill();
     ctx.save(); shape(); ctx.clip();
     if (lucky) {
       ctx.beginPath(); move(43, -47); curve(52, -64, 77, -64, 84, -42);

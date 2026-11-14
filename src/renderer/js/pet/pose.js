@@ -45,6 +45,7 @@ export const POSE_DEFAULTS = Object.freeze({
   tail: 0, // 左右摆动
   tailCurl: 1, // 0 下垂 … 1 翘起
   tailSide: 1, // 尾巴在身体哪一侧：-1 左 … 1 右
+  tailHang: 0, // 0 平常 … 1 整条往下垂（被拎起来时）：粗细不变，只是转下来、稍微短一点
 });
 
 // 表情不是数字，直接切换
@@ -78,6 +79,7 @@ export const HALF_LIFE = Object.freeze({
   footRY: 0.03,
   tailCurl: 0.2,
   tailSide: 0.2,
+  tailHang: 0.12,
 });
 
 export const POSE_KEYS = Object.freeze(Object.keys(POSE_DEFAULTS));
@@ -112,6 +114,7 @@ const POSE_PIXELS = Object.freeze({
   tail: 17,
   tailCurl: 60,
   tailSide: 45,
+  tailHang: 50,
 });
 
 /** 两个姿势在画面上最多差了多少像素（按宠物原始大小算） */

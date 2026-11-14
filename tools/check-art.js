@@ -21,6 +21,15 @@ async function inspectArt(poses, guideUrl) {
     }
     cases.push({ name: `carry-${t}`, pose: { armL: -0.75 + 2.5 * t, armR: -0.75 + 2.5 * t }, opts: { carry: true, carryLift: t } });
   }
+  // 被拎着（像拎小猫的后脖梗）：尾巴整条垂下来，身子最多荡到 ±1.2，尾巴还会左右甩。垂下来的尾巴不能伸出画布
+  for (const rot of [-1.2, -0.6, 0, 0.6, 1.2]) {
+    for (const tail of [-0.8, 0, 0.8]) {
+      for (const tailSide of [-1, 1]) {
+        const pose = { armL: -0.85, armR: -0.15, footLX: 12, footRX: 2, footLY: 3.7, footRY: -2.7, squash: -0.18, tailCurl: 1, tailHang: 1, tail, tailSide, earDroop: 0.7 };
+        cases.push({ name: `hang-${rot}-${tail}-${tailSide}`, pose, opts: {}, rot });
+      }
+    }
+  }
   // 衣柜里的衣服：每件单独穿，在站、坐、趴、走、举手、被拎起、扒墙歪着这些姿势下都画一遍；再加两套全身搭配
   const { OUTFITS } = await import('/src/renderer/js/pet/outfits.js');
   const outfitPoses = [
@@ -83,11 +92,13 @@ async function inspectArt(poses, guideUrl) {
       try {
         ctx.reset();
         ctx.translate(RIG.anchorX, RIG.anchorY);
+        if (sample.rot) ctx.rotate(sample.rot); // 被拎着来回荡时，整只是绕着脚底转的（和 pet.draw 一样）
+        const before = ctx.getTransform();
         depth = 0;
         drawPet(checked, sp, makePose(sample.pose), { ...sample.opts, time: 0.3, shadow: false });
         if (depth !== 0) throw new Error(`save/restore 不平衡：${depth}`);
         const transform = ctx.getTransform();
-        if (transform.a !== 1 || transform.d !== 1 || transform.b !== 0 || transform.c !== 0 || transform.e !== RIG.anchorX || transform.f !== RIG.anchorY) throw new Error('绘制后坐标变换未还原');
+        if (['a', 'b', 'c', 'd', 'e', 'f'].some((k) => Math.abs(transform[k] - before[k]) > 1e-9)) throw new Error('绘制后坐标变换未还原');
         const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let pixels = 0, margin = Infinity;
         for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {

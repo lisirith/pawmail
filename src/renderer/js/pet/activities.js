@@ -1238,8 +1238,9 @@ export const ACTIVITIES = {
       T.footRX = -5 + legLag + wobble(t * 1.3, 6) * 1.2;
       T.footLY = 0.5;
       T.footRY = 0.5;
-      // 尾巴耷拉着，跟着甩
-      T.tailCurl = 0;
+      // 尾巴整条垂下来（粗细不变，只是转下来、稍微短一点），跟着甩
+      T.tailCurl = 1;
+      T.tailHang = 1;
       T.tail += clamp(-pet.vrot * 0.25, -0.8, 0.8);
       // 被拎着的是脖子：身子歪的时候，头往回正一点
       T.headTilt = -pet.rot * 0.4 + wobble(t * 0.7, 7) * 0.05;
