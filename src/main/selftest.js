@@ -127,6 +127,7 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
   check('窗口背景是透明的，而且画出了宠物', cornerAlpha === 0 && opaque > 2000, { cornerAlpha, opaquePixels: opaque, size });
 
   await testArea();
+  await testFeed();
   await testMail();
   await testReports();
   await testFestivals();
@@ -446,6 +447,171 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
 
     mail.close();
     await wait(200);
+  }
+
+  // ---------------------------------------------------------------- 喂它吃文件
+
+  async function testFeed() {
+    const os = require('node:os');
+    const { app } = require('electron');
+    const { Feeder, buildRules } = require('./feed');
+    const realRules = buildRules({
+      getPath: (name) => app.getPath(name),
+      appPath: app.getAppPath(),
+      userData: app.getPath('userData'),
+      exeDir: path.dirname(process.execPath),
+    });
+
+    // 1. 不该吃的东西：用一个"假的回收站"来测（只记下被要求扔什么，什么都不删），
+    //    这样就算规则写错了，也不会真的把这些重要的文件夹扔掉
+    const asked = [];
+    const fakeTrash = async (p) => {
+      asked.push(p);
+    };
+    const guarded = new Feeder({ trash: fakeTrash, native, rules: realRules });
+    const home = os.homedir();
+    const BS = '\\';
+    const refuse = {
+      disk: 'C:' + BS,
+      windows: process.env.SystemRoot,
+      home,
+      desktop: app.getPath('desktop'),
+      documents: app.getPath('documents'),
+      appData: app.getPath('appData'),
+      self: app.getAppPath(),
+      network: BS + BS + 'localhost' + BS + 'c$' + BS + 'Windows' + BS + 'win.ini',
+      missing: path.join(home, 'pawmail-no-such-file-' + Date.now() + '.txt'),
+    };
+    const refusal = {};
+    for (const [name, p] of Object.entries(refuse)) {
+      const res = await guarded.feed([p]);
+      refusal[name] = res.reason;
+    }
+    const expected = { disk: 'protected', windows: 'protected', home: 'protected', desktop: 'protected', documents: 'protected', appData: 'protected', self: 'home', network: 'notLocal', missing: 'missing' };
+    check(
+      '重要的地方不吃：整个磁盘、Windows、用户文件夹、桌面和文档文件夹本身、AppData、它自己的家、网络上的、不存在的',
+      asked.length === 0 && Object.entries(expected).every(([k, v]) => refusal[k] === v),
+      { refusal, trashCalls: asked.length }
+    );
+
+    // 2. 一次太多、太大：也不吃（同样用假的回收站）
+    const base = path.join(app.getPath('userData'), `feed-test-${process.pid}-${Date.now()}`);
+    fs.mkdirSync(base, { recursive: true });
+    const testRules = buildRules({ getPath: (name) => app.getPath(name), userData: path.join(base, 'not-here') }); // 测试文件放在程序文件夹里，这里不把程序文件夹算作"家"
+    const many = [];
+    for (let i = 0; i < 21; i++) {
+      const f = path.join(base, `crumb-${i}.txt`);
+      fs.writeFileSync(f, 'pawmail selftest crumb');
+      many.push(f);
+    }
+    const tooMany = await new Feeder({ trash: fakeTrash, native, rules: testRules }).feed(many);
+    const tooBig = await new Feeder({ trash: fakeTrash, native, rules: testRules, limits: { maxItems: 20, maxBytes: 8, maxEntries: 5000 } }).feed([many[0]]);
+    check('一次超过 20 样、或者太大：不吃', tooMany.reason === 'tooMany' && tooBig.reason === 'tooBig' && asked.length === 0, {
+      tooMany: tooMany.reason,
+      tooBig: tooBig.reason,
+      trashCalls: asked.length,
+    });
+
+    // 3. 真的吃：自检自己造的两个测试文件和一个测试文件夹，真的放进回收站，确认回收站里找得到，再从回收站里清掉
+    const token = `${process.pid}-${Date.now()}`;
+    const snackFile = path.join(base, `pawmail-selftest-cookie-${token}.txt`);
+    const snackDir = path.join(base, `pawmail-selftest-box-${token}`);
+    fs.writeFileSync(snackFile, 'pawmail selftest: this file is safe to delete');
+    fs.mkdirSync(snackDir);
+    fs.writeFileSync(path.join(snackDir, 'candy.txt'), 'pawmail selftest: this file is safe to delete');
+    const real = new Feeder({ trash: (p) => require('electron').shell.trashItem(p), native, rules: testRules });
+    const eaten = await real.feed([snackFile, snackDir]);
+    const gone = !fs.existsSync(snackFile) && !fs.existsSync(snackDir);
+    const purged = purgeFromRecycleBin([snackFile, snackDir]);
+    check('能吃的测试文件和文件夹真的进了回收站（之后已从回收站清掉）', eaten.eaten === 2 && gone && purged === 2, {
+      result: eaten.items,
+      gone,
+      foundInRecycleBin: purged,
+    });
+    fs.rmSync(base, { recursive: true, force: true });
+
+    // 4. 画面那边：张嘴等着、吃下去、吐出来
+    const show = await js(`
+      const P = window.__pawmail;
+      const bubble = () => document.querySelector('.bubble-text').textContent;
+      P.brain.start('idle');
+      P.run(0.3);
+      const out = {};
+      P.brain.onFood(true); P.run(0.4);
+      out.hungry = P.brain.name;
+      P.brain.onFood(false); P.run(0.3);
+      out.after = P.brain.name;
+      let eat = P.brain.onFeed([{ kind: 'file' }, { kind: 'folder' }], { x: 0, y: -50 });
+      P.run(0.6);
+      out.chewing = eat.phase;
+      eat.resolve({ items: [{ kind: 'file', ok: true }, { kind: 'folder', ok: true }], eaten: 2, reason: null, first: true });
+      P.run(1.2);
+      out.swallow = eat.phase;
+      out.firstLine = bubble();
+      P.run(3);
+      out.done = P.brain.name;
+      eat = P.brain.onFeed([{ kind: 'file' }], { x: 0, y: -50 });
+      P.run(0.6);
+      eat.resolve({ items: [{ kind: 'file', ok: false, reason: 'protected' }], eaten: 0, reason: 'protected' });
+      P.run(1);
+      out.spit = eat.phase;
+      out.refuseLine = bubble();
+      P.run(3);
+      out.done2 = P.brain.name;
+      return out;
+    `);
+    check(
+      '画面：文件拖到身上时张嘴等着，吃下去会说"放进回收站了"，吃不下会吐出来说原因',
+      show.hungry === 'hungry' && show.after !== 'hungry' && show.chewing === 'chew' && show.swallow === 'yum' && /回收站|Recycle/.test(show.firstLine) && show.spit === 'spit' && show.refuseLine.length > 0 && show.done !== 'eat' && show.done2 !== 'eat',
+      show
+    );
+
+    // 5. 画面拿到的只是"假文件"（没有真实路径）时：后台什么都不吃
+    const empty = await js(`return window.pawmail.feed([new File(['x'], 'a.txt')]).then((r) => r);`);
+    check('不是从电脑上拖来的文件：后台不吃', empty && empty.eaten === 0 && empty.items.length === 0, empty);
+  }
+
+  /**
+   * 自检扔进回收站的测试文件：在回收站里找到它们，彻底删掉，免得弄脏你的回收站。
+   * 回收站里每样东西有两个文件：$I 开头的记着原来的位置，$R 开头的是东西本身。只删原来位置完全对得上的。
+   */
+  function purgeFromRecycleBin(originals) {
+    const wanted = new Set(originals.map((p) => path.resolve(p).toLowerCase()));
+    const binRoot = path.join(path.parse(path.resolve(originals[0])).root, '$Recycle.Bin');
+    let removed = 0;
+    let folders = [];
+    try {
+      folders = fs.readdirSync(binRoot);
+    } catch {
+      return 0;
+    }
+    for (const sid of folders) {
+      const dir = path.join(binRoot, sid);
+      let names = [];
+      try {
+        names = fs.readdirSync(dir);
+      } catch {
+        continue; // 别的用户的回收站：打不开，也不该碰
+      }
+      for (const name of names) {
+        if (!name.startsWith('$I')) continue;
+        let buf;
+        try {
+          buf = fs.readFileSync(path.join(dir, name));
+        } catch {
+          continue;
+        }
+        // Windows 10 以后的格式：8 字节版本号(2)、8 字节大小、8 字节删除时间、4 字节路径长度，后面是 UTF-16 的原路径
+        if (buf.length < 30 || buf.readUInt32LE(0) !== 2) continue;
+        const chars = buf.readUInt32LE(24);
+        const original = buf.toString('utf16le', 28, 28 + Math.max(0, chars - 1) * 2).toLowerCase();
+        if (!wanted.has(original)) continue;
+        fs.rmSync(path.join(dir, '$R' + name.slice(2)), { recursive: true, force: true });
+        fs.rmSync(path.join(dir, name), { force: true });
+        removed += 1;
+      }
+    }
+    return removed;
   }
 
   function finish() {

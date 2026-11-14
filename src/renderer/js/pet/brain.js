@@ -49,6 +49,7 @@ export class Brain {
     this.stat = stat || (() => {}); // 记一次互动（摸头、戳、弄晕），第二天的信里会提到
     this.hasMail = false; // 手里有没有一封等你拆的信
     this.festival = null; // 今天过的节：{ id, day, look, greet }
+    this.foodNear = false; // 有没有人正拖着文件停在它身上（要喂它）
 
     this.needs = { energy: 0.85, boredom: 0.25, social: 0.35 };
     this.mood = 0.65;
@@ -390,6 +391,33 @@ export class Brain {
     }
   }
 
+  /**
+   * 有人拖着文件到了它身上（on = true），或者又拿走了（on = false）。
+   * 文件 = 吃的：它会张大嘴等着喂。睡着了也会被"香味"弄醒。
+   */
+  onFood(on) {
+    const was = this.foodNear;
+    this.foodNear = on;
+    const pet = this.pet;
+    if (on && !was) {
+      if (pet.mode !== 'ground' || this.name === 'eat' || this.name === 'arrive') return;
+      if (this.name === 'sleep') pet.fx.spawn('bang', { x: 28, y: pet.headTop() + 4, life: 0.7 });
+      this.start('hungry');
+    } else if (!on && was && this.name === 'hungry') {
+      pet.fx.spawn('question', { x: 30, y: pet.headTop() - 2, life: 1 }); // 咦？不给我吃了？
+    }
+  }
+
+  /**
+   * 文件放到它身上了：开始吃。items：[{ kind: 'file' | 'folder' }]；from：从哪里飞过来（宠物坐标）。
+   * 返回这个"吃"的动作：后台真的把东西放进回收站以后，要调它的 resolve(结果)。
+   */
+  onFeed(items, from) {
+    this.foodNear = false;
+    this.start('eat', { items, from });
+    return this.current;
+  }
+
   /** 活动范围变了（app.js 已经把宠物挪进新的范围里了）：手上的事先放一放，看看新地方 */
   onAreaChange() {
     if (this.pet.mode !== 'ground' || this.name === 'sleep' || this.name === 'arrive') return;
@@ -405,7 +433,7 @@ export class Brain {
       this.current.letGo(this);
       return;
     }
-    if (pet.mode !== 'ground' || this.name === 'arrive') return;
+    if (pet.mode !== 'ground' || this.name === 'arrive' || this.name === 'eat') return; // 正在吃东西：别打扰它
     const now = this.world.time;
     pet.squashSpring.kick(2.4);
     this.stat('poke');

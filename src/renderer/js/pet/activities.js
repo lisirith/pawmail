@@ -10,6 +10,41 @@
 // 想加新动作：在这里加一个函数，再到 brain.js 里给它一个出现的权重就行。
 
 import { clamp, rand, chance, sign, wobble, bell, easeInOut, TAU } from '../util/math.js';
+import { getGeometry } from './draw.js';
+
+/** 嘴在哪里（宠物坐标）：喂给它的文件飞到这里就算进了嘴 */
+function mouthPoint(pet) {
+  const g = getGeometry(pet.sp, pet.pose);
+  const face = pet.sp.face || {};
+  return { x: g.headCx + pet.pose.lookX * 6, y: g.headCy + (face.noseY ?? 12) + 5 - pet.pose.lift };
+}
+
+/** 从嘴里吐出来 n 个文件 / 文件夹图标（吃不下的东西，原样吐还给你） */
+function spitOut(pet, kinds) {
+  const m = mouthPoint(pet);
+  kinds.slice(0, 6).forEach((kind, i) => {
+    const dir = i % 2 === 0 ? 1 : -1;
+    pet.fx.spawn(kind === 'folder' ? 'folder' : 'file', {
+      x: m.x,
+      y: m.y,
+      vx: dir * rand(45, 85),
+      vy: -rand(120, 170),
+      ay: 520,
+      life: 1.1,
+      delay: i * 0.08,
+      rot: rand(-0.4, 0.4),
+      vrot: dir * rand(3, 6),
+    });
+  });
+}
+
+/** 嚼东西掉下来的渣 */
+function crumbs(pet, n = 4) {
+  const m = mouthPoint(pet);
+  for (let i = 0; i < n; i++) {
+    pet.fx.spawn('crumb', { x: m.x + rand(-7, 7), y: m.y + rand(-2, 3), vx: rand(-25, 25), vy: -rand(10, 40), ay: 260, life: 0.7, size: rand(0.7, 1.2) });
+  }
+}
 
 // 扒在墙上时，脚离墙（活动范围的边）多远。这个距离让脑袋的侧面刚好贴着墙
 const WALL_GAP = 56;
@@ -746,6 +781,166 @@ export const ACTIVITIES = {
     },
   }),
 
+  // ------------------------------------------------------------ 吃文件
+
+  /**
+   * 有人拖着文件到了它身上：张大嘴、伸出手，等着你喂（文件就是"吃的"）。
+   * 文件被拿走时（b.foodNear 变成 false），这个动作就结束了。
+   */
+  hungry: () => ({
+    update(b, dt, t) {
+      const pet = b.pet;
+      const T = pet.target;
+      const p = b.world.pointer;
+      const side = p.x >= pet.x ? 1 : -1;
+      const k = clamp(t / 0.25, 0, 1);
+      pet.style.fps = 60;
+      pet.style.gaze = 'cursor';
+      pet.style.tailSpeed = 6;
+      pet.style.tailAmp = 0.9;
+      T.facing = side * 0.3 * k;
+      T.mouth = 'yawn';
+      T.mouthOpen = (0.85 + Math.sin(t * 8) * 0.12) * k; // 嘴张得大大的，一张一合："啊——"
+      T.eyes = 'wide';
+      T.blush = 0.9;
+      T.earDroop = -0.2;
+      T.armL = T.armR = 0.85 * k; // 两只手伸出来要
+      T.lean += side * 0.05 * k;
+      T.lift += Math.abs(Math.sin(t * 9)) * 2.5 * k; // 激动得踮脚
+      if (!b.foodNear) return t > 0.15;
+      return t > 30; // 拖着一直不松手：半分钟后算了
+    },
+  }),
+
+  /**
+   * 吃！p.items：拖进来的东西 [{ kind: 'file' | 'folder' }]；p.from：它们从哪里飞过来（宠物坐标）。
+   * 文件先飞进嘴里，然后一直嚼着，等后台真的把东西放进回收站、告诉我们结果（resolve）以后：
+   *   都吃下了 → 咽下去、拍拍肚子、冒爱心
+   *   有吃不下的 → 吃不下的原样吐出来，说说为什么
+   * 只有后台说"吃下了"，它才会咽下去：画面上演的和真实发生的一致。
+   */
+  eat: (b, p) => {
+    const pet = b.pet;
+    const kinds = (p.items || []).map((it) => (it && it.kind === 'folder' ? 'folder' : 'file'));
+    const shown = kinds.slice(0, 6);
+    const from = p.from || { x: 0, y: -60 };
+    const mouth = mouthPoint(pet);
+    shown.forEach((kind, i) => {
+      pet.fx.spawn(kind, {
+        from: { x: from.x + (i - (shown.length - 1) / 2) * 7, y: from.y - 4 },
+        to: mouth,
+        arc: 16,
+        life: 0.34,
+        delay: i * 0.07,
+        shrink: 0.65,
+        size: 1.15,
+        rot: rand(-0.3, 0.3),
+        vrot: rand(-4, 4),
+      });
+    });
+    const flyTime = 0.34 + 0.07 * (shown.length - 1);
+    return {
+      phase: 'in',
+      pt: 0,
+      result: undefined,
+      after: null, // 吐完以后还要不要"咽下去"（有一部分吃下了）
+      resolve(result) {
+        if (this.result === undefined) this.result = result || null;
+      },
+      next(phase) {
+        this.phase = phase;
+        this.pt = 0;
+      },
+      /** 嚼完了：按后台的结果决定是咽下去还是吐出来 */
+      finish(b) {
+        const res = this.result;
+        const items = res && Array.isArray(res.items) ? res.items : [];
+        const eaten = res ? items.filter((it) => it.ok).length : 0;
+        const refused = res ? items.filter((it) => !it.ok).map((it) => it.kind) : kinds;
+        const reason = (res && res.reason) || 'failed';
+        if (eaten > 0) b.reward({ mood: Math.min(0.12, 0.04 * eaten), boredom: -0.3, social: -0.1 });
+        if (refused.length > 0) {
+          // 先把吃不下的吐出来，说说为什么；吃下了一部分的话，吐完再咽
+          spitOut(b.pet, refused);
+          b.say(`feed.reasons.${reason}`, 4.2);
+          this.after = eaten > 0 ? 'yum' : null;
+          this.next('spit');
+        } else {
+          b.say(res && res.first ? 'feed.first' : 'feed.yum', res && res.first ? 6.5 : 2.6);
+          this.next('yum');
+        }
+      },
+      update(b, dt) {
+        const T = pet.target;
+        const s = pet.style;
+        this.pt += dt;
+        s.fps = 60;
+        s.gaze = 'none';
+        s.tailSpeed = 3;
+        s.tailAmp = 0.8;
+
+        if (this.phase === 'in') {
+          // 张大嘴接住飞过来的文件
+          T.mouth = 'yawn';
+          T.mouthOpen = 1;
+          T.eyes = 'wide';
+          T.lookY = -0.2;
+          if (this.pt >= flyTime) {
+            pet.squashSpring.kick(2.4); // 嗷呜！
+            crumbs(pet);
+            this.next('chew');
+          }
+          return false;
+        }
+
+        if (this.phase === 'chew') {
+          // 吧唧吧唧……一直嚼到后台告诉我们吃没吃成（最少嚼 1 秒）
+          const c = Math.sin(this.pt * 14);
+          T.mouth = c > 0.2 ? 'wavy' : 'cat';
+          T.eyes = 'happy';
+          T.blush = 1;
+          T.headY += Math.abs(c) * 1.4;
+          T.squash += c * 0.025;
+          T.armL = T.armR = -0.55;
+          if (this.pt > 0.5 && chance(dt * 3)) crumbs(pet, 1);
+          if (this.pt > 10 && this.result === undefined) this.result = null; // 后台一直没回话：当作没吃成
+          if (this.pt >= 1 && this.result !== undefined) this.finish(b);
+          return false;
+        }
+
+        if (this.phase === 'spit') {
+          // 呸：张嘴把吃不下的吐出来，摇摇头
+          T.mouth = this.pt < 0.35 ? 'o' : 'pout';
+          T.mouthOpen = 1;
+          T.eyes = this.pt < 0.25 ? 'squeeze' : 'open';
+          T.lookX = this.pt < 0.8 ? Math.sin(this.pt * 18) * 0.8 : 0;
+          T.earDroop = 0.3;
+          if (this.pt < 1.2) return false;
+          if (this.after === 'yum') {
+            this.after = null;
+            this.next('yum');
+            return false;
+          }
+          return true;
+        }
+
+        // yum：咽下去，拍拍肚子
+        const gulp = this.pt < 0.2;
+        if (gulp && this.pt <= dt) pet.squashSpring.kick(1.6);
+        T.eyes = gulp ? 'squeeze' : 'happy';
+        T.mouth = gulp ? 'cat' : 'smile';
+        T.mouthOpen = 0.45;
+        T.blush = 1;
+        T.armL = T.armR = -0.85 + Math.sin(this.pt * 9) * 0.14; // 两只手在肚子上揉一揉
+        if (this.pt > 0.3 && !this.loved) {
+          this.loved = true;
+          hearts(pet, 2);
+        }
+        return this.pt >= 1.7;
+      },
+    };
+  },
+
   // ------------------------------------------------------------ 爬墙
 
   /**
@@ -1078,4 +1273,4 @@ export const ACTIVITIES = {
 // 哪些动作可以被"更想做的事"打断（比如发呆时看到鼠标晃动，就去追）
 export const INTERRUPTIBLE = new Set(['idle', 'lookAround', 'sit', 'nap', 'groom', 'walk']);
 // 这些是对你的操作做出的反应，进行中不会被摸头、戳一下打断
-export const REACTIVE = new Set(['held', 'falling', 'landed', 'dizzy', 'annoyed', 'arrive']);
+export const REACTIVE = new Set(['held', 'falling', 'landed', 'dizzy', 'annoyed', 'arrive', 'hungry', 'eat']);

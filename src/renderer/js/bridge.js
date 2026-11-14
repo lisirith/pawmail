@@ -53,6 +53,12 @@ function createMockBridge() {
     },
     setTrayIcon() {},
     setEditing() {},
+    /** 预览时没有后台：假装都吃下了（拖进来的东西不会被动） */
+    async feed(files) {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      const items = Array.from(files || []).map(() => ({ kind: 'file', ok: true, reason: null }));
+      return { items, eaten: items.length, reason: null, first: false };
+    },
     quit() {
       console.log('[预览] 这里会退出程序');
     },

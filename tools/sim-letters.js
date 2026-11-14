@@ -83,6 +83,7 @@ for (let i = 0; i <= days; i++) {
     pokes: rnd() < 0.3 ? Math.floor(rnd() * 16) : 0,
     throws: rnd() < 0.25 ? Math.floor(rnd() * 7) : 0,
     dizzies: rnd() < 0.1 ? 1 : 0,
+    feeds: rnd() < 0.2 ? Math.floor(rnd() * 5) : 0,
   };
 
   for (const letter of added) {

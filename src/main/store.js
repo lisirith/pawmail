@@ -31,6 +31,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   cultures: null, // 你过哪些节日组（见 shared/festivals/catalog.js 的 GROUPS）；null = 还没告诉它，先按语言猜
   profileAsked: false, // 有没有问过你生日和节日（问过一次就不再追问，之后可以在信纸窗口里改）
   area: null, // 活动范围 { x, y, w, h }，都是占整个窗口的比例（0~1）；null = 整个屏幕
+  fedBefore: false, // 有没有喂它吃过文件（第一次吃的时候，它会解释"其实是放进了回收站"）
 });
 
 /** 活动范围：四个 0~1 之间的数字，方框不能超出窗口，也不能小得离谱 */
@@ -65,6 +66,7 @@ const VALID = {
   cultures: (v) => v === null || (Array.isArray(v) && v.length <= 20 && new Set(v).size === v.length && v.every((id) => F.GROUP_IDS.includes(id))),
   profileAsked: (v) => typeof v === 'boolean',
   area: isValidArea,
+  fedBefore: (v) => typeof v === 'boolean',
 };
 
 function isValidSetting(key, value) {
@@ -97,7 +99,7 @@ function sanitizePet(raw) {
   };
 }
 
-/** 每天的使用记录：几点来、几点走、用了多久，以及那天和宠物互动了几次 */
+/** 每天的使用记录：几点来、几点走、用了多久，以及那天和宠物互动了几次、喂了它几样东西 */
 function sanitizeUsage(raw) {
   const out = {};
   if (!raw || typeof raw !== 'object') return out;
@@ -114,6 +116,7 @@ function sanitizeUsage(raw) {
       pokes: num(rec.pokes, 0, 99999) || 0,
       throws: num(rec.throws, 0, 99999) || 0,
       dizzies: num(rec.dizzies, 0, 99999) || 0,
+      feeds: num(rec.feeds, 0, 99999) || 0, // 喂它吃了几样东西（只记个数）
     };
   }
   return out;

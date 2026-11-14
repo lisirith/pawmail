@@ -47,6 +47,21 @@
     "mail": ["You've got pawmail! Click me~", "A letter for you! Click me~", "Look, mail for you!"],
     "climb": ["So high~", "Look how high I got!", "Hup!"],
     "area": ["Nice spot~", "My new turf!", "I'll live here then"],
+    "feed": {
+      "yum": ["Yum!", "Nom nom… *burp*", "Thanks for the snack!", "Another one!"],
+      "first": "Yum! It's actually in your Recycle Bin. Changed your mind? Get it back from there~",
+      "reasons": {
+        "home": "That's my home! I can't eat that!",
+        "protected": "That looks important. I'm not eating it!",
+        "notLocal": "That's not on this PC's drive. It'd be gone for good, so no.",
+        "noBin": "That won't fit in the Recycle Bin, so I won't eat it.",
+        "tooBig": "Too big to swallow!",
+        "tooMany": "That's too many at once!",
+        "busy": "Can't bite it… something's still using it.",
+        "missing": "Huh? Where did it go?",
+        "failed": "Couldn't eat that…"
+      }
+    },
     "festivals": {
       "newYear": ["Happy New Year! 🎉"],
       "birthday": ["Happy birthday! 🎂", "It's your birthday!"],

@@ -11,13 +11,15 @@
 //   --no-gpu              关闭显卡加速（排查画面问题时用）
 //   --x-hud               在屏幕上显示状态面板
 //   --x-newday            假装现在是"明天"（马上收到一封新的来信，测试用）
+//   --x-feeddry           喂它吃文件时只演习：照常检查、照常演"吃"，但不真的放进回收站
 
-const { app, ipcMain, powerMonitor, screen } = require('electron');
+const { app, ipcMain, powerMonitor, screen, shell } = require('electron');
 const path = require('node:path');
 const { Store, LANGUAGES, isValidSetting, sanitizePet } = require('./store');
 const { Overlay } = require('./overlay');
 const { PetTray } = require('./tray');
 const { Mail } = require('./mail');
+const { Feeder, buildRules } = require('./feed');
 const { logicalDay, festivalToday } = require('./letters');
 const F = require('../shared/festivals/catalog');
 const native = require('./native');
@@ -43,6 +45,7 @@ let store = null;
 let overlay = null;
 let tray = null;
 let mail = null;
+let feeder = null; // 喂它吃文件（见 feed.js）
 let quitting = false;
 
 /**
@@ -156,7 +159,7 @@ function todayRecord(now) {
   const usage = store.data.usage;
   const day = logicalDay(now);
   if (!usage[day]) {
-    usage[day] = { first: now, last: now, activeMin: 0, pets: 0, pokes: 0, throws: 0, dizzies: 0 };
+    usage[day] = { first: now, last: now, activeMin: 0, pets: 0, pokes: 0, throws: 0, dizzies: 0, feeds: 0 };
     const days = Object.keys(usage).sort();
     while (days.length > 60) delete usage[days.shift()]; // 只留最近 60 天
   }
@@ -260,6 +263,24 @@ function registerIpc() {
     if (fromOverlay(event)) overlay.setEditing(!!flag);
   });
 
+  // 把文件拖给它吃（放进回收站）。路径由 preload 直接交给我们，画面本身拿不到完整路径。
+  ipcMain.handle('pawmail:feed', async (event, paths) => {
+    if (!fromOverlay(event) || !feeder) return null;
+    const result = await feeder.feed(paths);
+    console.log(`[feed] 拖进来 ${result.items.length} 样，吃下 ${result.eaten} 样${result.reason ? `，没吃的原因：${result.reason}` : ''}`);
+    if (result.eaten > 0) {
+      // 只记吃了几样，不记是什么（第二天的信里会提到："昨天你喂了我 3 个文件"）
+      const now = nowMs();
+      const record = todayRecord(now);
+      record.feeds = (record.feeds || 0) + result.eaten;
+      record.last = now;
+      store.saveSoon();
+      result.first = !store.data.settings.fedBefore; // 第一次喂：它会解释一下"其实是放进了回收站"
+      if (result.first) setSetting('fedBefore', true);
+    }
+    return result;
+  });
+
   ipcMain.on('pawmail:open-mail', (event) => {
     if (fromOverlay(event)) mail.open();
   });
@@ -305,6 +326,19 @@ function start() {
   mail.register();
   mail.check(nowMs(), true); // 刚启动 = 你在电脑前。第一次运行会马上有一封"见面信"
 
+  feeder = new Feeder({
+    trash: (p) => shell.trashItem(p),
+    native,
+    rules: buildRules({
+      getPath: (name) => app.getPath(name),
+      appPath: app.getAppPath(),
+      userData: app.getPath('userData'),
+      exeDir: path.dirname(process.execPath),
+    }),
+    dryRun: DEV && args.includes('--x-feeddry'),
+    log: (message) => console.log(message),
+  });
+
   registerIpc();
 
   overlay = new Overlay({ dev: DEV });
@@ -323,7 +357,7 @@ function start() {
     if (args.includes('--devtools')) overlay.win.webContents.openDevTools({ mode: 'detach', activate: false });
     if (SELFTEST_DIR) {
       require('./selftest')
-        .run({ overlay, mail, store, outDir: path.resolve(SELFTEST_DIR), setSetting })
+        .run({ overlay, mail, store, feeder, outDir: path.resolve(SELFTEST_DIR), setSetting })
         .catch((err) => console.error('[selftest] 出错：', err))
         .finally(quit);
     }

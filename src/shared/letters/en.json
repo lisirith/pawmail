@@ -226,6 +226,13 @@
     "dizzy": [
       "My head is still a tiny bit dizzy. You know who did it."
     ],
+    "fed": [
+      "You fed me {count} files yesterday. One was a bit chewy, but I finished them all.",
+      "I ate {count} files yesterday. My tummy is still round today."
+    ],
+    "fedOne": [
+      "You fed me a file yesterday. It tasted pretty good. Got any more?"
+    ],
     "ignored": [
       "You didn't notice me all day yesterday. I pretended not to mind. Did I do it well?"
     ],

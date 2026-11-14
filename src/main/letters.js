@@ -112,7 +112,7 @@ function pickIndex(rng, count, avoid) {
 
 /**
  * 根据昨天的真实情况，列出"可以说的话"以及各自的分量（分量越大越容易被选中）。
- * facts.y 是昨天的使用记录：{ first, last, activeMin, pets, pokes, throws, dizzies }
+ * facts.y 是昨天的使用记录：{ first, last, activeMin, pets, pokes, throws, dizzies, feeds }
  */
 function remarkCandidates(facts) {
   const list = [];
@@ -135,7 +135,9 @@ function remarkCandidates(facts) {
     if (y.dizzies >= 1) add('dizzy', 2);
     if (y.pets >= 5) add('petted', 3, { count: y.pets });
     if (y.pokes >= 8) add('poked', 2, { count: y.pokes });
-    if (!y.pets && !y.pokes && !y.throws && y.activeMin >= 90) add('ignored', 2);
+    if (y.feeds >= 2) add('fed', 3.5, { count: y.feeds }); // 喂它吃了几个文件（放进回收站的）
+    else if (y.feeds === 1) add('fedOne', 2.5);
+    if (!y.pets && !y.pokes && !y.throws && !y.feeds && y.activeMin >= 90) add('ignored', 2);
   }
 
   if (facts.weekday === 1) add('monday', 1.5);

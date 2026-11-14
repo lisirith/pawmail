@@ -150,6 +150,76 @@ const DRAW = {
     ctx.scale(pop, pop);
     text(ctx, 'Boo!', 18 * it.size, '#6b5bd6');
   },
+  /** 喂给它吃的文件：一张折了角的纸。shrink：飞进嘴里时越飞越小 */
+  file(ctx, it, u) {
+    ctx.translate(it.x, it.y);
+    ctx.rotate(it.rot);
+    const s = it.size * (1 - u * (it.shrink || 0));
+    ctx.scale(s, s);
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-6.5, -8.5);
+    ctx.lineTo(2.8, -8.5);
+    ctx.lineTo(6.5, -4.8);
+    ctx.lineTo(6.5, 8.5);
+    ctx.lineTo(-6.5, 8.5);
+    ctx.closePath();
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.strokeStyle = '#66768c';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.beginPath(); // 折角
+    ctx.moveTo(2.8, -8.5);
+    ctx.lineTo(2.8, -4.8);
+    ctx.lineTo(6.5, -4.8);
+    ctx.stroke();
+    ctx.strokeStyle = '#a7b4c6'; // 几行字
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (const y of [-1.5, 1.5, 4.5]) {
+      ctx.moveTo(-3.8, y);
+      ctx.lineTo(3.8, y);
+    }
+    ctx.stroke();
+  },
+  /** 喂给它吃的文件夹：黄色的小文件夹 */
+  folder(ctx, it, u) {
+    ctx.translate(it.x, it.y);
+    ctx.rotate(it.rot);
+    const s = it.size * (1 - u * (it.shrink || 0));
+    ctx.scale(s, s);
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#ad7a17';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); // 后面那片和小耳朵
+    ctx.moveTo(-8.5, -6.5);
+    ctx.lineTo(-2.8, -6.5);
+    ctx.lineTo(-1, -4.2);
+    ctx.lineTo(8.5, -4.2);
+    ctx.lineTo(8.5, 6.5);
+    ctx.lineTo(-8.5, 6.5);
+    ctx.closePath();
+    ctx.fillStyle = '#f2b53a';
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath(); // 前面那片
+    ctx.moveTo(-8.5, -1.5);
+    ctx.lineTo(8.5, -1.5);
+    ctx.lineTo(8.5, 6.5);
+    ctx.lineTo(-8.5, 6.5);
+    ctx.closePath();
+    ctx.fillStyle = '#ffd36b';
+    ctx.fill();
+    ctx.stroke();
+  },
+  /** 嚼的时候掉下来的渣 */
+  crumb(ctx, it) {
+    ctx.beginPath();
+    ctx.arc(it.x, it.y, 1.4 * it.size, 0, TAU);
+    ctx.fillStyle = it.color || '#d8c8b0';
+    ctx.fill();
+  },
 };
 
 export const CONFETTI_COLORS = ['#ff6f8d', '#ffd54f', '#7fc8ff', '#8ed081', '#c39bff'];
@@ -193,9 +263,25 @@ export class Fx {
     const items = this.items;
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i];
+      if (it.delay > 0) {
+        it.delay -= dt; // 还没轮到它出场（好几个文件一个接一个飞进嘴里）
+        continue;
+      }
       it.age += dt;
       if (it.age >= it.life) {
         items.splice(i, 1);
+        continue;
+      }
+      if (it.to) {
+        // 沿一条往上拱的弧线，从 from 飞到 to（喂给它的文件飞进嘴里）
+        const u = it.age / it.life;
+        const e = u * u * (3 - 2 * u);
+        const k = 1 - e;
+        const cx = (it.from.x + it.to.x) / 2;
+        const cy = Math.min(it.from.y, it.to.y) - (it.arc ?? 18);
+        it.x = k * k * it.from.x + 2 * k * e * cx + e * e * it.to.x;
+        it.y = k * k * it.from.y + 2 * k * e * cy + e * e * it.to.y;
+        it.rot += it.vrot * dt;
         continue;
       }
       it.vx += it.ax * dt;
@@ -209,7 +295,7 @@ export class Fx {
   draw(ctx) {
     for (const it of this.items) {
       const draw = DRAW[it.type];
-      if (!draw) continue;
+      if (!draw || it.delay > 0) continue;
       const u = it.age / it.life;
       const pop = easeOutBack(clamp(it.age / 0.22, 0, 1)); // 出现时"啵"地弹一下
       ctx.save();

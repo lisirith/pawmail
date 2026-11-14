@@ -417,6 +417,67 @@ async function main() {
     }
   });
 
+  // ------------------------------------------------------------ 喂它吃文件
+  //
+  // 拖着文件经过它时，和平时鼠标移到它身上一样，窗口会"接住"鼠标，拖放就落到我们的窗口里了。
+  // 这边只负责演：张嘴、吃、嚼；真正"吃"（放进回收站）是后台做的，见 src/main/feed.js。
+
+  const isFileDrag = (e) => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+  // 正在被拎着、在空中、爬墙、正在吃、正在进场、正在画活动范围：这些时候不吃
+  const canEat = () => pet.mode === 'ground' && brain.name !== 'eat' && brain.name !== 'arrive' && !areaEditor.isOpen && !press;
+  let foodOver = false; // 文件正停在它身上
+  let foodSeenAt = -Infinity;
+
+  function setFood(on) {
+    if (on === foodOver) return;
+    foodOver = on;
+    if (on) bridge.log('[喂食] 有文件拖到了宠物身上');
+    brain.onFood(on);
+  }
+
+  window.addEventListener('dragenter', (e) => {
+    if (isFileDrag(e)) e.preventDefault();
+  });
+
+  window.addEventListener('dragover', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    setPointer(e.clientX, e.clientY);
+    const over = canEat() && !!pet.hit(e.clientX, e.clientY);
+    // "复制"：文件管理器那边不会动这个文件；吃不吃、怎么放进回收站，由我们这边决定
+    e.dataTransfer.dropEffect = over ? 'copy' : 'none';
+    foodSeenAt = performance.now();
+    setFood(over);
+  });
+
+  window.addEventListener('dragleave', (e) => {
+    if (!e.relatedTarget) setFood(false); // 离开了窗口（在窗口里面换元素时也会触发，那种不算）
+  });
+
+  window.addEventListener('drop', (e) => {
+    e.preventDefault(); // 不让浏览器自己去"打开"这个文件
+    const over = isFileDrag(e) && canEat() && !!pet.hit(e.clientX, e.clientY);
+    setFood(false);
+    if (!over) return;
+    const files = Array.from(e.dataTransfer.files || []);
+    if (!files.length) return;
+    // 是文件还是文件夹？只是为了画对图标（真正的检查在后台）
+    const items = Array.from(e.dataTransfer.items || [])
+      .filter((item) => item.kind === 'file')
+      .map((item) => {
+        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+        return { kind: entry && entry.isDirectory ? 'folder' : 'file' };
+      });
+    const eat = brain.onFeed(items.length ? items : files.map(() => ({ kind: 'file' })), pet.toLocal(e.clientX, e.clientY));
+    bridge.feed(files).then(
+      (result) => eat.resolve(result),
+      (err) => {
+        bridge.log(`喂食出错: ${err && err.message}`);
+        eat.resolve(null);
+      }
+    );
+  });
+
   // 鼠标不在宠物身上时，窗口是"穿透"的，收不到鼠标事件；这时由后台定时告诉我们鼠标在哪
   bridge.on('cursor', (c) => {
     world.system.idle = 0; // 鼠标动了 = 你回来了（不用等后台每 5 秒一次的通知）
@@ -607,6 +668,8 @@ async function main() {
     } else {
       menuIdle = 0;
     }
+    // 拖着文件停在它身上时，浏览器会一直发 dragover；超过 1.2 秒没收到，说明拖走了（保险）
+    if (foodOver && performance.now() - foodSeenAt > 1200) setFood(false);
     pet.begin(dt);
     brain.update(dt);
     pet.finish(dt);
