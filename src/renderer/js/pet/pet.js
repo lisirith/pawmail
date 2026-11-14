@@ -33,6 +33,7 @@ export class Pet {
     this.vrot = 0;
     this.mode = 'ground'; // ground 在地上 | held 被拎着 | air 在空中 | wall 扒在墙上（位置由爬墙动作控制）
     this.pivot = { x: 0, y: -70 }; // 被抓住的是身体的哪个点
+    this.nape = { x: 0, y: -54 }; // 后脖梗在哪儿（被拎起来以后，"手"会慢慢挪到这里，见 grab）
     this.shake = 0; // 被摇晃的剧烈程度（太大就会晕）
     this.bounced = false;
     this.leapt = false; // 这次在空中是它自己跳下来的（从墙上跳）：稳稳落地，不会摔晕
@@ -347,11 +348,19 @@ export class Pet {
 
   // ---------------------------------------------------------------- 物理
 
-  /** 抓起来。localX/localY 是鼠标点在宠物身上的位置（宠物坐标）。 */
+  /**
+   * 抓起来。localX/localY 是鼠标点在宠物身上的位置（宠物坐标）。
+   * 先从你点到的地方抓住，接下来零点几秒里"手"挪到后脖梗（像拎小猫的后脖子），
+   * 之后它就整个身子挂在脖子下面晃（见 #physics 和 activities.js 的 held）。
+   */
   grab(localX, localY) {
     this.mode = 'held';
     this.pivot.x = clamp(localX, -30, 30);
     this.pivot.y = clamp(localY, -112, -20);
+    // 后脖梗：头的下半截、靠近身体的地方。每种动物头的大小不一样，所以按它自己的身材算
+    const g = getGeometry(this.sp, makePose());
+    this.nape.x = 0;
+    this.nape.y = g.headCy + this.sp.head.ry * 0.72;
     this.shake = 0;
     this.vx = 0;
     this.vy = 0;
@@ -387,10 +396,17 @@ export class Pet {
     const maxX = Math.max(minX, A.right - 34 * S);
 
     if (this.mode === 'held') {
-      // 身体像钟摆一样挂在鼠标上：鼠标往右加速，身体就往左甩
+      // "手"慢慢挪到后脖梗：它就从被你抓住的地方，变成挂在脖子下面
+      // 挂着时身子是拉长的（squash 是负数），画出来的后脖梗也跟着往上挪了一点，抓的点要对上它
+      this.pivot.x = damp(this.pivot.x, this.nape.x, 0.07, dt);
+      this.pivot.y = damp(this.pivot.y, this.nape.y * (1 - this.out.squash), 0.07, dt);
+      // 身体像钟摆一样挂在鼠标上：鼠标往右加速，身体就往左甩；拎着一直往右走，身子被"风"往后拖
+      // 摆得比较松（停下来以后还会来回荡几下）；熊猫沉，荡得慢一点
       // 轻轻拎着走不会晕；用力来回甩一两秒，shake 才会涨到 1（晕）
       this.shake = Math.max(0, this.shake - dt * 0.6) + (Math.abs(p.ax) * dt) / (6000 * S);
-      this.vrot += (-42 * this.rot - 4.5 * this.vrot + (p.ax / S) * 0.006) * dt;
+      const stiff = 17 + 13 * (this.sp.righting ?? 1); // 猫 30，熊猫约 22
+      const trail = clamp((p.vx / S) * 0.00045, -0.5, 0.5);
+      this.vrot += (-stiff * (this.rot - trail) - 2.2 * this.vrot + (p.ax / S) * 0.006) * dt;
       this.rot += this.vrot * dt;
       if (Math.abs(this.rot) > 1.2) {
         this.rot = clamp(this.rot, -1.2, 1.2);

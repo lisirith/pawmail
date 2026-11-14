@@ -47,6 +47,7 @@
     "annoyed": ["Hmph!", "Stop poking!", "Not talking to you!"],
     "dizzy": ["Dizzy...", "Everything's spinning...", "@_@"],
     "caught": ["Gotcha!", "Ha!"],
+    "held": ["Put me down~", "Where are we going?", "Swing, swing…"],
     "lonely": ["Play with me~", "Look at me~"],
     "mail": ["You've got pawmail! Click me~", "A letter for you! Click me~", "Look, mail for you!"],
     "climb": ["So high~", "Look how high I got!", "Hup!"],
@@ -91,10 +92,12 @@
     },
     "cat": {
       "hello": ["Meow~", "Hi!", "I'm here~"],
-      "caught": ["Gotcha!", "Meow!"]
+      "caught": ["Gotcha!", "Meow!"],
+      "held": ["Mrrow~ put me down!", "Where are we going?", "Swing, swing…"]
     },
     "panda": {
-      "hello": ["Hi!", "I'm here~", "Mm-hm~"]
+      "hello": ["Hi!", "I'm here~", "Mm-hm~"],
+      "held": ["I'm heavy, you know…", "Where are we going?", "Swing, swing…"]
     }
   },
   "mail": {

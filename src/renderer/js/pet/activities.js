@@ -1197,29 +1197,124 @@ export const ACTIVITIES = {
   // ------------------------------------------------------------ 被拎起来、掉下去
 
   /** 被鼠标拎着：四肢垂下来，跟着晃 */
+  /**
+   * 被你拎着，像拎小猫的后脖梗：
+   *   - 刚被抓住：吓一跳，眼睛瞪圆，手往上一缩
+   *   - 然后整个身子软软地垂下来（拉长一点，脚往下伸），手垂在身前，尾巴耷拉着
+   *   - 跟着你的拖动前后荡；手、脚、尾巴慢半拍地甩，头比身子稳（被拎着的是脖子）
+   *   - 拖得快：眼睛瞪圆、耳朵往后贴；停下来：低头看看地面，偶尔抬眼看你，一副"认命了"的样子
+   *   - 挂久了时不时蹬蹬腿、扭一扭，想下来（偶尔嘟囔一句）；熊猫沉，扭得少、扭得慢
+   */
   held: () => ({
+    wriggleIn: rand(1.1, 2), // 过多久扭一下（只在你没怎么拖它的时候数）
+    wriggle: -1, // 正在扭：已经扭了多久；-1 = 没在扭
+    wriggleDur: 1,
+    said: false,
+    glanceIn: rand(1.2, 2.6), // 过多久抬眼看你一下
+    glance: 0,
     update(b, dt, t) {
       const pet = b.pet;
       const T = pet.target;
+      const S = b.world.scale;
+      const p = b.world.pointer;
+      const heavy = pet.sp.righting ?? 1; // 猫 1，熊猫 0.35
+      const speed = p.speed / S; // 你拖着它走得多快（按宠物原始大小算的像素/秒）
+      const startle = clamp(1 - t / 0.5, 0, 1); // 刚被抓住那一下
       pet.style.fps = 60;
       pet.style.gaze = 'none';
-      pet.style.tailAmp = 0.25;
-      T.armL = 0.95 + wobble(t * 3, 1) * 0.12;
-      T.armR = 0.95 + wobble(t * 3, 2) * 0.12;
-      T.squash = -0.07;
-      T.tailCurl = 0.02;
-      T.earDroop = 0.25;
-      const swing = clamp(-pet.vrot * 1.6, -5, 5);
-      T.footLX = swing;
-      T.footRX = swing;
-      T.footLY = -1.5;
-      T.footRY = -1.5;
+      pet.style.tailAmp = 0.12;
+      pet.style.tailSpeed = 1.4;
+
+      // 身子垂下来：拉长一点。往上拎得快时拉得更长，往下放时缩回来一点
+      T.squash = -0.13 + clamp((p.vy / S) * 0.00006, -0.05, 0.05);
+      // 手：像被拎着后脖子的小猫，两只爪子蜷在胸前；身子往一边荡，爪子慢半拍往另一边甩。
+      // 刚被抓住时先往上一张（吓一跳），然后才蜷起来
+      const armLag = clamp(pet.vrot * 0.09, -0.35, 0.35);
+      T.armL = -0.5 + 1.4 * startle - armLag;
+      T.armR = -0.5 + 1.4 * startle + armLag;
+      // 脚：两只脚并拢、稍微缩起来；也慢半拍地甩，左右脚稍微错开一点，不像一块板
+      const legLag = clamp(-pet.vrot * 2.4, -7, 7);
+      T.footLX = 5 + legLag + wobble(t * 1.3, 5) * 1.2;
+      T.footRX = -5 + legLag + wobble(t * 1.3, 6) * 1.2;
+      T.footLY = 0.5;
+      T.footRY = 0.5;
+      // 尾巴耷拉着，跟着甩
+      T.tailCurl = 0;
+      T.tail += clamp(-pet.vrot * 0.25, -0.8, 0.8);
+      // 被拎着的是脖子：身子歪的时候，头往回正一点
+      T.headTilt = -pet.rot * 0.4 + wobble(t * 0.7, 7) * 0.05;
+      T.earDroop = 0.4;
+
+      // 看哪儿：被拖着走时看前面；停下来时低头看地面，偶尔抬眼看看你
+      if (speed > 160) {
+        T.lookX = clamp(p.vx / S / 500, -0.9, 0.9);
+        T.lookY = 0.15;
+      } else {
+        T.lookY = 0.5;
+        T.lookX = wobble(t * 0.4, 8) * 0.3;
+        this.glanceIn -= dt;
+        if (this.glanceIn <= 0) {
+          this.glance = rand(0.8, 1.4);
+          this.glanceIn = rand(2.5, 5);
+        }
+        if (this.glance > 0) {
+          this.glance -= dt;
+          T.lookY = -0.1;
+          T.lookX = 0;
+        }
+      }
+
+      // 挂久了：蹬蹬腿、扭一扭（扭的时候身子也跟着荡起来）
+      if (this.wriggle < 0 && t > 1 && speed < 220 && pet.shake < 0.5) {
+        this.wriggleIn -= dt;
+        if (this.wriggleIn <= 0) {
+          this.wriggle = 0;
+          this.wriggleDur = rand(0.7, 1.1) * (heavy < 0.6 ? 1.3 : 1);
+        }
+      }
+      let wriggling = false;
+      if (this.wriggle >= 0) {
+        this.wriggle += dt;
+        const k = bell(this.wriggle / this.wriggleDur);
+        const ph = this.wriggle * (heavy < 0.6 ? 10 : 15);
+        const s = Math.sin(ph);
+        T.footLY += s * 3.2 * k; // 两只脚轮流蹬
+        T.footRY -= s * 3.2 * k;
+        T.armL += s * 0.4 * k; // 手也跟着划
+        T.armR -= s * 0.4 * k;
+        T.headTilt += Math.sin(ph * 0.5) * 0.08 * k;
+        pet.vrot += Math.sin(ph * 0.5) * (2.2 + 1.8 * heavy) * k * dt;
+        wriggling = k > 0.2;
+        if (!this.said && this.wriggle > 0.15) {
+          this.said = true; // 每次拎起来最多嘟囔一句
+          if (chance(0.45)) b.say('held', 2.2);
+        }
+        if (this.wriggle >= this.wriggleDur) {
+          this.wriggle = -1;
+          this.wriggleIn = rand(1.8, 3.6) / Math.sqrt(heavy);
+        }
+      }
+
+      // 表情
       if (pet.shake > 0.75) {
         T.eyes = 'squeeze'; // 被晃得受不了
         T.mouth = 'wavy';
       } else if (t < 0.45) {
-        T.eyes = 'wide';
+        T.eyes = 'wide'; // 吓一跳
         T.mouth = 'o';
+        T.earDroop = -0.15;
+      } else if (speed > 650) {
+        T.eyes = 'wide'; // 呼——飞起来了
+        T.mouth = 'o';
+        T.earDroop = 0.7;
+      } else if (wriggling) {
+        T.eyes = 'annoyed'; // 放我下来！
+        T.mouth = 'pout';
+      } else {
+        // 认命了：眼皮耷拉一点，乖乖挂着
+        T.eyeL = 0.75;
+        T.eyeR = 0.75;
+        T.blush = 0.35;
       }
       return false; // 一直到松手
     },
