@@ -25,6 +25,9 @@ const POSES = [
   ['欢呼', { armL: 1.8, armR: 1.8, eyes: 'happy', mouth: 'smile', mouthOpen: 0.7, lift: 12 }],
   ['被拎起', { armL: -0.5, armR: -0.5, footLX: 5, footRX: -5, footLY: 0.5, footRY: 0.5, squash: -0.13, tailCurl: 1, tailHang: 1, eyeL: 0.75, eyeR: 0.75, earDroop: 0.4, lookY: 0.5, lean: 0.25, lift: 30 }],
   ['被拎起扭', { armL: -0.1, armR: -0.9, footLX: 5, footRX: -5, footLY: 3.7, footRY: -2.7, squash: -0.13, tailCurl: 1, tailHang: 1, eyes: 'annoyed', mouth: 'pout', lift: 30 }],
+  // 爬墙（墙在右边）：靠墙的手在上 / 换手后另一只在上（离墙远的那只从身子后面伸过来，见 draw.js 的 wallArm）
+  ['爬墙 →', { armR: 1.85, armL: 0.95, wallArm: 1, facing: 0.85, footLX: 9, footRX: 9, footLY: 6, lean: 0.03, tailHang: 1, tailSide: -1, lookX: 0.2, lookY: -0.7, lift: 20 }],
+  ['爬墙 换手', { armR: 0.95, armL: 1.85, wallArm: 1, facing: 0.85, footLX: 9, footRX: 9, footRY: 6, lean: 0.03, tailHang: 1, tailSide: -1, lookX: 0.2, lookY: -0.7, lift: 20 }],
   ['下落', { armL: 1.65, armR: 1.65, eyes: 'wide', mouth: 'o', squash: -0.1, lift: 30 }],
   ['舔爪子', { crouch: 1, armR: -2.5, headTilt: 0.16, headY: 2, lookX: 0.35, lookY: 0.5, eyes: 'sleep' }],
   ['落地', { squash: 0.3, eyes: 'squeeze', mouth: 'wavy' }],
@@ -138,6 +141,7 @@ if (showOutfits) {
     ['走', { facing: 1, lift: 2, lean: 0.05, footLY: 5, footLX: 4, footRX: -4, armL: -0.25, armR: 0.3 }],
     ['欢呼', { armL: 1.8, armR: 1.8, eyes: 'happy', mouth: 'smile', mouthOpen: 0.6 }],
     ['趴', { loaf: 1, eyes: 'sleep', headTilt: 0.14, headY: 3 }],
+    ['爬墙', { armR: 1.85, armL: 0.95, wallArm: 1, facing: 0.85, footLX: 9, footRX: 9, footLY: 6, lean: 0.03, tailHang: 1, tailSide: -1, lookY: -0.7 }],
   ];
   const onlyOutfits = params.get('only') ? params.get('only').split(',') : null;
   const combos = [['全套 A', { hat: 'capRed', glasses: 'roundGlasses', top: 'sailorTop', bag: 'backpack', held: 'bobaTea' }], ['全套 B', { hat: 'wizardHat', glasses: 'starGlasses', top: 'tangJacket', bag: 'catBag', held: 'bamboo' }]];

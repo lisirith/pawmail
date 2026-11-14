@@ -83,6 +83,7 @@ export const HALF_LIFE = Object.freeze({
   tailCurl: 0.2,
   tailSide: 0.2,
   tailHang: 0.12,
+  wallArm: 0.035, // 离墙远的那只手换边要快：换的那一下是半透明的，越短越看不出来
 });
 
 export const POSE_KEYS = Object.freeze(Object.keys(POSE_DEFAULTS));

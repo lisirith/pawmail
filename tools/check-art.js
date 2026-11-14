@@ -30,6 +30,20 @@ async function inspectArt(poses, guideUrl) {
       }
     }
   }
+  // 爬墙：两只爪子一上一下扒着墙（离墙远的那只从身子后面伸过来，见 draw.js 的 wallArm），身子往墙那边歪一点
+  for (const side of [-1, 1]) {
+    for (const lift of [-1, -0.5, 0, 0.5, 1]) {
+      const near = 1.4 + 0.45 * lift;
+      const far = 1.4 - 0.45 * lift;
+      const arms = side > 0 ? { armR: near, armL: far } : { armL: near, armR: far };
+      for (const tailHang of [0, 1]) {
+        const pose = { ...arms, wallArm: side, facing: side * 0.85, footLX: side * 9, footRX: side * 9, footLY: 6 * Math.max(0, lift), lean: side * 0.03, tailCurl: 1, tailHang, tailSide: -side };
+        cases.push({ name: `wall-${side}-${lift}-${tailHang}`, pose, opts: {}, rot: side * 0.08 });
+      }
+    }
+    // 换边换到一半（刚扒上墙、刚跳下来的那一下）
+    cases.push({ name: `wall-switch-${side}`, pose: { armL: 0.3, armR: 0.3, wallArm: side * 0.5, facing: side * 0.85 }, opts: {} });
+  }
   // 衣柜里的衣服：每件单独穿，在站、坐、趴、走、举手、被拎起、扒墙歪着这些姿势下都画一遍；再加两套全身搭配
   const { OUTFITS } = await import('/src/renderer/js/pet/outfits.js');
   const outfitPoses = [
@@ -41,6 +55,7 @@ async function inspectArt(poses, guideUrl) {
     ['held', { armL: 1.0, armR: 1.0, squash: -0.08, lean: 0.25, lift: 30 }],
     ['side', { facing: -1, headTilt: 0.15, armL: 2.0, armR: -0.5 }],
     ['lick', { crouch: 1, armR: -2.5, headTilt: 0.16 }],
+    ['climb', { armR: 1.85, armL: 0.95, wallArm: 1, facing: 0.85, footLX: 9, footRX: 9, footLY: 6, lean: 0.03, tailHang: 1, tailSide: -1 }],
   ];
   const outfitSets = Object.entries(OUTFITS).map(([id, art]) => [id, { [art.slot]: id }]);
   outfitSets.push(['setA', { hat: 'capRed', glasses: 'roundGlasses', top: 'sailorTop', bag: 'backpack', held: 'bobaTea' }]);

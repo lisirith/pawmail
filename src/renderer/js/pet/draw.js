@@ -696,14 +696,25 @@ export function drawPet(ctx, sp, P, opts = {}) {
 
   // 扒墙（P.wallArm）：离墙远的那只手绕到墙这一边，扒在墙上（两只手一前一后都扒着墙，不会有一只悬在半空）。
   // 它比身子先画，靠肩膀的那一截被身子挡住，只露出伸向墙的那一段，看起来就是"另一边的那只手"。
-  // 肩膀往上、往里挪一点，和近处那只手错开
+  // 肩膀和近处那只几乎在同一个地方（侧着看，两个肩膀是叠在一起的），只往墙那边挪一点点：
+  // 再往里挪的话，这只手举高时会整个藏到大脑袋后面，看起来又只剩一只手了
   const wallSide = Math.sign(P.wallArm || 0);
   const wallK = clamp(Math.abs(P.wallArm || 0), 0, 1);
   const farSide = -wallSide; // 离墙远的那只手
   if (wallK > 0.01 && g.loaf < 0.9) {
+    // 正在换边（刚扒上墙、刚跳下来的零点一秒）：原来那边的手在淡出。它也先画、藏在身子后面，
+    // 不然会看到一只半透明的手盖在身子上（用户反馈过）
+    // 两边都按平方淡入淡出：换到一半时两只都很淡，看起来像手一下子转到了身子后面，而不是两只半透明的手
+    if (wallK < 0.99) {
+      ctx.save();
+      ctx.globalAlpha *= (1 - wallK) * (1 - wallK);
+      drawArm(ctx, sp, P, g, farSide, outfit.top);
+      ctx.restore();
+    }
     ctx.save();
-    ctx.globalAlpha *= wallK;
-    drawArm(ctx, sp, P, g, wallSide, outfit.top, { a: farSide < 0 ? P.armL : P.armR, dx: -wallSide * 3, dy: -4 });
+    ctx.globalAlpha *= wallK * wallK;
+    ctx.filter = 'brightness(0.92)'; // 远处的手稍微暗一点，一看就知道在后面
+    drawArm(ctx, sp, P, g, wallSide, outfit.top, { a: farSide < 0 ? P.armL : P.armR, dx: wallSide * 1.5, dy: -1 });
     ctx.restore();
   }
 
@@ -736,8 +747,8 @@ export function drawPet(ctx, sp, P, opts = {}) {
     : 0;
   const frontL = P.armL < -1.25 ? 1 : restingInFront(P.armL);
   const frontR = P.armR < -1.25 ? 1 : restingInFront(P.armR);
-  // 扒墙时离墙远的那只手已经画到墙那边去了，原来的位置上就不画（刚扒上墙、跳下来的一瞬间，两边一个淡出一个淡入）
-  const keep = (s) => (wallK > 0.01 && s === farSide ? 1 - wallK : 1);
+  // 扒墙时离墙远的那只手已经画在身子后面了（见上面），这里就不再画它
+  const keep = (s) => (wallK > 0.01 && s === farSide ? 0 : 1);
   for (const [side, front] of [[-1, frontL], [1, frontR]]) {
     const k = keep(side);
     if (front >= 1 || k <= 0.01) continue;

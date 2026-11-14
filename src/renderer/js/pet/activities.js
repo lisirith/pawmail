@@ -50,6 +50,12 @@ function crumbs(pet, n = 4) {
 // 扒在墙上时，脚离墙（活动范围的边）多远。这个距离让脑袋的侧面刚好贴着墙
 const WALL_GAP = 56;
 
+// 爬墙时两只爪子的角度：在 CLIMB_MID ± CLIMB_AMP 之间一上一下（约 1.85 和 0.95）。
+// 高的那只在下巴旁边、低的那只在腰旁边，两只都在大脑袋和身子外面，看得见；
+// 再高的话爪子会藏到头后面，再低就够不着墙了（见 draw.js 的 wallArm）
+const CLIMB_MID = 1.4;
+const CLIMB_AMP = 0.45;
+
 // 走路的几种步态。speed 是每秒走多少像素，stride 是一步的长度（脚才不会打滑）
 const GAITS = {
   walk: { speed: 46, stride: 15, lift: 4.5, bob: 1.8, lean: 0.03, sway: 0.03, arm: 0.3 },
@@ -1015,14 +1021,17 @@ export const ACTIVITIES = {
     const side = p.side ?? (d.left <= d.right ? -1 : 1);
     const cat = pet.sp.id === 'cat';
     const room = Math.max(0, w.groundY - pet.ceilingY()); // 最多能爬多高
+    // 往下拉的那只爪子每"换一次手"能把身子拉高多少：手臂越长拉得越多（见 up / down 里的说明）
+    const armLen = 20 * ((pet.sp.build && pet.sp.build.armLen) || 1);
     return {
       side,
       phase: 'walk',
       pt: 0,
-      cyc: 0, // 手脚交替的节奏
+      cyc: Math.PI / 2, // 手脚交替的节奏（从"靠墙那只手在上、另一只在下"开始）
       climbed: 0, // 已经离地多高（像素）
       goal: p.goal ?? Math.min(room, Math.max(90 * S, rand(0.35, 1) * Math.min(room, 560 * S))),
-      speed: (cat ? 62 : 42) * S, // 熊猫爬得慢吞吞
+      rate: cat ? 7 : 5.5, // 换手有多快（熊猫爬得慢吞吞）
+      pullReach: armLen * 0.95 * CLIMB_AMP,
       clingFor: rand(2.6, 5),
       decided: false,
       jumped: false,
@@ -1038,6 +1047,13 @@ export const ACTIVITIES = {
       letGo(b) {
         if (b.pet.mode === 'wall') this.next('leap');
       },
+      /** 两只爪子在墙上：靠墙那只和另一只一上一下，正好相反。lift = 1 时靠墙那只在最上面 */
+      paws(T, lift) {
+        const near = CLIMB_MID + CLIMB_AMP * lift;
+        const far = CLIMB_MID - CLIMB_AMP * lift;
+        T.armL = side < 0 ? near : far;
+        T.armR = side > 0 ? near : far;
+      },
       update(b, dt, t) {
         const pet = b.pet;
         const T = pet.target;
@@ -1051,21 +1067,26 @@ export const ACTIVITIES = {
         }
 
         if (this.phase === 'reach') {
-          // 转身面向墙，抬头看看上面，蹲一下，两只手举起来扒住（离墙远的那只手绕到墙这边，见 draw.js 的 wallArm）
-          const u = clamp(this.pt / 0.55, 0, 1);
-          const e = easeInOut(u);
+          // 转身面向墙，抬头看看上面，蹲一下，两只爪子扒上墙：靠墙那只在上、另一只在下。
+          // 离墙远的那只手要换到墙这边来画（从身子后面伸过来，见 draw.js 的 wallArm）。
+          // 趁它还垂着、藏在身子旁边的时候先换过去，换好了再抬起来——
+          // 要是边抬边换，换的那一下会看到一只半透明的手悬在半空（用户反馈过）
+          const u = clamp(this.pt / 0.6, 0, 1);
           s.fps = 60;
           s.gaze = 'none';
           T.facing = side * 0.85;
           T.lookX = side * 0.3;
           T.lookY = -0.85;
-          T.armL = (side < 0 ? 1.6 : 1.9) * e;
-          T.armR = (side > 0 ? 1.6 : 1.9) * e;
-          T.wallArm = side * e;
+          T.wallArm = side * clamp(this.pt / 0.1, 0, 1);
+          const kNear = easeInOut(clamp(this.pt / 0.55, 0, 1));
+          const kFar = easeInOut(clamp((this.pt - 0.2) / 0.4, 0, 1));
+          T.armL = (side < 0 ? (CLIMB_MID + CLIMB_AMP) * kNear : (CLIMB_MID - CLIMB_AMP) * kFar);
+          T.armR = (side > 0 ? (CLIMB_MID + CLIMB_AMP) * kNear : (CLIMB_MID - CLIMB_AMP) * kFar);
           T.crouch = 0.3 * bell(u);
           T.earDroop = -0.15;
           if (u >= 1) {
             pet.mode = 'wall';
+            this.cyc = Math.PI / 2; // 接着 reach 的姿势：靠墙那只在上
             this.next('up');
           }
           return false;
@@ -1083,8 +1104,13 @@ export const ACTIVITIES = {
           }
           s.fps = 60;
           s.gaze = 'none';
+          s.tailSide = -side; // 尾巴别在半空中换边：换边那一下尾巴是侧着的，看起来像一根细棍
           T.facing = -side * 0.5;
-          T.armL = T.armR = 1.5;
+          // 离墙远的那只手：先放下来（在身子后面），再换回自己那边，然后才和另一只一起举起来（同样是为了不露出半透明的手）
+          T.wallArm = this.pt < 0.2 ? side : 0;
+          const farUp = this.pt < 0.32 ? 0 : 1.5;
+          T.armL = side < 0 ? 1.5 : farUp;
+          T.armR = side > 0 ? 1.5 : farUp;
           T.eyes = 'happy';
           T.mouth = 'smile';
           T.mouthOpen = 0.6;
@@ -1094,7 +1120,9 @@ export const ACTIVITIES = {
         }
 
         if (this.phase === 'done') {
-          T.armL = T.armR = 0.4;
+          // 爬回地面：手放下来（离墙远的那只垂着的时候换回自己那边，看不出来）；尾巴还在屋子这边
+          pet.style.tailSide = -side;
+          T.armL = T.armR = 0.15;
           return this.pt > 0.35;
         }
 
@@ -1115,19 +1143,21 @@ export const ACTIVITIES = {
           s.fps = 60;
           s.gaze = 'none';
           s.tailAmp = 0.2;
-          // 一下一下地往上够：两只手轮流往上伸、脚轮流往上蹬；使劲的那一下爬得快，换手时慢
-          this.cyc += dt * (cat ? 6 : 4.4);
+          // 两只爪子轮流换手：一只扒住墙往下拉，另一只松开往上够（往下爬时反过来）。
+          // 扒住的那只爪子要"钉"在墙上不打滑，所以身子移动的速度 = 这只爪子相对身子移动的速度：
+          // 手臂转得最快的时候身子走得最快；换手的那一瞬间（一只在最上、一只在最下）身子停一停
+          const rate = this.rate * (up ? 1 : 1.25);
+          this.cyc += dt * rate;
           const sn = Math.sin(this.cyc);
-          const push = 0.2 + 0.8 * Math.abs(sn);
-          this.climbed += (up ? 1 : -1.3) * this.speed * push * dt;
-          // 两只爪子都扒在墙上，一只往上够、另一只往下拉，轮流换手（和对面那只脚一起动，像真的在爬）
-          const near = 1.72 + 0.25 * sn;
-          const far = 1.72 - 0.25 * sn;
-          T.armL = side < 0 ? near : far;
-          T.armR = side > 0 ? near : far;
-          T.footLY = Math.max(0, -sn) * 7;
-          T.footRY = Math.max(0, sn) * 7;
-          T.lift += Math.abs(sn) * 1.5;
+          const pull = Math.abs(Math.cos(this.cyc));
+          this.climbed += (up ? 1 : -1) * this.pullReach * rate * pull * w.scale * dt;
+          this.paws(T, sn);
+          // 脚也轮流往上蹬：靠墙那只手在上时，另一边的脚抬起来（一左一右交叉着动，像真的在爬）
+          const farFoot = Math.max(0, sn) * 6;
+          const nearFoot = Math.max(0, -sn) * 6;
+          T.footLY = side > 0 ? farFoot : nearFoot;
+          T.footRY = side > 0 ? nearFoot : farFoot;
+          T.lift += pull * 1.2; // 拉的时候使一下劲
           T.facing = side * 0.85;
           T.lookX = side * 0.2;
           T.lookY = up ? -0.7 : 0.75; // 往上爬看上面，往下爬看脚下
@@ -1153,15 +1183,13 @@ export const ACTIVITIES = {
           return false;
         }
 
-        // cling：两只爪子一高一低扒着墙（偶尔轻轻换一下着力），脚轻轻晃；转过头来东张西望
+        // cling：两只爪子一高一低扒着墙（靠墙那只在上，偶尔轻轻挪一下着力），脚轻轻晃；转过头来东张西望
         s.fps = 30;
         s.gaze = 'none';
         s.tailAmp = 0.7;
         s.tailSpeed = 1.6;
         pet.y = w.groundY - this.climbed;
-        const shift = Math.sin(t * 1.3) * 0.07;
-        T.armL = side < 0 ? 1.6 + shift : 1.92 - shift;
-        T.armR = side > 0 ? 1.6 + shift : 1.92 - shift;
+        this.paws(T, 0.92 + Math.sin(t * 1.3) * 0.08);
         T.footLY = Math.max(0, Math.sin(t * 2.2)) * 2.5;
         T.footRY = Math.max(0, -Math.sin(t * 2.2)) * 2.5;
         if (this.pt < 1.1) {
