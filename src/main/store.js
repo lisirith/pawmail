@@ -21,6 +21,7 @@ const NAME_ID = /^[A-Za-z]{1,32}$/; // 地点、礼物的编号
 
 const DEFAULT_SETTINGS = Object.freeze({
   species: 'cat',
+  catCoat: 'tabby', // 猫的花色，切换动物时也保留选择。
   displayMode: 'top', // top 始终在最前面 | desktop 只待在桌面上
   scale: 1,
   language: null, // null = 跟随系统语言
@@ -56,6 +57,7 @@ function isValidBirthday(v) {
 // 每一项设置允许的取值。画面发来的任何修改都要先过这一关。
 const VALID = {
   species: (v) => SPECIES.includes(v),
+  catCoat: (v) => v === 'tabby' || v === 'lucky',
   displayMode: (v) => v === 'top' || v === 'desktop',
   scale: (v) => SCALES.includes(v),
   language: (v) => v === null || LANGUAGES.includes(v),

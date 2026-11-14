@@ -20,7 +20,7 @@ export const capitalize = (text) => (text ? text.charAt(0).toUpperCase() + text.
  * 画"照片"：一幅风景，加上站在里面的它。铺满 (0,0)–(w,h)。
  * 同一封信每次画出来都一样（云的位置、它的姿势由信的日期决定）。
  */
-export function drawPhoto(ctx, w, h, letter, speciesId) {
+export function drawPhoto(ctx, w, h, letter, speciesId, catCoat = 'tabby') {
   const seed = hashText(`${letter.id}|${letter.place}`);
   const report = letter.kind === 'monthly' || letter.kind === 'yearly';
   drawScene(ctx, w, h, { scene: letter.scene, place: letter.place, seed });
@@ -37,7 +37,7 @@ export function drawPhoto(ctx, w, h, letter, speciesId) {
   if (letter.kind === 'festival') {
     pose = look && look.held ? { armL: -0.75, armR: -0.75, eyes: 'happy', mouth: 'smile', mouthOpen: 0.4, blush: 0.8 } : scenePose(4);
   }
-  drawPet(ctx, getSpecies(speciesId), makePose(pose), { time: 0.3, look });
+  drawPet(ctx, getSpecies(speciesId, catCoat), makePose(pose), { time: 0.3, look });
   ctx.restore();
 }
 
@@ -80,7 +80,7 @@ export function wrapText(ctx, text, maxWidth) {
  * 普通的信是 1080×1440（3:4，适合小红书、朋友圈）；月报和年度回顾内容多，是 1080×1920（9:16，适合手机竖屏、发动态）。
  * @returns 一块画好的画布，调用 .toDataURL('image/png') 就能得到图片
  */
-export function renderPostcard(letter, { species, footer }) {
+export function renderPostcard(letter, { species, footer, catCoat = 'tabby' }) {
   const stats = letter.stats && letter.stats.length ? letter.stats : null;
   const W = 1080;
   const H = stats ? 1920 : 1440;
@@ -103,7 +103,7 @@ export function renderPostcard(letter, { species, footer }) {
   roundedRect(ctx, px, py, pw, ph, 30);
   ctx.clip();
   ctx.translate(px, py);
-  drawPhoto(ctx, pw, ph, letter, species);
+  drawPhoto(ctx, pw, ph, letter, species, catCoat);
   ctx.restore();
   roundedRect(ctx, px, py, pw, ph, 30);
   ctx.strokeStyle = '#5b3a24';

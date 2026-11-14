@@ -106,7 +106,7 @@ function setSetting(key, value) {
   if (key === 'autoStart') applyAutoStart(value);
   overlay.send('settings', effectiveSettings());
   if (tray) tray.refresh();
-  if (mail && ['language', 'species', 'petName', 'birthday', 'cultures', 'profileAsked'].includes(key)) mail.refresh();
+  if (mail && ['language', 'species', 'catCoat', 'petName', 'birthday', 'cultures', 'profileAsked'].includes(key)) mail.refresh();
   if (['language', 'birthday', 'cultures'].includes(key)) refreshFestival();
   return true;
 }
@@ -372,7 +372,7 @@ function start() {
     dev: DEV,
     getContext: () => {
       const lang = currentLanguage();
-      return { lang, name: store.data.settings.petName, species: store.data.settings.species, ui: STRINGS[lang].mail };
+      return { lang, name: store.data.settings.petName, species: store.data.settings.species, catCoat: store.data.settings.catCoat, ui: STRINGS[lang].mail };
     },
     setName: (name) => setSetting('petName', name),
     getProfile: profile,

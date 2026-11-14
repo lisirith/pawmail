@@ -28,6 +28,7 @@ function mockMail(query) {
   const F = require('../src/shared/festivals/catalog');
   const lang = query.get('lang') === 'en' ? 'en' : 'zh';
   const species = query.get('species') === 'panda' ? 'panda' : 'cat';
+  const catCoat = query.get('coat') === 'lucky' ? 'lucky' : 'tabby';
   const name = query.get('name') || null;
   const unread = Math.max(0, Number(query.get('unread') || 1));
   const ui = require(`../src/shared/locales/${lang}.json`).mail;
@@ -80,6 +81,7 @@ function mockMail(query) {
     ui,
     name,
     species,
+    catCoat,
     letters,
     album: L.album(mail.gifts, lang, F.activeFestivals(profile.cultures)),
     profile,

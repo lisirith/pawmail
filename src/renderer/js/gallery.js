@@ -4,7 +4,7 @@
 //   ?bg=dark        只看深色背景
 //   ?compare=1      和设定图（img resource 里的图）对照着看，改造型时用
 
-import { SPECIES } from './pet/species/index.js';
+import { SPECIES, getSpecies } from './pet/species/index.js';
 import { makePose } from './pet/pose.js';
 import { drawPet, getGeometry } from './pet/draw.js';
 import { LOOKS } from './pet/looks.js';
@@ -35,6 +35,7 @@ const POSES = [
 const params = new URLSearchParams(location.search);
 const backgrounds = (params.get('bg') || 'light,dark,photo').split(',');
 const only = params.get('species');
+const appearances = Object.values(SPECIES).map(sp => getSpecies(sp.id, params.get('coat')));
 const showLooks = params.get('looks') === '1';
 const onlyLooks = params.get('only') ? params.get('only').split(',') : null; // 比如 &only=ghost,santa
 
@@ -75,7 +76,7 @@ async function drawCompare() {
   const CH = 380;
   const headAt = [CW / 2, CH * 0.4];
   const headW = 200; // 头在格子里画多宽（像素）
-  for (const sp of Object.values(SPECIES)) {
+  for (const sp of appearances) {
     if (only && sp.id !== only) continue;
     const ref = REFERENCE[sp.id];
     if (!ref) continue;
@@ -154,7 +155,7 @@ if (showFood) {
 }
 
 for (const bg of params.get('compare') === '1' || showFood ? [] : backgrounds) {
-  for (const sp of Object.values(SPECIES)) {
+  for (const sp of appearances) {
     if (only && sp.id !== only) continue;
     const row = document.createElement('div');
     row.className = `row bg-${bg}`;

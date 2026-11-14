@@ -132,7 +132,7 @@ async function main() {
   }
   layoutArea();
 
-  const pet = new Pet(getSpecies(settings.species), world);
+  const pet = new Pet(getSpecies(settings.species, settings.catCoat), world);
   const bubble = new Bubble(document.getElementById('bubble'));
   const say = (key, seconds) => bubble.say(i18n.line(key, pet.sp.id), seconds);
   const brain = new Brain({ pet, world, say, saved: init.pet, stat: (kind) => bridge.stat(kind) });
@@ -612,6 +612,13 @@ async function main() {
           { value: 'panda', label: `🐼 ${t('menu.panda')}` },
         ],
       },
+      ...(settings.species === 'cat' ? [{
+        type: 'choice', key: 'catCoat', label: t('menu.catCoat'), value: settings.catCoat || 'tabby',
+        options: [
+          { value: 'tabby', label: t('menu.tabby') },
+          { value: 'lucky', label: t('menu.luckyCat') },
+        ],
+      }] : []),
       {
         type: 'choice',
         key: 'displayMode',
@@ -665,8 +672,8 @@ async function main() {
   function applySettings(next) {
     const prev = settings;
     settings = { ...next };
-    if (settings.species !== prev.species) {
-      pet.setSpecies(getSpecies(settings.species));
+    if (settings.species !== prev.species || settings.catCoat !== prev.catCoat) {
+      pet.setSpecies(getSpecies(settings.species, settings.catCoat));
       poof(); // 换动物时"噗"地弹一下
       bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look));
     }

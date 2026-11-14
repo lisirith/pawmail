@@ -7,7 +7,8 @@ const path = require('node:path');
 const out = path.resolve(process.argv[2] || 'tools/shots/art-review');
 
 async function inspectArt(poses, guideUrl) {
-  const { SPECIES } = await import('/src/renderer/js/pet/species/index.js');
+  const { SPECIES, getSpecies } = await import('/src/renderer/js/pet/species/index.js');
+  const luckyCat = getSpecies('cat', 'lucky');
   const { makePose } = await import('/src/renderer/js/pet/pose.js');
   const { drawPet, drawHeadOnly, getGeometry, RIG } = await import('/src/renderer/js/pet/draw.js');
   const { LOOKS } = await import('/src/renderer/js/pet/looks.js');
@@ -52,7 +53,8 @@ async function inspectArt(poses, guideUrl) {
       return true;
     },
   });
-  for (const sp of Object.values(SPECIES)) {
+  for (const sp of [...Object.values(SPECIES), luckyCat]) {
+    const variantId = sp.coatId === 'lucky' ? 'cat-lucky' : sp.id;
     let minPixels = Infinity;
     let minMargin = Infinity;
     for (const sample of cases) {
@@ -78,7 +80,7 @@ async function inspectArt(poses, guideUrl) {
         minPixels = Math.min(minPixels, pixels);
         minMargin = Math.min(minMargin, margin);
       } catch (error) {
-        failures.push(`${sp.id}/${sample.name}: ${error.message}`);
+        failures.push(`${variantId}/${sample.name}: ${error.message}`);
       }
     }
     // 单独测绘制调用，不把读取像素或检查代理的开销混进来。
@@ -90,23 +92,23 @@ async function inspectArt(poses, guideUrl) {
       b.reset(); b.translate(RIG.anchorX, RIG.anchorY);
       drawPet(b, sp, makePose(poses[n % poses.length][1]), { time: n / 30 });
     }
-    stats[sp.id] = { cases: cases.length, minPixels, minMargin, averageDrawMs: +( (performance.now() - start) / 240).toFixed(3) };
+    stats[variantId] = { cases: cases.length, minPixels, minMargin, averageDrawMs: +( (performance.now() - start) / 240).toFixed(3) };
   }
   const sheet = document.createElement('canvas');
-  sheet.width = 1680; sheet.height = 860;
+  sheet.width = 1680; sheet.height = 1225;
   const s = sheet.getContext('2d');
   s.fillStyle = '#f7f0e5'; s.fillRect(0, 0, sheet.width, sheet.height);
   s.fillStyle = '#614839'; s.font = '600 30px "Microsoft YaHei", sans-serif';
-  s.fillText('Pawmail · 熊猫与橘猫 / 动作预览', 36, 50);
+  s.fillText('Pawmail · 熊猫、橘猫与招财猫 / 动作预览', 36, 50);
   s.font = '17px "Microsoft YaHei", sans-serif'; s.fillStyle = '#856e5e';
   s.fillText('游戏实际绘制 · 放大检查轮廓、表情与部件衔接', 36, 82);
   const featured = [poses[0], poses[5], poses[3], poses[6], poses[7], ['抱信', { armL: -0.75, armR: -0.75 }], poses[8]];
-  for (const [row, id] of ['panda', 'cat'].entries()) {
+  for (const [row, sp] of [SPECIES.panda, SPECIES.cat, luckyCat].entries()) {
     const top = 110 + row * 365;
     s.fillStyle = row ? '#e9e0d2' : '#fffaf3'; s.fillRect(20, top, sheet.width - 40, 348);
     for (const [col, [name, pose]] of featured.entries()) {
       s.save(); s.translate(135 + col * 235, top + 290); s.scale(1.8, 1.8);
-      drawPet(s, SPECIES[id], makePose(pose), { time: 0.3, carry: name === '抱信' }); s.restore();
+      drawPet(s, sp, makePose(pose), { time: 0.3, carry: name === '抱信' }); s.restore();
       s.fillStyle = '#715949'; s.font = '17px "Microsoft YaHei", sans-serif'; s.textAlign = 'center';
       s.fillText(name, 135 + col * 235, top + 326); s.textAlign = 'left';
     }
@@ -118,6 +120,19 @@ async function inspectArt(poses, guideUrl) {
     drawPet(d, SPECIES[id], makePose({ crouch: 1 }), { time: 0.3 }); d.restore();
   }
   const images = { 'poses.png': sheet.toDataURL(), 'dark.png': dark.toDataURL() };
+  const coats = document.createElement('canvas'); coats.width = 1280; coats.height = 580;
+  const cc = coats.getContext('2d'); cc.fillStyle = '#f7f0e5'; cc.fillRect(0, 0, 1280, 580);
+  for (const [i, [title, sp, pose]] of [
+    ['原来的橘猫', SPECIES.cat, {}],
+    ['招财猫 · 同一造型', luckyCat, {}],
+    ['招财猫 · 坐姿', luckyCat, { crouch: 1, tailCurl: 0.75 }],
+  ].entries()) {
+    cc.fillStyle = '#614839'; cc.font = '600 23px "Microsoft YaHei", sans-serif'; cc.textAlign = 'center';
+    cc.fillText(title, 180 + i * 420, 43);
+    cc.save(); cc.translate(180 + i * 420, 510); cc.scale(3.05, 3.05);
+    drawPet(cc, sp, makePose(pose), { time: 0.3, shadow: false }); cc.restore();
+  }
+  images['cat-coats.png'] = coats.toDataURL();
   // 放大站姿和坐姿，便于检查爪底过弯后内侧线条的粗细与透明度。
   const arms = document.createElement('canvas'); arms.width = 960; arms.height = 560;
   const a = arms.getContext('2d'); a.fillStyle = '#f7f0e5'; a.fillRect(0, 0, 960, 560);

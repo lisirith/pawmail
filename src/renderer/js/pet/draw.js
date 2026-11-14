@@ -531,8 +531,8 @@ function drawHead(ctx, sp, P, g, time, look) {
   // 头的轮廓：默认是年糕形；动物可以换成自己的（比如熊猫两颊毛茸茸的）
   const outline = () => (sp.headPath || headPath)(ctx, rx, ry);
   outline();
-  ctx.fillStyle = sp.headFill ? sp.headFill(ctx, rx, ry) : pal.fur;
-  ctx.fill();
+  const base = sp.headFill ? sp.headFill(ctx, rx, ry) : pal.fur;
+  if (base) { ctx.fillStyle = base; ctx.fill(); } // 整面花色可在下面一次铺好底色。
 
   ctx.save();
   outline();
@@ -681,6 +681,7 @@ export function drawPet(ctx, sp, P, opts = {}) {
   torso();
   ctx.clip();
   sp.drawTorsoMarkings(ctx, P, g);
+  sp.drawCollar?.(ctx, P, g, look);
   ctx.restore();
   torso();
   ctx.strokeStyle = pal.outline;

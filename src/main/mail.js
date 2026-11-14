@@ -116,6 +116,7 @@ class Mail {
       ui: ctx.ui,
       name: ctx.name,
       species: ctx.species,
+      catCoat: ctx.catCoat || 'tabby',
       letters,
       album: L.album(owned, ctx.lang, F.activeFestivals(profile.cultures)),
       profile: { birthday: profile.birthday, cultures: profile.cultures, asked: profile.asked },

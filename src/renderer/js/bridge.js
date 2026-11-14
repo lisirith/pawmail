@@ -12,6 +12,7 @@ function createMockBridge() {
   const emit = (channel, data) => (listeners[channel] || []).forEach((cb) => cb(data));
   let settings = {
     species: params.get('species') || 'cat',
+    catCoat: params.get('coat') === 'lucky' ? 'lucky' : 'tabby',
     displayMode: 'top',
     scale: Number(params.get('scale')) || 1,
     language: params.get('lang') || 'zh',

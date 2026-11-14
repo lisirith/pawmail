@@ -96,7 +96,7 @@ function makeCanvas(w, h, className) {
 }
 
 function drawFace(ctx, size, species, pose) {
-  const sp = getSpecies(species);
+  const sp = getSpecies(species, state.data.catCoat);
   const k = size / (2 * (sp.head.rx + 9));
   ctx.save();
   ctx.translate(size / 2, size / 2 + sp.earReach * 0.35 * k);
@@ -156,7 +156,7 @@ const state = {
 
 const letters = () => state.data.letters;
 const current = () => letters().find((l) => l.id === state.id) || null;
-const fingerprint = (l) => (l ? JSON.stringify([state.data.lang, state.data.species, l.id, l.opened, l.title, l.lines, l.sign, l.gift && l.gift.line]) : '');
+const fingerprint = (l) => (l ? JSON.stringify([state.data.lang, state.data.species, state.data.catCoat, l.id, l.opened, l.title, l.lines, l.sign, l.gift && l.gift.line]) : '');
 
 function apply(data) {
   const first = !state.data;
@@ -247,7 +247,7 @@ async function exportPostcard(letter, mode, trigger) {
   const { ui, species } = state.data;
   trigger.disabled = true;
   try {
-    const dataUrl = renderPostcard(letter, { species, footer: ui.postcardFooter }).toDataURL('image/png');
+    const dataUrl = renderPostcard(letter, { species, catCoat: state.data.catCoat, footer: ui.postcardFooter }).toDataURL('image/png');
     const result = mode === 'copy' ? await api.copyPostcard(dataUrl) : await api.savePostcard(dataUrl, letter.id);
     toast(result && result.ok ? (mode === 'copy' ? ui.copied : ui.saved) : ui.failed);
   } catch (err) {
@@ -265,7 +265,7 @@ function paperView(letter) {
 
   // 照片
   const { canvas, ctx } = makeCanvas(408, 190, 'photo');
-  drawPhoto(ctx, 408, 190, letter, species);
+  drawPhoto(ctx, 408, 190, letter, species, state.data.catCoat);
 
   // 地点和日期
   const head = el('div', 'letter-head');
@@ -655,6 +655,6 @@ api.init().then((data) => {
   window.__mail = {
     state,
     go,
-    postcard: () => renderPostcard(current(), { species: state.data.species, footer: state.data.ui.postcardFooter }).toDataURL('image/png'),
+    postcard: () => renderPostcard(current(), { species: state.data.species, catCoat: state.data.catCoat, footer: state.data.ui.postcardFooter }).toDataURL('image/png'),
   };
 });

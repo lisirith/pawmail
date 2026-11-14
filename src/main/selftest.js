@@ -108,6 +108,14 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
   await wait(250);
   check('从后台切换动物，画面会跟着变', swapped !== info.species, { swapped });
 
+  const previousCoat = store.data.settings.catCoat;
+  setSetting('species', 'cat'); setSetting('catCoat', 'lucky');
+  await wait(250);
+  const coat = await js(`return [window.__pawmail.pet.sp.id, window.__pawmail.pet.sp.coatId];`);
+  check('选择招财猫只换花色，桌宠与信箱共用同一设置', coat[0] === 'cat' && coat[1] === 'lucky' && mail.payload().catCoat === 'lucky', { coat });
+  setSetting('catCoat', previousCoat); setSetting('species', info.species);
+  await wait(150);
+
   // 8. 截一张图，并检查背景是不是真的透明
   await js(`const P = window.__pawmail; P.brain.start('greet', { line: 'hello' }); P.run(0.9); return true;`);
   await wait(600);
