@@ -12,6 +12,7 @@
     "sim": "node tools/sim-brain.mjs",
     "letters": "node tools/sim-letters.js",
     "snap": "electron tools/snap.js",
+    "artcheck": "electron tools/check-art.js",
     "selftest": "electron . --selftest=tools/shots/selftest --userdata=tools/shots/selftest-userdata"
   },
   "devDependencies": {

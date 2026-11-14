@@ -146,6 +146,19 @@ npm run snap -- "/src/renderer/gallery.html?looks=1" tools/shots/looks.png 800 1
 截图工具：在后台把预览页面截成图片（先开着 `npm run preview`），不依赖窗口有没有被挡住。
 
 ```bash
+npm run artcheck
+```
+
+角色美术检查（先开 `npm run preview`）：检查熊猫、橘猫的姿势过渡、抱信和节日装扮，
+输出动作预览、深色背景和原图对照到 `tools/shots/art-review/`。对照图同时显示放大版和桌宠原始尺寸。
+不会启动桌宠后台或改动存档；本机缺少 `img resource/` 参考图时仍可检查动作。
+
+两只角色按 `img resource/ba8d7185-40d5-456b-ab17-12ce9a388f21.png` 重绘。
+头、耳朵、身体、手脚和花纹各自使用独立曲线及柔和明暗，沿用共用关节与姿势参数。
+造型集中在 `species/cat.js`、`species/panda.js`；`draw.js` 负责组合部件、表情和换装。
+原图是静态造型参考，运动中的转向和姿势由这套可变形部件实现，并非逐帧复制原图。
+
+```bash
 node tools/build-festival-dates.js 2025 2060
 ```
 

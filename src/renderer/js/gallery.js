@@ -62,8 +62,8 @@ function cell(row, name, sp, pose, opts) {
 // head：设定图里头的中心和半宽（原图像素），用来把两张图对齐到同样大小
 const REFERENCE = {
   src: '/img resource/ba8d7185-40d5-456b-ab17-12ce9a388f21.png',
-  cat: { head: [1252, 370], rx: 282, pose: { crouch: 1, lookY: -0.15, tailCurl: 0.75, tailSide: 1 } },
-  panda: { head: [475, 340], rx: 300, pose: { crouch: 1, armL: -1.0, armR: -1.0, mouth: 'smile', mouthOpen: 0.9, lookX: 0.35, blush: 1 } },
+  cat: { head: [1252, 370], rx: 282, pose: { crouch: 1, headTilt: -0.06, lookY: -0.15, tailCurl: 0.75, tailSide: 1 } },
+  panda: { head: [475, 340], rx: 300, pose: { crouch: 1, headTilt: -0.12, armL: -1.0, armR: -1.0, mouth: 'smile', mouthOpen: 0.9, lookX: 0.35, blush: 1 } },
 };
 
 async function drawCompare() {
