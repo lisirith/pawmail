@@ -10,7 +10,8 @@
 //
 // 每个画法拿到的 info：{ sp 动物, P 姿势, g 身体各部分的位置（getGeometry）, lx/ly 视线, time, torso 描出身体轮廓的函数 }
 // 衣服一律从 info 里读尺寸，不写死数字：这样所有动物都能穿（以后的卡皮巴拉也是）。
-// 想加一件：在下面写好画法，登记到 OUTFITS，再到 src/shared/outfits/catalog.js 登记一行（编号、部位、稀有度）。
+// 想加一件：在下面写好画法，登记到 OUTFITS，再到 src/shared/outfits/catalog.js 登记一行（编号、部位、在哪儿容易捡到），
+// 在同一个文件夹的 zh.json / en.json 里写上名字，最后运行 npm run letters 核对。
 
 const INK = '#5d4334'; // 衣服的轮廓线
 const LW = 1.5;

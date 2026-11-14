@@ -11,6 +11,7 @@ import { TAU, clamp, damp, Spring, rand, chance, wobble, bell, sign, random, pic
 import { makePose, resetPose, POSE_KEYS, HALF_LIFE } from './pose.js';
 import { drawPet, hitTest, getGeometry, RIG } from './draw.js';
 import { Fx, CONFETTI_COLORS } from './fx.js';
+import { OUTFITS, OUTFIT_SLOTS } from './outfits.js';
 
 const GRAVITY = 2400; // 像素/秒²（按宠物大小缩放）
 
@@ -62,6 +63,7 @@ export class Pet {
     this.carryLift = 0;
 
     this.look = null; // 节日装扮（见 looks.js）；null = 平常的样子
+    this.outfit = null; // 穿着的衣服 { hat, glasses, top, bag, held }（衣服编号，见 outfits.js）；null = 什么都没穿
     this.sheetLift = 0;
     this.lookFxClock = 0;
 
@@ -80,6 +82,26 @@ export class Pet {
   setLook(look) {
     this.look = look || null;
     this.lookFxClock = 0;
+  }
+
+  /**
+   * 换衣服。outfit：{ hat, glasses, top, bag, held }，每项是衣服编号或 null。
+   * 返回 true = 真的换了（和原来不一样）。只在真的换了的时候才换成新对象，画面靠这个知道要重画。
+   */
+  setOutfit(outfit) {
+    const next = {};
+    for (const slot of OUTFIT_SLOTS) next[slot] = (outfit && OUTFITS[outfit[slot]] && OUTFITS[outfit[slot]].slot === slot) ? outfit[slot] : null;
+    const empty = OUTFIT_SLOTS.every((slot) => !next[slot]);
+    const before = JSON.stringify(this.outfit || {});
+    const after = JSON.stringify(empty ? {} : next);
+    if (before === after) return false;
+    this.outfit = empty ? null : next;
+    return true;
+  }
+
+  /** 手里有没有拿着衣柜里的东西（奶茶、小鱼……）。过节拿着灯笼时，节日的优先 */
+  get holdsOutfitItem() {
+    return !!(this.outfit && this.outfit.held && !(this.look && this.look.held));
   }
 
   /** 头顶（含耳朵）在宠物坐标里的 y，特效用它来决定从哪里冒出来 */
@@ -205,8 +227,8 @@ export class Pet {
     if (Math.abs(T.facing) > 0.3) T.tailSide = -sign(T.facing);
     else T.tailSide = this.pose.tailSide >= 0 ? 1 : -1;
 
-    // 手里有信（或者节日的灯笼、月饼……）、而这个动作又没用到手：两只手抱在胸前
-    const holding = this.carry || (this.look && this.look.held);
+    // 手里有信（或者节日的灯笼、月饼，衣柜里的奶茶、小鱼……）、而这个动作又没用到手：两只手抱在胸前
+    const holding = this.carry || (this.look && this.look.held) || this.holdsOutfitItem;
     if (holding && this.mode === 'ground' && T.armL === 0 && T.armR === 0 && T.loaf < 0.5) {
       T.armL = -0.75;
       T.armR = -0.75;
@@ -505,6 +527,7 @@ export class Pet {
       carryLift: this.carryLift,
       carryGold: this.carryGold,
       look: this.look,
+      outfit: this.outfit,
       sheetLift: this.sheetLift,
     });
     ctx.restore();

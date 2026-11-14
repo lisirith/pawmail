@@ -7,6 +7,8 @@ const path = require('node:path');
 const fs = require('node:fs');
 const L = require('./letters');
 const F = require('../shared/festivals/catalog');
+const O = require('../shared/outfits/catalog');
+const W = require('./wardrobe');
 
 const ID = L.LETTER_ID;
 const PNG_PREFIX = 'data:image/png;base64,';
@@ -21,17 +23,21 @@ class Mail {
    * @param setName     (name) => void  给宠物起名字
    * @param getProfile  () => { birthday, cultures, asked }  你的生日、过哪些节日、问过没有
    * @param setProfile  ({ birthday, cultures } | { skip: true }) => void
+   * @param setOutfit   (outfit) => boolean  换衣服（主程序存进设置，并告诉宠物）
    * @param now         () => 现在的时间戳（开发时可以快进）
    * @param dev         开发模式
+   * @param allClothes  开发时：衣柜里的衣服全部解锁（--x-allclothes）
    */
-  constructor({ store, getContext, onChange, setName, getProfile, setProfile, now = Date.now, dev = false }) {
+  constructor({ store, getContext, onChange, setName, getProfile, setProfile, setOutfit, now = Date.now, dev = false, allClothes = false }) {
     this.store = store;
     this.getContext = getContext;
     this.onChange = onChange;
     this.setName = setName;
     this.getProfile = getProfile;
     this.setProfile = setProfile;
+    this.setOutfit = setOutfit;
     this.now = now;
+    this.allClothes = allClothes;
     this.dev = dev;
     this.win = null;
     this.target = null; // 窗口打开后要显示哪一页
@@ -65,17 +71,14 @@ class Mail {
   }
 
   /**
-   * 拆开一封信：礼物这时才真正到手（进图鉴）。
+   * 拆开一封信：礼物这时才真正到手（进图鉴），衣服也是这时才进衣柜。
    * quiet：不通知窗口和宠物（自检一口气模拟几百天时用）
    */
   markOpened(id, { quiet = false } = {}) {
     const letter = this.data.letters.find((l) => l.id === id);
     if (!letter || letter.opened) return;
     letter.opened = true;
-    if (letter.gift && L.GIFTS[letter.gift]) {
-      const have = this.data.gifts[letter.gift];
-      this.data.gifts[letter.gift] = { count: (have ? have.count : 0) + 1, firstDay: have && have.firstDay ? have.firstDay : letter.day };
-    }
+    L.receive(this.data, letter);
     if (quiet) return;
     this.onChange();
     this.refresh(); // 图鉴变了，让窗口同步一下（正在看的信不会被打断）
@@ -95,6 +98,40 @@ class Mail {
       this.refresh();
     }
     return removed;
+  }
+
+  /** 你现在有哪些衣服（一开始送的 + 信里收到的） */
+  ownedOutfits() {
+    return O.ownedSet(this.data.outfits, { all: this.allClothes });
+  }
+
+  /** 这一身衣服是不是都是你有的 */
+  ownsOutfit(outfit) {
+    const owned = this.ownedOutfits();
+    return O.SLOTS.every((slot) => !outfit[slot] || owned.has(outfit[slot]));
+  }
+
+  /**
+   * 换衣服（信纸窗口的衣柜、信里的帮它穿上按钮）。
+   * 第一次穿上的衣服记一笔 tried，衣柜里的新！就不再显示了。
+   */
+  wear(outfit) {
+    const clean = O.sanitizeOutfit(outfit);
+    if (!clean || !this.ownsOutfit(clean)) return false;
+    let tried = false;
+    for (const slot of O.SLOTS) {
+      const rec = clean[slot] && this.data.outfits[clean[slot]];
+      if (rec && !rec.tried) {
+        rec.tried = true;
+        tried = true;
+      }
+    }
+    const ok = this.setOutfit(clean) !== false;
+    if (tried) {
+      this.onChange();
+      this.refresh();
+    }
+    return ok;
   }
 
   /** 发给信纸窗口的全部内容（文字已经按当前语言拼好） */
@@ -119,6 +156,8 @@ class Mail {
       catCoat: ctx.catCoat || 'tabby',
       letters,
       album: L.album(owned, ctx.lang, F.activeFestivals(profile.cultures)),
+      wardrobe: W.wardrobeView(this.data.outfits, ctx.outfit, ctx.lang, { all: this.allClothes }),
+      festivalLook: ctx.festivalLook || null, // 今天的节日装扮（会盖住你选的帽子或手里拿的）
       profile: { birthday: profile.birthday, cultures: profile.cultures, asked: profile.asked },
       groups: F.GROUPS.map((g) => ({ id: g.id, emoji: g.emoji, name: T.groups[g.id].name, examples: T.groups[g.id].examples })),
       next: next ? { name: T.festivals[next.id].name, day: next.day } : null,
@@ -133,7 +172,7 @@ class Mail {
 
   /**
    * 打开信纸窗口。
-   * @param target { view: 'letter' | 'box' | 'album', id }；不传 = 有没拆的信就打开最新那封，否则打开信箱
+   * @param target { view: 'letter' | 'box' | 'album' | 'wardrobe', id }；不传 = 有没拆的信就打开最新那封，否则打开信箱
    */
   open(target) {
     if (!target) {
@@ -254,6 +293,12 @@ class Mail {
       if (image.isEmpty()) return { ok: false };
       if (!this.test) clipboard.writeImage(image);
       return { ok: true };
+    });
+
+    // 换衣服：outfit 是整身 { hat, glasses, top, bag, held }。没有的衣服、穿错部位的都不行
+    ipcMain.handle('pawmail-mail:set-outfit', (event, outfit) => {
+      if (!mine(event)) return { ok: false };
+      return { ok: this.wear(outfit) };
     });
 
     ipcMain.on('pawmail-mail:close', (event) => {

@@ -67,6 +67,7 @@ class PetTray {
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: unread ? t('menu.mailboxUnread', { n: unread }) : t('menu.mailbox'), click: () => this.onOpenMail() },
+        { label: t('menu.wardrobe'), click: () => this.onOpenMail('wardrobe') },
         { type: 'separator' },
         { label: t('menu.animal'), submenu: [radio('species', 'cat', t('menu.cat')), radio('species', 'panda', t('menu.panda'))] },
         ...(settings.species === 'cat' ? [{ label: t('menu.catCoat'), submenu: [radio('catCoat', 'tabby', t('menu.tabby')), radio('catCoat', 'lucky', t('menu.luckyCat'))] }] : []),

@@ -12,6 +12,7 @@
 //   --x-hud               在屏幕上显示状态面板
 //   --x-newday            假装现在是"明天"（马上收到一封新的来信，测试用）
 //   --x-feeddry           喂它吃文件时只演习：照常检查、照常演"吃"，但不真的放进回收站
+//   --x-allclothes        衣柜里的衣服全部解锁（不用等信）
 
 const { app, ipcMain, powerMonitor, screen, shell } = require('electron');
 const path = require('node:path');
@@ -22,6 +23,7 @@ const { Mail } = require('./mail');
 const { Feeder, buildRules } = require('./feed');
 const { logicalDay, festivalToday } = require('./letters');
 const F = require('../shared/festivals/catalog');
+const O = require('../shared/outfits/catalog');
 const native = require('./native');
 
 const args = process.argv.slice(1);
@@ -32,6 +34,7 @@ const flag = (name) => {
 const SELFTEST_DIR = app.isPackaged ? null : flag('selftest');
 const DEV = args.includes('--dev') || !!SELFTEST_DIR;
 const TEST_PROFILE = !!flag('userdata'); // 用的是测试存档：不去动系统设置（比如开机启动项）
+const ALL_CLOTHES = DEV && args.includes('--x-allclothes');
 
 if (flag('userdata')) app.setPath('userData', path.resolve(flag('userdata')));
 if (args.includes('--no-gpu')) app.disableHardwareAcceleration();
@@ -99,6 +102,10 @@ function applyAutoStart(enabled) {
 function setSetting(key, value) {
   if (key === 'petName' && typeof value === 'string') value = value.trim();
   if (!isValidSetting(key, value)) return false;
+  if (key === 'outfit') {
+    value = O.sanitizeOutfit(value);
+    if (!mail || !mail.ownsOutfit(value)) return false; // 还没收到的衣服不能穿
+  }
   if (JSON.stringify(store.data.settings[key]) === JSON.stringify(value)) return true;
   store.data.settings[key] = value;
   store.saveSoon();
@@ -106,7 +113,7 @@ function setSetting(key, value) {
   if (key === 'autoStart') applyAutoStart(value);
   overlay.send('settings', effectiveSettings());
   if (tray) tray.refresh();
-  if (mail && ['language', 'species', 'catCoat', 'petName', 'birthday', 'cultures', 'profileAsked'].includes(key)) mail.refresh();
+  if (mail && ['language', 'species', 'catCoat', 'petName', 'birthday', 'cultures', 'profileAsked', 'outfit'].includes(key)) mail.refresh();
   if (['language', 'birthday', 'cultures'].includes(key)) refreshFestival();
   return true;
 }
@@ -342,8 +349,8 @@ function registerIpc() {
     return result;
   });
 
-  ipcMain.on('pawmail:open-mail', (event) => {
-    if (fromOverlay(event)) mail.open();
+  ipcMain.on('pawmail:open-mail', (event, view) => {
+    if (fromOverlay(event)) mail.open(view === 'wardrobe' ? { view: 'wardrobe' } : undefined);
   });
 
   ipcMain.on('pawmail:stat', (event, kind) => {
@@ -372,11 +379,15 @@ function start() {
     dev: DEV,
     getContext: () => {
       const lang = currentLanguage();
-      return { lang, name: store.data.settings.petName, species: store.data.settings.species, catCoat: store.data.settings.catCoat, ui: STRINGS[lang].mail };
+      const s = store.data.settings;
+      const today = festivalToday(logicalDay(nowMs()), store.data.mail, profile()); // 过节的话，衣柜里要说一声"今天帽子先用节日的"
+      return { lang, name: s.petName, species: s.species, catCoat: s.catCoat, outfit: s.outfit, festivalLook: today ? today.look : null, ui: STRINGS[lang].mail };
     },
     setName: (name) => setSetting('petName', name),
     getProfile: profile,
     setProfile,
+    setOutfit: (outfit) => setSetting('outfit', outfit),
+    allClothes: ALL_CLOTHES,
     now: nowMs,
     onChange: () => {
       store.saveSoon();
@@ -385,6 +396,8 @@ function start() {
     },
   });
   mail.register();
+  // 存档里穿着一件你其实没有的衣服（比如开发时用 --x-allclothes 解锁过）：先脱掉
+  store.data.settings.outfit = O.keepOwned(store.data.settings.outfit, mail.ownedOutfits());
   mail.check(nowMs(), true); // 刚启动 = 你在电脑前。第一次运行会马上有一封"见面信"
 
   feeder = new Feeder({
@@ -429,7 +442,7 @@ function start() {
     getModel: () => ({ t, settings: effectiveSettings(), mail: mail.summary() }),
     onSet: setSetting,
     onCommand: (type) => overlay.send('command', { type }),
-    onOpenMail: () => mail.open(),
+    onOpenMail: (view) => mail.open(view ? { view } : undefined),
     onQuit: quit,
   });
   tray.create();

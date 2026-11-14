@@ -137,6 +137,7 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
   await testArea();
   await testFeed();
   await testMail();
+  await testWardrobe();
   await testReports();
   await testFestivals();
   return finish();
@@ -385,8 +386,9 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
     const DAY_MS = 86400000;
     const now = Date.now();
     // 从一份干净的"邮局"开始，这样每次自检的结果都一样
-    Object.assign(store.data.mail, { letters: [], gifts: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, metDay: null, askSent: false, monthly: {} });
+    Object.assign(store.data.mail, { letters: [], gifts: {}, outfits: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, metDay: null, askSent: false, monthly: {} });
     Object.assign(store.data.settings, { petName: null, birthday: null, cultures: null, profileAsked: false });
+    setSetting('outfit', { hat: null, glasses: null, top: null, bag: null, held: null });
     mail.test = { dir: outDir }; // 明信片存到自检的输出文件夹，不弹资源管理器、不动剪贴板
 
     mail.check(now, true);
@@ -454,6 +456,70 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
     });
 
     mail.close();
+    await wait(200);
+  }
+
+  // ---------------------------------------------------------------- 衣柜（接着 testMail：那时已经拆了第一封日常来信）
+
+  async function testWardrobe() {
+    const O = require('../shared/outfits/catalog');
+    const mailData = store.data.mail;
+    const daily = mailData.letters.find((l) => l.kind === 'daily');
+    const gotten = daily && daily.outfit;
+    check('第一封日常来信捎来一件衣服，拆开后进了衣柜', !!gotten && !O.OUTFITS[gotten].starter && !!mailData.outfits[gotten] && mail.ownedOutfits().has(gotten), {
+      outfit: gotten,
+      received: Object.keys(mailData.outfits),
+    });
+    const locked = O.IDS.find((id) => !mail.ownedOutfits().has(id));
+    const before = JSON.stringify(store.data.settings.outfit);
+    const notMine = setSetting('outfit', { ...O.EMPTY, [O.OUTFITS[locked].slot]: locked });
+    const wrongSlot = setSetting('outfit', { ...O.EMPTY, hat: 'hoodie' });
+    check('还没收到的衣服、穿错部位的衣服都穿不上', notMine === false && wrongSlot === false && JSON.stringify(store.data.settings.outfit) === before, { locked });
+
+    // 在信纸窗口的衣柜里点那件刚收到的衣服
+    await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.2); return true;`);
+    const win = mail.open({ view: 'wardrobe' });
+    await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+    await wait(900);
+    const mjs = (code) => win.webContents.executeJavaScript(`(async () => { ${code} })()`, true);
+    const page = await mjs(`return {
+      view: __mail.state.view,
+      items: document.querySelectorAll('.wardrobe-item').length,
+      locked: document.querySelectorAll('.wardrobe-item.locked').length,
+      fresh: document.querySelectorAll('.wardrobe-badge.new').length,
+    };`);
+    const ownedCount = mail.ownedOutfits().size;
+    check('衣柜里列出全部衣服，没收到的是灰色剪影', page.view === 'wardrobe' && page.items === O.IDS.length && page.locked === O.IDS.length - ownedCount && page.fresh === 1, page);
+    await mjs(`[...document.querySelectorAll('button.wardrobe-item')].find((b) => b.title && __mail.state.data.wardrobe.items.find((i) => i.id === ${JSON.stringify(gotten)}).name === b.title).click(); return true;`);
+    await wait(500);
+    const pet = await js(`const P = window.__pawmail; return { outfit: P.pet.outfit, queued: P.brain.queue.map((q) => q[0]), name: P.brain.name };`);
+    const slot = gotten && O.OUTFITS[gotten].slot;
+    check('在衣柜里点一下就穿上：存进设置、桌面上的它也穿上了', store.data.settings.outfit[slot] === gotten && pet.outfit && pet.outfit[slot] === gotten, { setting: store.data.settings.outfit, pet: pet.outfit });
+    check('换了衣服，它会转一圈问"好看吗？"；穿过之后不再标"新！"', (pet.queued.includes('showOff') || pet.name === 'showOff') && mailData.outfits[gotten].tried === true, pet);
+    const sneaky = await mjs(`return window.pawmailMail.setOutfit({ hat: null, glasses: null, top: null, bag: null, held: null, ${JSON.stringify(O.OUTFITS[locked].slot)}: ${JSON.stringify(locked)} });`);
+    check('信纸窗口要穿没收到的衣服：后台拒绝', sneaky && sneaky.ok === false && store.data.settings.outfit[O.OUTFITS[locked].slot] !== locked, sneaky);
+
+    // 再穿一件一开始送的（帽子），拍张照片
+    if (slot !== 'hat') await mjs(`[...document.querySelectorAll('button.wardrobe-item')].find((b) => b.title === __mail.state.data.wardrobe.items.find((i) => i.id === 'capRed').name).click(); return true;`);
+    await wait(500);
+    fs.writeFileSync(path.join(outDir, 'wardrobe.png'), (await win.webContents.capturePage()).toPNG());
+    const tray = await js(`const P = window.__pawmail; P.run(0.1); return !!P.pet.outfit && P.pet.outfit.hat;`);
+    check('戴上帽子', store.data.settings.outfit.hat === 'capRed' && tray === 'capRed', { hat: store.data.settings.outfit.hat });
+
+    store.saveNow();
+    const reread = JSON.parse(fs.readFileSync(store.file, 'utf8'));
+    check('穿的衣服和收到的衣服都写进了存档', reread.settings.outfit[slot] === gotten && reread.mail.outfits[gotten] && reread.mail.outfits[gotten].tried === true, {
+      outfit: reread.settings.outfit,
+    });
+
+    // 全部脱下
+    await mjs(`[...document.querySelectorAll('.wardrobe-side .btn')].pop().click(); return true;`);
+    await wait(500);
+    const bare = await js(`const P = window.__pawmail; return P.pet.outfit;`);
+    check('"全部脱下"', Object.values(store.data.settings.outfit).every((v) => v === null) && bare === null, { setting: store.data.settings.outfit });
+
+    mail.close();
+    await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.2); return true;`);
     await wait(200);
   }
 

@@ -754,15 +754,18 @@ export function drawPet(ctx, sp, P, opts = {}) {
   ctx.restore();
 }
 
-/** 只画头（托盘图标用）。原点在头的中心。look：戴着节日的帽子 */
-export function drawHeadOnly(ctx, sp, P, look = null) {
+/**
+ * 只画头（托盘图标、衣柜里的小图用）。原点在头的中心。
+ * look：戴着节日的帽子；outfit：衣柜里的衣服编号（只有帽子和眼镜画得出来）
+ */
+export function drawHeadOnly(ctx, sp, P, look = null, outfit = null) {
   ctx.save();
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   const g = getGeometry(sp, P);
   g.headCx = 0;
   g.headCy = 0;
-  drawHead(ctx, sp, P, g, 0, look);
+  drawHead(ctx, sp, P, g, 0, look, outfit ? resolveOutfit(outfit, look) : null);
   ctx.restore();
 }
 

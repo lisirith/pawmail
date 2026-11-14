@@ -10,7 +10,11 @@
 //
 // 改了 src/shared/letters/ 里的文字或 src/main/letters.js 里的规则之后，跑一下这个。
 
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const L = require('../src/main/letters');
+const W = require('../src/main/wardrobe');
+const O = require('../src/shared/outfits/catalog');
 
 const days = Number(process.argv[2]) || 30;
 const lang = process.argv[3] === 'en' ? 'en' : 'zh';
@@ -30,9 +34,9 @@ const rnd = () => {
 const DAY_MS = 86400000;
 const start = new Date();
 start.setHours(10, 0, 0, 0);
-const mail = { installId: 'simulator', letters: [], gifts: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, monthly: {} };
+const mail = { installId: 'simulator', letters: [], gifts: {}, outfits: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, monthly: {} };
 const usage = {};
-const stats = { daily: 0, gifts: 0, rarity: { common: 0, rare: 0, legendary: 0, festival: 0 }, places: {}, remarks: {}, reports: [], festivals: [] };
+const stats = { outfits: [], outfitProblems: [], daily: 0, gifts: 0, rarity: { common: 0, rare: 0, legendary: 0, festival: 0 }, places: {}, remarks: {}, reports: [], festivals: [] };
 // 假装你已经填过生日和节日：中文用户过中华传统节日 + 西方节日，英文用户过西方节日 + 美国节日
 const profile = {
   birthday: '03-14',
@@ -43,10 +47,10 @@ let leftovers = 0;
 
 function print(letter) {
   const r = L.renderLetter(letter, lang, { name, species });
-  const texts = [r.title, ...r.lines, r.sign, r.gift ? r.gift.line : ''].concat((r.stats || []).map((s) => `${s.value} ${s.label}`));
+  const texts = [r.title, ...r.lines, r.sign, r.gift ? r.gift.line : '', r.outfit ? r.outfit.line : ''].concat((r.stats || []).map((s) => `${s.value} ${s.label}`));
   if (texts.some((t) => /\{\w+\}/.test(t))) leftovers += 1;
   if (brief && letter.kind === 'daily') {
-    console.log(`  ${r.dateText}  ${r.title}${r.gift ? ` ${r.gift.emoji}` : ''}`);
+    console.log(`  ${r.dateText}  ${r.title}${r.gift ? ` ${r.gift.emoji}` : ''}${r.outfit ? ` 👕${r.outfit.name}` : ''}`);
     return;
   }
   const banner = letter.kind === 'monthly' || letter.kind === 'yearly' ? '★★★' : letter.kind === 'festival' ? '🎉' : '──';
@@ -54,6 +58,7 @@ function print(letter) {
   if (r.stats) console.log(`  [${r.stats.map((s) => `${s.emoji} ${s.value} ${s.label}`).join(' | ')}]`);
   for (const line of r.lines) console.log(`  ${line}`);
   if (r.gift) console.log(`  ${r.gift.line} ${r.gift.emoji}${r.gift.rarity !== 'common' ? `（${r.gift.rarityLabel}）` : ''}`);
+  if (r.outfit) console.log(`  👕 ${r.outfit.line}  [${r.outfit.wear}]`);
   console.log(`  ${r.sign}`);
 }
 
@@ -88,12 +93,18 @@ for (let i = 0; i <= days; i++) {
 
   for (const letter of added) {
     print(letter);
-    // 假装你每天都把信拆了：礼物进图鉴
+    // 假装你每天都把信拆了：礼物进图鉴，衣服进衣柜
     letter.opened = true;
-    if (letter.gift && L.GIFTS[letter.gift]) {
-      const have = mail.gifts[letter.gift];
-      mail.gifts[letter.gift] = { count: (have ? have.count : 0) + 1, firstDay: have ? have.firstDay : letter.day };
+    if (letter.outfit) {
+      // 衣服的规矩：不重复、不寄一开始就送的那几件、不会连着两封日常来信都有
+      if (mail.outfits[letter.outfit] || O.OUTFITS[letter.outfit].starter) stats.outfitProblems.push(`${letter.day} 又寄了一次 ${letter.outfit}`);
+      const prev = stats.outfits[stats.outfits.length - 1];
+      if (prev && prev.at === stats.daily - 1) stats.outfitProblems.push(`${letter.day} 连着两封信都有衣服`);
+      stats.outfits.push({ id: letter.outfit, at: stats.daily, place: letter.place });
+    } else if (letter.kind === 'daily' && stats.daily === 0) {
+      stats.outfitProblems.push('第一封日常来信没有捎衣服');
     }
+    L.receive(mail, letter);
     if (letter.kind === 'daily') {
       stats.daily += 1;
       stats.places[letter.place] = (stats.places[letter.place] || 0) + 1;
@@ -120,6 +131,22 @@ console.log(`图鉴进度：${regular.filter((id) => mail.gifts[id]).length} / $
 console.log(`去过 ${Object.keys(stats.places).length} 个不同的地方；去得最多的：${Object.entries(stats.places).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k}×${v}`).join('、')}`);
 console.log(`"关于你"的话：${Object.entries(stats.remarks).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}×${v}`).join('、')}`);
 console.log(`存档里信件部分的大小：约 ${(JSON.stringify(mail.letters, null, 2).length / 1024).toFixed(0)} KB（${mail.letters.length} 封）`);
-console.log(leftovers ? `⚠ 有 ${leftovers} 封信里留着没填上的 {占位符}` : '没有漏填的占位符');
+const missing = O.IDS.length - O.STARTERS.length - stats.outfits.length;
+console.log(`衣服：一开始送 ${O.STARTERS.length} 件，${stats.outfits.length} 封信捎来衣服（第 ${stats.outfits.map((o) => o.at + 1).join('、')} 封日常来信）${missing > 0 ? `，还差 ${missing} 件` : '，全部收齐'}`);
+console.log(`  ${stats.outfits.map((o) => `${o.id}@${o.place}`).join('  ')}`);
+problems.push(...stats.outfitProblems);
+console.log(leftovers ?`⚠ 有 ${leftovers} 封信里留着没填上的 {占位符}` : '没有漏填的占位符');
 console.log(problems.length ? `⚠ 内容检查发现问题：\n  ${problems.join('\n  ')}` : '中英文内容检查通过');
 process.exitCode = leftovers || problems.length ? 1 : 0;
+
+// 衣服的画法（画面那边）和目录对不对得上：画面的文件是 ES 模块，要用 import() 读
+import(pathToFileURL(path.join(__dirname, '..', 'src', 'renderer', 'js', 'pet', 'outfits.js')).href).then(({ OUTFITS }) => {
+  const art = Object.fromEntries(Object.entries(OUTFITS).map(([id, item]) => [id, item.slot]));
+  const mismatch = W.validateWardrobe(art);
+  if (mismatch.length) {
+    console.log(`⚠ 衣服的画法和目录对不上：\n  ${mismatch.join('\n  ')}`);
+    process.exitCode = 1;
+  } else {
+    console.log(`衣服的画法和目录一致（${Object.keys(art).length} 件）`);
+  }
+});

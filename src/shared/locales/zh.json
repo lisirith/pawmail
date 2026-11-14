@@ -3,6 +3,7 @@
   "menu": {
     "mailbox": "信箱",
     "mailboxUnread": "信箱（{n} 封新信）",
+    "wardrobe": "衣柜",
     "animal": "动物",
     "cat": "猫",
     "catCoat": "猫的花色",
@@ -50,6 +51,8 @@
     "mail": ["有你的信！点我拆开～", "信来啦！点我一下～", "快看，给你的信！"],
     "climb": ["好高呀～", "看我爬得高不高！", "嘿咻！"],
     "area": ["这里不错～", "新地盘！", "嗯，就住这儿啦"],
+    "outfit": ["好看吗？", "怎么样，合身吗？", "嘿嘿，新衣服！", "我穿这个好看吗？"],
+    "outfitOff": ["凉快多了～", "还是什么都不穿舒服～"],
     "feed": {
       "yum": ["好吃！", "吧唧吧唧……嗝～", "谢谢款待！", "再来一个！"],
       "first": "好吃！其实是放进了回收站，后悔了可以去回收站找回来哦～",
@@ -148,6 +151,21 @@
     "askThanks": "谢谢你告诉我！到时候见。",
     "askLater": "好，那以后再说。想告诉我的时候，点上面我的名字就行。",
     "festivalSection": "节日限定 {have} / {total}",
-    "postcardFooter": "爪爪来信 Pawmail · 一只每天给你写信的桌面宠物"
+    "postcardFooter": "爪爪来信 Pawmail · 一只每天给你写信的桌面宠物",
+    "tabWardrobe": "衣柜",
+    "wardrobeCount": "已收到 {have} / {total}",
+    "locked": "还没收到",
+    "lockedHint": "会随信寄来",
+    "wearingNow": "穿着",
+    "takeOffAll": "全部脱下",
+    "poseStand": "站着",
+    "poseSit": "坐着",
+    "wardrobeHint": "点一下穿上，再点一下脱下。",
+    "festivalCovers": "今天过节，{parts}先用节日的，明天自动换回来。",
+    "partHat": "帽子",
+    "partHeld": "手里拿的",
+    "partJoin": "和",
+    "outfitArrived": "新衣服！",
+    "openWardrobe": "去衣柜看看"
   }
 }

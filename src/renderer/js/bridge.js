@@ -4,7 +4,16 @@
 // 在普通浏览器里预览（npm run preview）时没有后台，这里就造一个"假的后台"，
 // 这样同一份画面代码两边都能跑。
 
+import { OUTFITS } from './pet/outfits.js';
+
 export const isElectron = typeof window !== 'undefined' && !!window.pawmail;
+
+/** 预览用：?outfit=capRed,hoodie → { hat: 'capRed', top: 'hoodie' }（部位按 outfits.js 里登记的） */
+function outfitFromQuery(text) {
+  const out = {};
+  for (const id of (text || '').split(',')) if (OUTFITS[id]) out[OUTFITS[id].slot] = id;
+  return out;
+}
 
 function createMockBridge() {
   const params = new URLSearchParams(location.search);
@@ -24,6 +33,8 @@ function createMockBridge() {
       const v = (params.get('area') || '').split(',').map(Number);
       return v.length === 4 && v.every(Number.isFinite) ? { x: v[0], y: v[1], w: v[2], h: v[3] } : null;
     })(),
+    // 预览时加 ?outfit=capRed,roundGlasses,hoodie 可以看穿着衣服的样子（部位由画面那边的目录决定，见 app.js）
+    outfit: { hat: null, glasses: null, top: null, bag: null, held: null, ...outfitFromQuery(params.get('outfit')) },
   };
 
   return {
@@ -43,9 +54,9 @@ function createMockBridge() {
     },
     setCapture() {},
     savePet() {},
-    openMail() {
-      console.log('[预览] 这里会打开信纸窗口（预览地址：mail.html）');
-      emit('mail', { unread: 0, total: 1 });
+    openMail(view) {
+      console.log(`[预览] 这里会打开信纸窗口${view === 'wardrobe' ? '的衣柜' : ''}（预览地址：mail.html${view === 'wardrobe' ? '?view=wardrobe' : ''}）`);
+      if (view !== 'wardrobe') emit('mail', { unread: 0, total: 1 });
     },
     stat() {},
     setSetting(key, value) {

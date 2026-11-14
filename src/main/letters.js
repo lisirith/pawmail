@@ -12,6 +12,8 @@
 
 const { PLACES, GIFTS } = require('../shared/letters/catalog');
 const F = require('../shared/festivals/catalog');
+const W = require('./wardrobe');
+const { OUTFITS } = require('../shared/outfits/catalog');
 
 const CONTENT = {
   zh: require('../shared/letters/zh.json'),
@@ -223,8 +225,9 @@ function festivalLetter({ day, now, installId, festival, metDay, gapDays }) {
  * @param usage      使用记录 { 日期: { first, last, activeMin, pets, pokes, throws, dizzies } }
  * @param lastDay    上一次见面是哪天
  * @param streak     到今天为止连续见面了多少天
+ * @param received   已经收到的衣服 { 衣服id: { firstDay, tried } }（见 wardrobe.js）
  */
-function generateLetter({ day, now, installId, history = [], owned = {}, usage = {}, lastDay = null, streak = 1 }) {
+function generateLetter({ day, now, installId, history = [], owned = {}, usage = {}, lastDay = null, streak = 1, received = {} }) {
   const rng = makeRng(hash(`${installId}|${day}`));
   const date = dayToDate(day);
   const month = date.getMonth() + 1;
@@ -286,7 +289,11 @@ function generateLetter({ day, now, installId, history = [], owned = {}, usage =
 
   // 礼物：收到的第一封日常来信一定有（第一印象）
   const gift = chooseGift(rng, place, owned, { gapDays, guaranteed: daily.length === 0 });
-  const noGift = !gift && rng() < 0.45 ? Math.floor(rng() * BASE.noGift.length) : -1;
+  let noGift = !gift && rng() < 0.45 ? Math.floor(rng() * BASE.noGift.length) : -1;
+
+  // 衣服：第一封日常来信一定捎一件，之后大约每三四封一件（见 wardrobe.js）
+  const outfit = W.chooseOutfit(rng, place, { history, received });
+  if (outfit) noGift = -1; // 捎了衣服，就别再说"这次什么也没捡到"了
 
   return {
     id: day,
@@ -301,9 +308,25 @@ function generateLetter({ day, now, installId, history = [], owned = {}, usage =
     closer,
     gift: gift || null,
     noGift,
+    outfit,
     days: gapDays,
     opened: false,
   };
+}
+
+/**
+ * 拆开一封信：礼物进图鉴，衣服进衣柜。
+ * 信纸窗口拆信（mail.js）、来信模拟器、预览服务器都用这一个。
+ */
+function receive(mail, letter) {
+  if (letter.gift && GIFTS[letter.gift]) {
+    const have = mail.gifts[letter.gift];
+    mail.gifts[letter.gift] = { count: (have ? have.count : 0) + 1, firstDay: have && have.firstDay ? have.firstDay : letter.day };
+  }
+  if (letter.outfit && OUTFITS[letter.outfit]) {
+    if (!mail.outfits) mail.outfits = {};
+    if (!mail.outfits[letter.outfit]) mail.outfits[letter.outfit] = { firstDay: letter.day, tried: false };
+  }
 }
 
 // ---------------------------------------------------------------- 月报和年度回顾
@@ -478,7 +501,7 @@ function yearlyReview(year, summaries, { day, now, installId }) {
  * 新的一天到了（或者第一次运行）：决定要来哪些信，放进信箱。
  * 会直接修改 mail（存档里的"邮局"部分）。返回这次新来的信（可能是 0、1 或 2 封）。
  *
- * mail 的样子：{ installId, letters, gifts, lastDay, streak, bestStreak, welcomed, metDay, askSent, monthly }
+ * mail 的样子：{ installId, letters, gifts, outfits, lastDay, streak, bestStreak, welcomed, metDay, askSent, monthly }
  * profile：{ birthday: 'MM-DD' | null, cultures: [...], asked: 有没有问过你生日和节日 }
  */
 function advanceDay(mail, { day, now, usage = {}, profile = {} }) {
@@ -521,7 +544,7 @@ function advanceDay(mail, { day, now, usage = {}, profile = {} }) {
   if (festival && FESTIVAL_TEXT.zh.festivals[festival]) {
     push(festivalLetter({ day, now, installId: mail.installId, festival, metDay: mail.metDay, gapDays: gap }));
   } else {
-    push(generateLetter({ day, now, installId: mail.installId, history: mail.letters, owned: mail.gifts, usage, lastDay, streak: mail.streak }));
+    push(generateLetter({ day, now, installId: mail.installId, history: mail.letters, owned: mail.gifts, usage, lastDay, streak: mail.streak, received: mail.outfits || {} }));
   }
 
   // 跨进了新的一个月：给上个月写一份小结；够条件的话再寄一封月报（跨年的话换成年度回顾）。
@@ -693,6 +716,7 @@ function renderLetter(letter, lang, { name, species } = {}) {
   let place = letter.kind === 'welcome' ? 'home' : letter.place;
   let stats = null;
   let look = null;
+  let outfit = null;
   const T = FESTIVAL_TEXT[lang] || FESTIVAL_TEXT.en;
 
   if (letter.kind === 'festival') {
@@ -736,6 +760,8 @@ function renderLetter(letter, lang, { name, species } = {}) {
     }
     if (letter.noGift >= 0) lines.push(at(C.noGift, letter.noGift));
     if (letter.closer >= 0) lines.push(fill(at(C.closers, letter.closer), { snack }));
+    // 捎来的衣服：单独一段，信纸上会配一个"帮它穿上"的按钮
+    if (letter.outfit) outfit = W.describeOutfit(letter.outfit, lang, { place: P.name, variant: hash(letter.id) });
   }
 
   return {
@@ -752,6 +778,7 @@ function renderLetter(letter, lang, { name, species } = {}) {
     look,
     festival: letter.festival || null,
     gift: letter.gift ? describeGift(letter.gift, lang) : null,
+    outfit,
     sign: fill(C.sign, { name: name || C.defaultName }),
   };
 }
@@ -840,6 +867,10 @@ function validateContent() {
   }
   const thisYear = new Date().getFullYear();
   if (thisYear + 2 > F.DATE_RANGE[1]) problems.push(`农历节日表只到 ${F.DATE_RANGE[1]} 年，快用完了：请运行 node tools/build-festival-dates.js 往后延`);
+
+  // 衣服的目录和文字
+  problems.push(...W.validateWardrobe());
+  for (const id of Object.keys(OUTFITS)) if (GIFTS[id]) problems.push(`衣服 ${id} 和礼物重名了`);
   return problems;
 }
 
@@ -854,6 +885,7 @@ module.exports = {
   FESTIVAL_TEXT,
   summarizeMonth,
   renderLetter,
+  receive,
   album,
   validateContent,
   PLACES,

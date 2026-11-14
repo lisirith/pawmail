@@ -380,6 +380,16 @@ export class Brain {
     }
   }
 
+  /**
+   * 你在衣柜里给它换了衣服：它会低头看看、转一圈、问"好看吗？"。off = 全脱了。
+   * 在衣柜里一口气试好几件时，只排一次，不会一件一件地转个没完。
+   */
+  onOutfit({ off = false } = {}) {
+    if (this.name === 'showOff' || this.queue.some(([name]) => name === 'showOff')) return;
+    this.queue.push(['showOff', { off }]);
+    if (this.name === 'sleep' && !this.current.forced) this.start('wake'); // 换了新衣服，醒来看看（哄睡的不叫醒）
+  }
+
   /** 落地了。leapt：是它自己（从墙上）跳下来的 */
   onLand(impact, dizzy, leapt) {
     if (dizzy) {

@@ -38,7 +38,7 @@ function mockMail(query) {
   const DAY_MS = 86400000;
   const days = Math.min(400, Number(query.get('days')) || 40);
   const from = /^\d{4}-\d{2}-\d{2}$/.test(query.get('from') || '') ? new Date(`${query.get('from')}T10:00:00`).getTime() : Date.now() - days * DAY_MS;
-  const mail = { installId: 'preview', letters: [], gifts: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, monthly: {} };
+  const mail = { installId: 'preview', letters: [], gifts: {}, outfits: {}, lastDay: null, streak: 0, bestStreak: 0, welcomed: false, monthly: {} };
   const usage = {};
   // 你的生日和节日：&cultures=chinese,western&birthday=12-03；&ask=1 = 还没问过（会收到"一个小问题"）
   const profile = {
@@ -54,11 +54,8 @@ function mockMail(query) {
     late.setDate(late.getDate() + 1);
     late.setHours(1, 40, 0, 0);
     for (const letter of L.advanceDay(mail, { day, now, usage, profile })) {
-      letter.opened = true; // 假装每天都拆了信：礼物进图鉴
-      if (letter.gift && L.GIFTS[letter.gift]) {
-        const have = mail.gifts[letter.gift];
-        mail.gifts[letter.gift] = { count: (have ? have.count : 0) + 1, firstDay: have ? have.firstDay : letter.day };
-      }
+      letter.opened = true; // 假装每天都拆了信：礼物进图鉴，衣服进衣柜
+      L.receive(mail, letter);
     }
     usage[day] = { first: now - 3600000, last: i % 3 === 0 ? late.getTime() : now + 40000000, activeMin: 200 + (i % 7) * 40, pets: i % 5, pokes: i % 3, throws: i % 6 === 0 ? 2 : 0, dizzies: 0, feeds: i % 4 === 0 ? 2 : 0 };
   }
@@ -74,6 +71,11 @@ function mockMail(query) {
     if (rendered.gift) rendered.gift.isNew = !letter.opened && !mail.gifts[rendered.gift.id];
     return rendered;
   });
+  // 衣柜：&outfit=capRed,roundGlasses 穿着这几件；&allclothes=1 全部解锁
+  const W = require('../src/main/wardrobe');
+  const O = require('../src/shared/outfits/catalog');
+  const worn = { ...O.EMPTY };
+  for (const id of (query.get('outfit') || '').split(',')) if (O.OUTFITS[id]) worn[O.OUTFITS[id].slot] = id;
   const T = L.FESTIVAL_TEXT[lang];
   const next = F.nextFestival(L.logicalDay(Date.now()), { ...profile, metDay: mail.metDay });
   return {
@@ -84,6 +86,8 @@ function mockMail(query) {
     catCoat,
     letters,
     album: L.album(mail.gifts, lang, F.activeFestivals(profile.cultures)),
+    wardrobe: W.wardrobeView(mail.outfits, worn, lang, { all: query.get('allclothes') === '1' }),
+    festivalLook: query.get('look') || null,
     profile,
     groups: F.GROUPS.map((g) => ({ id: g.id, emoji: g.emoji, name: T.groups[g.id].name, examples: T.groups[g.id].examples })),
     next: next ? { name: T.festivals[next.id].name, day: next.day } : null,

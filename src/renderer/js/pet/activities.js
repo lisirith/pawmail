@@ -392,6 +392,59 @@ export const ACTIVITIES = {
     },
   }),
 
+  /**
+   * 换了新衣服（衣柜里点的）：低头看看自己，原地转一圈，再摆个姿势问"好看吗？"。
+   * off = 全都脱掉了：转完圈说"凉快多了～"
+   */
+  showOff: (b, p) => ({
+    said: false,
+    dir: chance(0.5) ? 1 : -1, // 往哪边转
+    update(b, dt, t) {
+      const pet = b.pet;
+      const T = pet.target;
+      const dur = 3.6;
+      pet.style.fps = 60;
+      pet.style.gaze = 'none';
+      pet.style.tailSpeed = 2.6;
+      pet.style.tailAmp = 0.8;
+      if (t < 1.1) {
+        // 低头看看身上的新衣服，左右瞧一瞧
+        const k = clamp(t / 0.25, 0, 1) * clamp((1.1 - t) / 0.2, 0, 1);
+        T.facing = 0;
+        T.lookY = 0.95 * k;
+        T.lookX = Math.sin(t * 5) * 0.35 * k;
+        T.headY += 2.5 * k;
+        T.headTilt += Math.sin(t * 5) * 0.08 * k;
+        T.armL = -0.3 * k;
+        T.armR = -0.3 * k;
+        T.mouth = 'o';
+      } else if (t < 2.1) {
+        // 原地转一圈：先转向一边，再转向另一边，最后转回正面；转的时候轻轻蹦一下
+        const u = (t - 1.1) / 1.0;
+        T.facing = Math.sin(u * TAU) * this.dir;
+        T.lift += Math.sin(u * Math.PI) * 5;
+        T.armL = T.armR = 0.35 * Math.sin(u * Math.PI);
+        T.mouth = 'smile';
+        T.mouthOpen = 0.3;
+      } else {
+        // 摆个姿势：一只手举到脸边，歪头笑
+        if (!this.said) {
+          this.said = true;
+          b.say(p.off ? 'outfitOff' : 'outfit', 3.2);
+        }
+        const k = clamp((t - 2.1) / 0.25, 0, 1) * clamp((dur - t) / 0.3, 0, 1);
+        T.facing = 0;
+        T.armR = 1.45 * k;
+        T.headTilt += 0.12 * k;
+        T.mouth = 'smile';
+        T.mouthOpen = 0.45 * k;
+        T.blush = 0.9;
+        if (t > 2.3 && t < 3.0) T.eyes = 'happy';
+      }
+      return t >= dur;
+    },
+  }),
+
   /** 把信举过头顶，踮着脚蹦：有你的信！ */
   showMail: (b, p) => ({
     said: false,

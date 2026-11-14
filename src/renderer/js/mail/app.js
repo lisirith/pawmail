@@ -4,8 +4,9 @@
 // 这里只负责把它们摆出来。在普通浏览器里预览时没有后台，就向预览服务器要一份示例数据。
 
 import { getSpecies } from '../pet/species/index.js';
-import { drawEnvelope, drawHeadOnly } from '../pet/draw.js';
+import { drawEnvelope, drawHeadOnly, drawPet } from '../pet/draw.js';
 import { makePose } from '../pet/pose.js';
+import { lookById } from '../pet/looks.js';
 import { drawPhoto, renderPostcard, capitalize } from './postcard.js';
 
 // ---------------------------------------------------------------- 和后台说话
@@ -16,6 +17,7 @@ function createMockApi() {
   const opened = new Set();
   const deleted = new Set();
   let name = params.get('name');
+  let worn = params.get('outfit') || ''; // 预览时穿着的衣服：?outfit=capRed,hoodie
   const load = async () => {
     // 网址上的参数原样转给预览服务器（from、days、cultures、birthday、ask……见 tools/dev-server.js）
     const query = new URLSearchParams(location.search);
@@ -23,6 +25,7 @@ function createMockApi() {
     if (!query.has('species')) query.set('species', 'cat');
     if (!query.has('unread')) query.set('unread', '1');
     query.set('name', name || '');
+    query.set('outfit', worn);
     const data = await (await fetch(`/__mock/mail?${query}`)).json();
     data.letters = data.letters.filter((l) => !deleted.has(l.id));
     for (const letter of data.letters) if (opened.has(letter.id)) letter.opened = true;
@@ -45,6 +48,12 @@ function createMockApi() {
       ids.forEach((id) => deleted.add(id));
       push();
       return { ok: true, removed: ids.length };
+    },
+    async setOutfit(next) {
+      console.log('[预览] 换衣服：', JSON.stringify(next));
+      worn = Object.values(next).filter(Boolean).join(',');
+      push();
+      return { ok: true };
     },
     async setProfile(next) {
       console.log('[预览] 保存资料：', JSON.stringify(next));
@@ -146,7 +155,8 @@ function toast(message) {
 
 const state = {
   data: null,
-  view: 'letter', // letter 读信 | box 信箱 | album 图鉴
+  view: 'letter', // letter 读信 | box 信箱 | album 图鉴 | wardrobe 衣柜
+  wardrobePose: 'stand', // 衣柜里的大图：stand 站着 | sit 坐着
   id: null, // 正在看哪一封信
   opening: null, // 正在播放拆信动画的那封
   justOpened: null, // 刚拆开的那封（播放一次展开的动画）
@@ -156,7 +166,11 @@ const state = {
 
 const letters = () => state.data.letters;
 const current = () => letters().find((l) => l.id === state.id) || null;
-const fingerprint = (l) => (l ? JSON.stringify([state.data.lang, state.data.species, state.data.catCoat, l.id, l.opened, l.title, l.lines, l.sign, l.gift && l.gift.line]) : '');
+const worn = () => state.data.wardrobe.worn;
+// 信的"指纹"：这些都没变，后台来同步数据时就不重画这封信。
+// 穿的衣服也算在里面：信里的照片上它穿着现在的衣服，"帮它穿上"的按钮也要跟着变
+const fingerprint = (l) =>
+  l ? JSON.stringify([state.data.lang, state.data.species, state.data.catCoat, l.id, l.opened, l.title, l.lines, l.sign, l.gift && l.gift.line, l.outfit && l.outfit.line, worn()]) : '';
 
 function apply(data) {
   const first = !state.data;
@@ -195,13 +209,16 @@ function renderBar() {
   nameButton.title = ui.aboutButton;
 
   const unread = letters().some((l) => !l.opened);
+  const newClothes = state.data.wardrobe.items.some((item) => item.isNew); // 收到了还没穿过的衣服
   const tabs = [
     ['letter', ui.tabLetter],
     ['box', ui.tabBox],
     ['album', ui.tabAlbum],
+    ['wardrobe', ui.tabWardrobe],
   ].map(([view, label]) => {
     const tab = button(state.view === view ? 'active' : '', label, () => go(view));
     if (view === 'box' && unread && state.view !== 'box') tab.append(el('span', 'dot'));
+    if (view === 'wardrobe' && newClothes && state.view !== 'wardrobe') tab.append(el('span', 'dot'));
     return tab;
   });
   $('tabs').replaceChildren(...tabs);
@@ -247,7 +264,7 @@ async function exportPostcard(letter, mode, trigger) {
   const { ui, species } = state.data;
   trigger.disabled = true;
   try {
-    const dataUrl = renderPostcard(letter, { species, catCoat: state.data.catCoat, footer: ui.postcardFooter }).toDataURL('image/png');
+    const dataUrl = renderPostcard(letter, { species, catCoat: state.data.catCoat, outfit: worn(), footer: ui.postcardFooter }).toDataURL('image/png');
     const result = mode === 'copy' ? await api.copyPostcard(dataUrl) : await api.savePostcard(dataUrl, letter.id);
     toast(result && result.ok ? (mode === 'copy' ? ui.copied : ui.saved) : ui.failed);
   } catch (err) {
@@ -265,7 +282,7 @@ function paperView(letter) {
 
   // 照片
   const { canvas, ctx } = makeCanvas(408, 190, 'photo');
-  drawPhoto(ctx, 408, 190, letter, species, state.data.catCoat);
+  drawPhoto(ctx, 408, 190, letter, species, state.data.catCoat, worn()); // 照片上它穿着现在的衣服
 
   // 地点和日期
   const head = el('div', 'letter-head');
@@ -289,6 +306,7 @@ function paperView(letter) {
   // 正文
   const body = el('div', 'letter-body');
   for (const line of letter.lines) body.append(el('p', '', line));
+  if (letter.outfit) body.append(el('p', '', letter.outfit.line)); // 捎来的衣服："我在海边捡到了一顶渔夫帽……"
   paper.append(body);
 
   // "一个小问题"：信里直接带着一张小表格
@@ -313,6 +331,9 @@ function paperView(letter) {
     if (state.newGifts.has(letter.id)) gift.append(el('span', 'chip new', ui.newGift));
     paper.append(gift);
   }
+
+  // 捎来的衣服：小图 + 名字 + "帮它穿上"按钮（点了桌面上的它马上就穿上）
+  if (letter.outfit) paper.append(outfitGift(letter.outfit));
 
   paper.append(el('div', 'sign', `${letter.sign} 🐾`));
 
@@ -570,10 +591,196 @@ function albumView() {
   return view;
 }
 
+// ---------------------------------------------------------------- 衣柜
+
+const BODY_SLOTS = new Set(['top', 'bag', 'held']); // 这些部位的小图画整只；帽子、眼镜只画头
+const NOTHING = { hat: null, glasses: null, top: null, bag: null, held: null };
+const wardrobeItem = (id) => state.data.wardrobe.items.find((item) => item.id === id) || null;
+
+/** 衣服的小图：它只穿着这一件。withItem = false 时什么都不穿（做剪影时对比用） */
+function paintItem(ctx, size, item, withItem) {
+  const sp = getSpecies(state.data.species, state.data.catCoat);
+  const outfit = withItem ? { ...NOTHING, [item.slot]: item.id } : null;
+  ctx.save();
+  if (BODY_SLOTS.has(item.slot)) {
+    const k = size / 142;
+    ctx.translate(size / 2, size - 4);
+    ctx.scale(k, k);
+    const pose = item.slot === 'held' ? { armL: -0.75, armR: -0.75, blush: 0.5 } : { blush: 0.5 };
+    drawPet(ctx, sp, makePose(pose), { time: 0.3, shadow: false, outfit });
+  } else {
+    // 帽子：缩小一点，帽顶才放得下；眼镜：凑近一点看脸
+    const hat = item.slot === 'hat';
+    const k = (size / (2 * (sp.head.rx + 8))) * (hat ? 0.88 : 1.08);
+    ctx.translate(size / 2, size / 2 + (hat ? 13 : 3) * k);
+    ctx.scale(k, k);
+    drawHeadOnly(ctx, sp, makePose({ blush: 0.5 }), null, outfit);
+  }
+  ctx.restore();
+}
+
+/**
+ * 衣柜里的小图。还没收到的衣服画成灰色剪影：
+ * 先画"穿着这件"和"什么都没穿"两张，两张不一样的地方就是衣服，把那块涂成灰色，盖在淡淡的它身上。
+ */
+function itemThumb(item, size) {
+  const { canvas, ctx } = makeCanvas(size, size, 'wardrobe-thumb');
+  if (item.owned) {
+    paintItem(ctx, size, item, true);
+    return canvas;
+  }
+  const dpr = window.devicePixelRatio || 1;
+  const layer = (withItem) => {
+    const c = document.createElement('canvas');
+    c.width = canvas.width;
+    c.height = canvas.height;
+    const x = c.getContext('2d');
+    x.scale(dpr, dpr);
+    paintItem(x, size, item, withItem);
+    return c;
+  };
+  const dressed = layer(true);
+  const bare = layer(false);
+  const a = dressed.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+  const b = bare.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+  const mask = new ImageData(canvas.width, canvas.height);
+  for (let i = 0; i < a.length; i += 4) {
+    const diff = Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) + Math.abs(a[i + 3] - b[i + 3]);
+    // 两张图除了衣服以外画法完全一样，所以哪怕只差一点点，也一定是衣服（颜色和毛色很接近的地方也不会漏掉）
+    if (diff > 6) {
+      mask.data[i] = 176;
+      mask.data[i + 1] = 162;
+      mask.data[i + 2] = 146;
+      mask.data[i + 3] = a[i + 3];
+    }
+  }
+  const shape = document.createElement('canvas');
+  shape.width = canvas.width;
+  shape.height = canvas.height;
+  shape.getContext('2d').putImageData(mask, 0, 0);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 0.16;
+  ctx.drawImage(bare, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.drawImage(shape, 0, 0);
+  ctx.restore();
+  return canvas;
+}
+
+/**
+ * 换衣服：先在窗口里换好（马上看得到），再告诉后台；后台说不行就换回来。
+ * 桌面上的它收到后会低头看看、转一圈、问"好看吗？"
+ */
+async function wear(next) {
+  const before = worn();
+  state.data.wardrobe.worn = next;
+  if (state.view === 'wardrobe') renderMain();
+  const result = await api.setOutfit(next);
+  if (!result || !result.ok) {
+    state.data.wardrobe.worn = before;
+    renderMain();
+    toast(state.data.ui.failed);
+    return false;
+  }
+  return true;
+}
+
+/** 信里捎来的衣服：小图 + 名字 + "帮它穿上" */
+function outfitGift(outfit) {
+  const { ui } = state.data;
+  const item = wardrobeItem(outfit.id);
+  const box = el('div', 'gift outfit-gift');
+  box.append(itemThumb({ id: outfit.id, slot: outfit.slot, owned: true }, 54)); // 能看到这封信 = 已经拆开 = 已经收到了
+  const text = el('div', 'outfit-gift-text');
+  const title = el('div', 'outfit-gift-title', capitalize(outfit.name));
+  if (item && item.isNew) title.append(el('span', 'chip new', ui.outfitArrived));
+  text.append(title);
+  const link = button('outfit-gift-link', `${ui.openWardrobe} ›`, () => go('wardrobe'));
+  text.append(link);
+  const on = worn()[outfit.slot] === outfit.id;
+  const put = button('btn primary', on ? outfit.wearing : outfit.wear, async () => {
+    put.disabled = true;
+    const ok = await wear({ ...worn(), [outfit.slot]: outfit.id });
+    if (ok) put.textContent = outfit.wearing;
+    else put.disabled = false;
+  });
+  put.disabled = on;
+  box.append(text, put);
+  return box;
+}
+
+/** 衣柜：左边是它穿着现在这身的大图，右边按部位列出所有衣服 */
+function wardrobeView() {
+  const { ui, wardrobe, festivalLook } = state.data;
+  const view = el('section', 'view wardrobe');
+  const now = worn();
+
+  // 左边：大图 + 站着/坐着 + 全部脱下
+  const side = el('div', 'wardrobe-side');
+  const { canvas, ctx } = makeCanvas(150, 196, 'wardrobe-preview');
+  const sit = state.wardrobePose === 'sit';
+  const pose = { blush: 0.6, ...(sit ? { crouch: 1, tailCurl: 0.35 } : {}), ...(now.held ? { armL: -0.75, armR: -0.75 } : {}) };
+  ctx.translate(75, 184);
+  ctx.scale(1.02, 1.02);
+  drawPet(ctx, getSpecies(state.data.species, state.data.catCoat), makePose(pose), { time: 0.3, outfit: now });
+  const toggle = el('div', 'pose-toggle');
+  for (const [id, label] of [['stand', ui.poseStand], ['sit', ui.poseSit]]) {
+    toggle.append(
+      button(state.wardrobePose === id ? 'active' : '', label, () => {
+        state.wardrobePose = id;
+        renderMain();
+      })
+    );
+  }
+  const anything = Object.values(now).some(Boolean);
+  const strip = button('btn small', ui.takeOffAll, () => wear({ ...NOTHING }));
+  strip.disabled = !anything;
+  side.append(canvas, toggle, strip, el('div', 'wardrobe-count', fillText(ui.wardrobeCount, { have: wardrobe.have, total: wardrobe.total })));
+
+  // 过节那天：节日装扮盖住了帽子或手里拿的，说一声（明天自动换回来）
+  const look = lookById(festivalLook);
+  const covered = [look && look.head && ui.partHat, look && look.held && ui.partHeld].filter(Boolean);
+  if (covered.length) side.append(el('div', 'wardrobe-note', fillText(ui.festivalCovers, { parts: covered.join(ui.partJoin) })));
+
+  // 右边：每个部位一组
+  const list = el('div', 'wardrobe-list');
+  list.append(el('div', 'wardrobe-hint', ui.wardrobeHint));
+  for (const slot of wardrobe.slots) {
+    list.append(el('div', 'wardrobe-slot', slot.name));
+    const grid = el('div', 'wardrobe-grid');
+    for (const item of wardrobe.items.filter((i) => i.slot === slot.id)) {
+      const on = now[item.slot] === item.id;
+      const card = el(item.owned ? 'button' : 'div', `wardrobe-item${on ? ' on' : ''}${item.owned ? '' : ' locked'}`);
+      card.append(itemThumb(item, 64), el('div', 'wardrobe-name', item.owned ? capitalize(item.name) : ui.locked));
+      if (on) card.append(el('span', 'wardrobe-badge', ui.wearingNow));
+      else if (item.isNew) card.append(el('span', 'wardrobe-badge new', ui.newGift));
+      if (item.owned) {
+        card.type = 'button';
+        card.title = capitalize(item.name);
+        card.addEventListener('click', () => wear({ ...now, [item.slot]: on ? null : item.id })); // 再点一下 = 脱下
+      } else {
+        card.title = ui.lockedHint;
+      }
+      grid.append(card);
+    }
+    list.append(grid);
+  }
+
+  view.append(side, list);
+  return view;
+}
+
 function renderMain() {
-  const view = state.view === 'box' ? boxView() : state.view === 'album' ? albumView() : letterView();
+  // 信箱、图鉴、衣柜：重画时（比如刚换了衣服）停在原来滚到的位置，不跳回顶上
+  const old = $('main').firstChild;
+  const keepScroll = state.view !== 'letter' && old && old.dataset.view === state.view ? old.scrollTop : 0;
+  const view =
+    state.view === 'box' ? boxView() : state.view === 'album' ? albumView() : state.view === 'wardrobe' ? wardrobeView() : letterView();
+  view.dataset.view = state.view;
   state.shown = state.view === 'letter' ? fingerprint(current()) : '';
   $('main').replaceChildren(view);
+  if (keepScroll) view.scrollTop = keepScroll;
 }
 
 // ---------------------------------------------------------------- 起名字
@@ -655,6 +862,6 @@ api.init().then((data) => {
   window.__mail = {
     state,
     go,
-    postcard: () => renderPostcard(current(), { species: state.data.species, catCoat: state.data.catCoat, footer: state.data.ui.postcardFooter }).toDataURL('image/png'),
+    postcard: () => renderPostcard(current(), { species: state.data.species, catCoat: state.data.catCoat, outfit: worn(), footer: state.data.ui.postcardFooter }).toDataURL('image/png'),
   };
 });

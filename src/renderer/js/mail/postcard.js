@@ -19,8 +19,9 @@ export const capitalize = (text) => (text ? text.charAt(0).toUpperCase() + text.
 /**
  * 画"照片"：一幅风景，加上站在里面的它。铺满 (0,0)–(w,h)。
  * 同一封信每次画出来都一样（云的位置、它的姿势由信的日期决定）。
+ * outfit：它现在穿着的衣服（照片上也穿着；过节的信里，节日装扮占的部位听节日的）
  */
-export function drawPhoto(ctx, w, h, letter, speciesId, catCoat = 'tabby') {
+export function drawPhoto(ctx, w, h, letter, speciesId, catCoat = 'tabby', outfit = null) {
   const seed = hashText(`${letter.id}|${letter.place}`);
   const report = letter.kind === 'monthly' || letter.kind === 'yearly';
   drawScene(ctx, w, h, { scene: letter.scene, place: letter.place, seed });
@@ -37,7 +38,9 @@ export function drawPhoto(ctx, w, h, letter, speciesId, catCoat = 'tabby') {
   if (letter.kind === 'festival') {
     pose = look && look.held ? { armL: -0.75, armR: -0.75, eyes: 'happy', mouth: 'smile', mouthOpen: 0.4, blush: 0.8 } : scenePose(4);
   }
-  drawPet(ctx, getSpecies(speciesId, catCoat), makePose(pose), { time: 0.3, look });
+  // 手里拿着衣柜里的东西（奶茶、小鱼……）：两只手抱着它，别的照旧（月报的欢呼除外）
+  if (outfit && outfit.held && !(look && look.held) && !report) pose = { ...pose, armL: -0.75, armR: -0.75 };
+  drawPet(ctx, getSpecies(speciesId, catCoat), makePose(pose), { time: 0.3, look, outfit });
   ctx.restore();
 }
 
@@ -80,7 +83,7 @@ export function wrapText(ctx, text, maxWidth) {
  * 普通的信是 1080×1440（3:4，适合小红书、朋友圈）；月报和年度回顾内容多，是 1080×1920（9:16，适合手机竖屏、发动态）。
  * @returns 一块画好的画布，调用 .toDataURL('image/png') 就能得到图片
  */
-export function renderPostcard(letter, { species, footer, catCoat = 'tabby' }) {
+export function renderPostcard(letter, { species, footer, catCoat = 'tabby', outfit = null }) {
   const stats = letter.stats && letter.stats.length ? letter.stats : null;
   const W = 1080;
   const H = stats ? 1920 : 1440;
@@ -103,7 +106,7 @@ export function renderPostcard(letter, { species, footer, catCoat = 'tabby' }) {
   roundedRect(ctx, px, py, pw, ph, 30);
   ctx.clip();
   ctx.translate(px, py);
-  drawPhoto(ctx, pw, ph, letter, species, catCoat);
+  drawPhoto(ctx, pw, ph, letter, species, catCoat, outfit);
   ctx.restore();
   roundedRect(ctx, px, py, pw, ph, 30);
   ctx.strokeStyle = '#5b3a24';
@@ -156,7 +159,8 @@ export function renderPostcard(letter, { species, footer, catCoat = 'tabby' }) {
     top = y0 + Math.ceil(stats.length / cols) * (tileH + gap) + 52;
   }
 
-  // 正文：字号从大到小试，直到放得下
+  // 正文：字号从大到小试，直到放得下。捎来衣服的那句也写上
+  const textLines = letter.outfit ? [...letter.lines, letter.outfit.line] : letter.lines;
   const bottom = letter.gift ? H - 230 : H - 150;
   let size = 40;
   let lineHeight = 0;
@@ -165,7 +169,7 @@ export function renderPostcard(letter, { species, footer, catCoat = 'tabby' }) {
     size = candidate;
     lineHeight = size * 1.62;
     ctx.font = `${size}px ${LETTER_FONT}`;
-    paragraphs = letter.lines.map((text) => wrapText(ctx, text, W - 150));
+    paragraphs = textLines.map((text) => wrapText(ctx, text, W - 150));
     const height = paragraphs.reduce((sum, p) => sum + p.length * lineHeight + size * 0.3, 0);
     if (top + height <= bottom) break;
   }

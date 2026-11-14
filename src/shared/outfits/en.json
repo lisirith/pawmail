@@ -1,0 +1,112 @@
+{
+  "slots": {
+    "hat": "Hats",
+    "glasses": "Glasses",
+    "top": "Tops",
+    "bag": "Bags",
+    "held": "Holding"
+  },
+  "wear": {
+    "hat": "Put it on",
+    "glasses": "Put them on",
+    "top": "Put it on",
+    "bag": "Put it on",
+    "held": "Hand it over"
+  },
+  "wearing": {
+    "hat": "Wearing it now",
+    "glasses": "Wearing them now",
+    "top": "Wearing it now",
+    "bag": "Wearing it now",
+    "held": "Holding it now"
+  },
+  "items": {
+    "capRed": {
+      "name": "Red cap",
+      "a": "a red cap"
+    },
+    "bucketHat": {
+      "name": "Bucket hat",
+      "a": "a bucket hat"
+    },
+    "knitBeanie": {
+      "name": "Cat-ear beanie",
+      "a": "a cat-ear beanie"
+    },
+    "wizardHat": {
+      "name": "Starry wizard hat",
+      "a": "a starry wizard hat"
+    },
+    "roundGlasses": {
+      "name": "Round glasses",
+      "a": "a pair of round glasses"
+    },
+    "pixelShades": {
+      "name": "Pixel shades",
+      "a": "a pair of pixel shades"
+    },
+    "starGlasses": {
+      "name": "Star glasses",
+      "a": "a pair of star-shaped glasses"
+    },
+    "sailorTop": {
+      "name": "Sailor top",
+      "a": "a sailor top"
+    },
+    "hoodie": {
+      "name": "Hoodie",
+      "a": "a hoodie"
+    },
+    "knitSweater": {
+      "name": "Cable-knit sweater",
+      "a": "a cable-knit sweater"
+    },
+    "tangJacket": {
+      "name": "Red knot-button jacket",
+      "a": "a red jacket with knot buttons"
+    },
+    "backpack": {
+      "name": "Backpack",
+      "a": "a backpack"
+    },
+    "catBag": {
+      "name": "Cat-face bag",
+      "a": "a little cat-face bag"
+    },
+    "bobaTea": {
+      "name": "Bubble tea",
+      "a": "a cup of bubble tea"
+    },
+    "blueFish": {
+      "name": "Blue fish",
+      "a": "a blue cloth fish"
+    },
+    "bamboo": {
+      "name": "Bamboo",
+      "a": "a fresh bamboo stalk"
+    }
+  },
+  "lines": {
+    "hat": [
+      "Also, I brought {item} back from {place}, and it fits me just right. Will you put it on me?",
+      "Oh, and someone gave me {item} on my trip to {place}. I tucked it carefully into the envelope. Try it on me?"
+    ],
+    "glasses": [
+      "Also, I found {item} on my trip to {place}. Everything looks fun through them. Will you put them on me?",
+      "Oh, and I spotted {item} on my trip to {place} and loved them right away. Try them on me?"
+    ],
+    "top": [
+      "Also, I saw {item} on my trip to {place} and just knew it would look good on me, so I brought it home. Try it on me?",
+      "Oh, and a kind shopkeeper gave me {item} on my trip to {place}. Will you put it on me and see if it fits?"
+    ],
+    "bag": [
+      "Also, I found {item} on my trip to {place}. I can carry so many things in it. Will you put it on me?",
+      "Oh, and I saw {item} on my trip to {place}. I thought about it the whole way back, and in the end I brought it home. I want to take it next time I go out."
+    ],
+    "held": [
+      "Also, I brought {item} back from {place}. I want to hold it all the time.",
+      "Oh, and I saved {item} from {place} just for me. Can I hold it?"
+    ]
+  },
+  "starterNote": "It started out with: {items}"
+}

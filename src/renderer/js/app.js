@@ -17,17 +17,18 @@ import { clamp, damp, rand, TAU } from './util/math.js';
 const bridge = createBridge();
 
 /** 把宠物的头画成一张小图，交给后台当托盘图标。过节戴着帽子的话，托盘图标也戴着 */
-function makeTrayIcon(species, look) {
+/** 托盘图标：宠物的头。过节戴着节日帽子；平时戴着衣柜里的帽子、眼镜 */
+function makeTrayIcon(species, look, outfit) {
   const size = 64;
   const c = document.createElement('canvas');
   c.width = size;
   c.height = size;
   const g = c.getContext('2d');
-  const hat = look && look.head;
+  const hat = (look && look.head) || (outfit && outfit.hat);
   const k = size / (2 * (species.head.rx + 8)) * (hat ? 0.82 : 1); // 戴帽子时缩小一点，帽子才放得下
   g.translate(size / 2, size / 2 + (species.earReach * 0.35 + (hat ? 12 : 0)) * k);
   g.scale(k, k);
-  drawHeadOnly(g, species, makePose({ blush: 0.5 }), hat ? { head: look.head } : null);
+  drawHeadOnly(g, species, makePose({ blush: 0.5 }), look && look.head ? { head: look.head } : null, outfit);
   return c.toDataURL('image/png');
 }
 
@@ -133,6 +134,7 @@ async function main() {
   layoutArea();
 
   const pet = new Pet(getSpecies(settings.species, settings.catCoat), world);
+  pet.setOutfit(settings.outfit); // 穿着上次换好的衣服出场
   const bubble = new Bubble(document.getElementById('bubble'));
   const say = (key, seconds) => bubble.say(i18n.line(key, pet.sp.id), seconds);
   const brain = new Brain({ pet, world, say, saved: init.pet, stat: (kind) => bridge.stat(kind) });
@@ -154,7 +156,7 @@ async function main() {
     festival = next || null;
     pet.setLook(festival ? lookById(festival.look) : null);
     brain.setFestival(festival, { greet });
-    bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look));
+    bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look, pet.outfit));
   }
   bridge.on('festival', (next) => applyFestival(next));
 
@@ -176,7 +178,7 @@ async function main() {
   // 和画得复杂不复杂、窗口大不大都没关系。所以宠物发呆时那些不到 1 个像素的细微变化
   // （呼吸、尾巴慢慢摆）先攒着，攒够大约 1 个像素再画。动作快的时候自然每帧都画，不受影响。
   const REDRAW_PX = 0.75; // 物理像素
-  const drawn = { pose: makePose(), rot: 0, species: null, mode: '', k: 0, fx: 0, at: 0, transform: '', carry: false, carryLift: 0, look: null, sheetLift: 0 };
+  const drawn = { pose: makePose(), rot: 0, species: null, mode: '', k: 0, fx: 0, at: 0, transform: '', carry: false, carryLift: 0, look: null, outfit: null, sheetLift: 0 };
   let redraws = 0;
 
   function render(nowMs) {
@@ -196,6 +198,7 @@ async function main() {
       drawn.carry !== pet.carry ||
       drawn.carryGold !== pet.carryGold ||
       drawn.look !== pet.look ||
+      drawn.outfit !== pet.outfit ||
       Math.abs(pet.carryLift - drawn.carryLift) * 70 * k > REDRAW_PX ||
       Math.abs(pet.sheetLift - drawn.sheetLift) * 80 * k > REDRAW_PX ||
       poseDistance(O, drawn.pose) * k > REDRAW_PX ||
@@ -217,6 +220,7 @@ async function main() {
       drawn.carryGold = pet.carryGold;
       drawn.carryLift = pet.carryLift;
       drawn.look = pet.look;
+      drawn.outfit = pet.outfit;
       drawn.sheetLift = pet.sheetLift;
       drawn.at = nowMs;
       redraws += 1;
@@ -568,6 +572,7 @@ async function main() {
       menu.close();
       if (id === 'toggleSleep') brain.command(brain.asleep ? 'wake' : 'sleep');
       else if (id === 'mail') bridge.openMail();
+      else if (id === 'wardrobe') bridge.openMail('wardrobe');
       else if (id === 'area') openAreaEditor();
       else if (id === 'quit') {
         save();
@@ -601,6 +606,7 @@ async function main() {
     const mailLabel = mail.unread > 0 ? t('menu.mailboxUnread').replace('{n}', mail.unread) : t('menu.mailbox');
     return [
       { type: 'action', id: 'mail', label: `📬 ${mailLabel}` },
+      { type: 'action', id: 'wardrobe', label: `👕 ${t('menu.wardrobe')}` },
       { type: 'separator' },
       {
         type: 'choice',
@@ -675,7 +681,7 @@ async function main() {
     if (settings.species !== prev.species || settings.catCoat !== prev.catCoat) {
       pet.setSpecies(getSpecies(settings.species, settings.catCoat));
       poof(); // 换动物时"噗"地弹一下
-      bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look));
+      bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look, pet.outfit));
     }
     if (settings.scale !== prev.scale) {
       world.scale = settings.scale;
@@ -683,6 +689,11 @@ async function main() {
       applyArea(); // 宠物变大了，方框可能要跟着撑大一点
     }
     if (JSON.stringify(settings.area) !== JSON.stringify(prev.area)) applyArea({ announce: true });
+    // 在衣柜里换了衣服：穿上，然后低头看看、转一圈、问"好看吗？"
+    if (pet.setOutfit(settings.outfit)) {
+      brain.onOutfit({ off: !pet.outfit });
+      bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look, pet.outfit));
+    }
     if (settings.language !== prev.language) {
       i18n.setLanguage(settings.language);
       document.documentElement.lang = i18n.lang;
@@ -812,7 +823,7 @@ async function main() {
   brain.onMail(mail.unread, false); // 启动时就有没拆的信：打完招呼后把信举给你看
   if (firstRun) bridge.setSetting('firstRunDone', true);
 
-  bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look));
+  bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look, pet.outfit));
 
   if (showHud) hud.hidden = false;
   if (init.dev && !init.preview) {

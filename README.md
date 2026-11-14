@@ -27,6 +27,11 @@
   其实是放进了**回收站**，随时可以去回收站找回来。为了不让文件真的丢，这些它不吃：
   U 盘、网络盘上的东西（那里没有回收站），整个磁盘、Windows 和程序文件夹，"桌面""文档"这些文件夹本身，
   它自己的程序文件夹；一次也最多吃 20 样、加起来 500 MB
+- **换装**：帽子、眼镜、上衣、包包、手里拿的东西，第一批 16 件。一开始送 3 件（红色鸭舌帽、圆框眼镜、麻花毛衣），
+  其余的随每日来信捎来（第一封日常来信就有一件，之后大约每三四封一件）。信里点"帮它穿上"，或者在信纸窗口的
+  「衣柜」里点一下穿上、再点一下脱下；还没收到的衣服是灰色剪影。换上以后它会低头看看、转一圈，问你"好看吗？"。
+  猫和熊猫穿同一件衣服，会按各自的身形撑开；信里的照片、明信片和托盘图标也穿着。过节那天，节日的帽子、
+  节日手里拿的东西先用节日的，第二天自动换回来
 
 **每日来信**
 
@@ -78,7 +83,7 @@ npm start
 | 操作 | 效果 |
 |---|---|
 | 它手里拿着信时，点它一下 | 拆信 |
-| 右键点它 | 菜单：信箱、换动物、显示方式、大小、语言、开机启动、画活动范围、哄睡、退出 |
+| 右键点它 | 菜单：信箱、衣柜、换动物、显示方式、大小、语言、开机启动、画活动范围、哄睡、退出 |
 | 画活动范围时 | 在空白处按住拖出方框；拖方框挪位置；拖四个角改大小；点"就这里"保存，右键 = 取消 |
 | 鼠标在它身上来回移动 | 摸头 |
 | 左键点一下 | 戳它一下 |
@@ -110,7 +115,7 @@ npm run dev
 
 带调试信息启动，控制台会打印它每次换动作的原因。可以追加的开关：`--x-hud`（屏幕上显示状态面板）、
 `--x-newday`（假装现在是明天，马上收到一封新信）、`--x-date=2026-10-31`（跳到那一天，看看过节的样子）、
-`--x-feeddry`（喂它吃文件时只演习，不真的放进回收站）。
+`--x-feeddry`（喂它吃文件时只演习，不真的放进回收站）、`--x-allclothes`（衣柜里的衣服全部解锁）。
 用 `--x-newday`、`--x-date` 时请同时加 `--userdata=某个测试文件夹`，免得弄乱你真正的存档。
 
 ```bash
@@ -122,7 +127,9 @@ npm run preview
 左、上、宽、高占窗口的比例）；节日装扮一览：<http://localhost:5177/src/renderer/gallery.html?looks=1>；
 信纸窗口：<http://localhost:5177/mail>（加 `?lang=en&species=panda&unread=0` 之类的参数；
 `&from=2026-11-20&days=45` 会从那天起模拟 45 天，能看到月报和年度回顾）；
-姿势图鉴：<http://localhost:5177/gallery>；喂它吃的纸团一览：<http://localhost:5177/src/renderer/gallery.html?food=1>；
+姿势图鉴：<http://localhost:5177/gallery>；衣服一览：<http://localhost:5177/src/renderer/gallery.html?outfits=1>
+（`&only=capRed,hoodie` 只看几件）；宠物穿着衣服：加 `&outfit=capRed,roundGlasses,hoodie`；
+衣柜：<http://localhost:5177/mail?view=wardrobe&days=10>；喂它吃的纸团一览：<http://localhost:5177/src/renderer/gallery.html?food=1>；
 和设定图对照：<http://localhost:5177/src/renderer/gallery.html?compare=1>（需要本机的 `img resource/` 文件夹里有设定图）。
 
 ```bash
@@ -144,7 +151,7 @@ npm run sim
 npm run selftest
 ```
 
-自检：真的启动程序，自动检查透明窗口、鼠标穿透、活动范围、爬墙、喂它吃文件、来信、拆信、明信片、月报、年度回顾、删信、生日、节日、装扮、存档等 54 项，
+自检：真的启动程序，自动检查透明窗口、鼠标穿透、活动范围、爬墙、喂它吃文件、来信、拆信、明信片、换装、月报、年度回顾、删信、生日、节日、装扮、存档等 64 项，
 结果和截图在 `tools/shots/selftest/`。
 
 ```bash
@@ -157,7 +164,7 @@ npm run snap -- "/src/renderer/gallery.html?looks=1" tools/shots/looks.png 800 1
 npm run artcheck
 ```
 
-角色美术检查（先开 `npm run preview`）：检查熊猫、橘猫的姿势过渡、抱信和节日装扮，
+角色美术检查（先开 `npm run preview`）：检查熊猫、橘猫的姿势过渡、抱信、节日装扮和每件衣服，
 输出动作预览、深色背景和原图对照到 `tools/shots/art-review/`。对照图同时显示放大版和桌宠原始尺寸。
 不会启动桌宠后台或改动存档；本机缺少 `img resource/` 参考图时仍可检查动作。
 
@@ -182,6 +189,7 @@ src/
     overlay.js       那块透明的全屏窗口 + 鼠标穿透
     mail.js          邮局：什么时候来信、保管信和礼物、信纸窗口
     feed.js          喂它吃文件：检查能不能吃、放进回收站
+    wardrobe.js      衣柜：信里捎哪件衣服、衣柜里显示什么（纯计算）
     letters.js       写信：按规则把句子拼成一封信（纯计算，可单独测试）
     tray.js          托盘图标和菜单
     store.js         存档（JSON 文件）
@@ -190,11 +198,12 @@ src/
   preload/         后台和画面之间的安全通道（宠物窗口、信纸窗口各一个）
   renderer/        画面。是普通的网页技术，不依赖 Electron
     js/pet/          宠物：怎么画、动作、大脑、特效
-    js/mail/         信纸窗口：读信、信箱、图鉴、风景、明信片
+    js/mail/         信纸窗口：读信、信箱、图鉴、衣柜、风景、明信片
     js/ui/           气泡、右键菜单、画活动范围
   shared/
     locales/       界面文字（zh.json / en.json）
     letters/       信的内容：地点和礼物目录（catalog.js），以及中英文的全部句子
+    outfits/       衣服：目录（catalog.js：部位、一开始送的、在哪儿容易捡到），以及中英文的名字和信里的句子
     festivals/     节日：节日组和日期规则（catalog.js）、官方农历日期表（dates.json）、节日来信（zh.json / en.json）
 tools/             开发工具：预览服务器、来信模拟器、大脑模拟器、截图工具、农历表生成
 ```
@@ -202,6 +211,8 @@ tools/             开发工具：预览服务器、来信模拟器、大脑模�
 想加一个新地点：在 `src/shared/letters/catalog.js` 的 `PLACES` 里加一行，再到 `zh.json`、`en.json` 的 `places` 里各写一段，
 然后运行 `npm run letters` 检查。
 想加一种文化的节日（比如日本、韩国）：照着 `src/shared/festivals/catalog.js` 开头的说明做。
+想加一件新衣服：先在 `src/renderer/js/pet/outfits.js` 里画出来，再到 `src/shared/outfits/catalog.js` 登记一行、
+`zh.json`、`en.json` 里写上名字，然后运行 `npm run letters`（会核对三边的编号）和 `npm run artcheck`。
 想加一种新动物：在 `src/renderer/js/pet/species/` 里照着 `cat.js` 写一个，再到 `index.js` 登记。
 想加一个新动作：在 `activities.js` 里加一个函数，再到 `brain.js` 的 `scores()` 里给它一个权重。
 
@@ -212,7 +223,7 @@ tools/             开发工具：预览服务器、来信模拟器、大脑模�
 - [x] 节日：生日、四组节日、节日来信和限定礼物、节日装扮和动作（原本排在阶段 6，提前做了）
 - [x] 活动范围、爬墙
 - [x] 新造型（照设定图重画）
-- [ ] 阶段 3：换装（帽子、衣服……所有动物通用）
+- [x] 阶段 3：换装（第一批 16 件：帽子、眼镜、上衣、包包、手里拿的；随信寄来，所有动物通用）
 - [x] 阶段 4：把文件拖给它吃（其实是放进回收站，可以恢复）
 - [ ] 阶段 5：沙滩椅、遮阳伞、小音响、涂鸦
 - [ ] 阶段 6：彩蛋（节日、深夜催你睡觉、电量低它也没精神……）

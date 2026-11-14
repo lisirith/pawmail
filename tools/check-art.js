@@ -21,6 +21,28 @@ async function inspectArt(poses, guideUrl) {
     }
     cases.push({ name: `carry-${t}`, pose: { armL: -0.75 + 2.5 * t, armR: -0.75 + 2.5 * t }, opts: { carry: true, carryLift: t } });
   }
+  // 衣柜里的衣服：每件单独穿，在站、坐、趴、走、举手、被拎起、扒墙歪着这些姿势下都画一遍；再加两套全身搭配
+  const { OUTFITS } = await import('/src/renderer/js/pet/outfits.js');
+  const outfitPoses = [
+    ['stand', {}],
+    ['sit', { crouch: 1, tailCurl: 0.35 }],
+    ['loaf', { loaf: 1, eyes: 'sleep' }],
+    ['walk', { facing: 1, lift: 2, lean: 0.05, footLY: 5, armL: -0.25, armR: 0.3 }],
+    ['cheer', { armL: 1.8, armR: 1.8, lift: 12 }],
+    ['held', { armL: 1.0, armR: 1.0, squash: -0.08, lean: 0.25, lift: 30 }],
+    ['side', { facing: -1, headTilt: 0.15, armL: 2.0, armR: -0.5 }],
+    ['lick', { crouch: 1, armR: -2.5, headTilt: 0.16 }],
+  ];
+  const outfitSets = Object.entries(OUTFITS).map(([id, art]) => [id, { [art.slot]: id }]);
+  outfitSets.push(['setA', { hat: 'capRed', glasses: 'roundGlasses', top: 'sailorTop', bag: 'backpack', held: 'bobaTea' }]);
+  outfitSets.push(['setB', { hat: 'wizardHat', glasses: 'starGlasses', top: 'tangJacket', bag: 'catBag', held: 'bamboo' }]);
+  for (const [id, outfit] of outfitSets) {
+    for (const [poseName, pose] of outfitPoses) {
+      const holding = outfit.held && !pose.loaf && pose.armL === undefined ? { armL: -0.75, armR: -0.75 } : {};
+      cases.push({ name: `outfit-${id}-${poseName}`, pose: { ...pose, ...holding }, opts: { outfit } });
+    }
+    cases.push({ name: `outfit-${id}-birthday`, pose: { armL: -0.75, armR: -0.75 }, opts: { outfit, look: LOOKS.birthday } }); // 过节时节日装扮盖住帽子和手里的东西
+  }
   for (const [name, look] of Object.entries(LOOKS)) {
     for (const crouch of [0, 1]) {
       for (const sheetLift of look.cover ? [0, 0.5, 1] : [0]) {

@@ -3,6 +3,7 @@
   "menu": {
     "mailbox": "Mailbox",
     "mailboxUnread": "Mailbox ({n} new)",
+    "wardrobe": "Wardrobe",
     "animal": "Animal",
     "cat": "Cat",
     "catCoat": "Cat coat",
@@ -50,6 +51,8 @@
     "mail": ["You've got pawmail! Click me~", "A letter for you! Click me~", "Look, mail for you!"],
     "climb": ["So high~", "Look how high I got!", "Hup!"],
     "area": ["Nice spot~", "My new turf!", "I'll live here then"],
+    "outfit": ["Do I look good?", "How do I look?", "Hehe, new clothes!", "Does it suit me?"],
+    "outfitOff": ["Ahh, breezy~", "Nothing on feels nice too~"],
     "feed": {
       "yum": ["Yum!", "Nom nom… *burp*", "Thanks for the snack!", "Another one!"],
       "first": "Yum! It's actually in your Recycle Bin. Changed your mind? Get it back from there~",
@@ -148,6 +151,21 @@
     "askThanks": "Thank you for telling me! See you then.",
     "askLater": "Okay, another time. Whenever you'd like to tell me, just click my name up top.",
     "festivalSection": "Holiday {have} / {total}",
-    "postcardFooter": "Pawmail · a desktop pet that writes to you every day"
+    "postcardFooter": "Pawmail · a desktop pet that writes to you every day",
+    "tabWardrobe": "Wardrobe",
+    "wardrobeCount": "Collected {have} / {total}",
+    "locked": "Not yet",
+    "lockedHint": "Comes with a letter",
+    "wearingNow": "Wearing",
+    "takeOffAll": "Take it all off",
+    "poseStand": "Standing",
+    "poseSit": "Sitting",
+    "wardrobeHint": "Tap to put on, tap again to take off.",
+    "festivalCovers": "It's a holiday today, so the holiday {parts} comes first. Back to normal tomorrow.",
+    "partHat": "hat",
+    "partHeld": "item in hand",
+    "partJoin": " and ",
+    "outfitArrived": "New clothes!",
+    "openWardrobe": "Open the wardrobe"
   }
 }

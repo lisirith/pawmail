@@ -10,6 +10,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { MAX_LETTERS } = require('./letters');
 const F = require('../shared/festivals/catalog');
+const O = require('../shared/outfits/catalog');
 
 const SCALES = [0.8, 1, 1.3];
 const LANGUAGES = ['zh', 'en'];
@@ -33,6 +34,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   profileAsked: false, // 有没有问过你生日和节日（问过一次就不再追问，之后可以在信纸窗口里改）
   area: null, // 活动范围 { x, y, w, h }，都是占整个窗口的比例（0~1）；null = 整个屏幕
   fedBefore: false, // 有没有喂它吃过文件（第一次吃的时候，它会解释"其实是放进了回收站"）
+  outfit: O.EMPTY, // 现在穿着的衣服 { hat, glasses, top, bag, held }，每个部位是衣服编号或 null（见 shared/outfits/catalog.js）
 });
 
 /** 活动范围：四个 0~1 之间的数字，方框不能超出窗口，也不能小得离谱 */
@@ -69,6 +71,8 @@ const VALID = {
   profileAsked: (v) => typeof v === 'boolean',
   area: isValidArea,
   fedBefore: (v) => typeof v === 'boolean',
+  // 这里只查"样子对不对"（五个部位、每件衣服穿对了部位）；"你有没有这件衣服"由 main.js 再查一遍
+  outfit: (v) => O.sanitizeOutfit(v) !== null,
 };
 
 function isValidSetting(key, value) {
@@ -200,6 +204,7 @@ function sanitizeLetter(raw) {
     closer: int(raw.closer, -1),
     gift: typeof raw.gift === 'string' ? raw.gift : null,
     noGift: int(raw.noGift, -1),
+    outfit: typeof raw.outfit === 'string' && O.OUTFITS[raw.outfit] ? raw.outfit : null, // 随信捎来的衣服
     days: Math.max(1, int(raw.days, 1)),
   };
 }
@@ -209,6 +214,7 @@ function sanitizeMail(raw) {
     installId: crypto.randomBytes(8).toString('hex'),
     letters: [],
     gifts: {},
+    outfits: {}, // 信里收到的衣服 { 编号: { firstDay 哪天收到, tried 穿过没有 } }；一开始送的三件不记在这里
     lastDay: null,
     streak: 0,
     bestStreak: 0,
@@ -233,6 +239,12 @@ function sanitizeMail(raw) {
     for (const [id, rec] of Object.entries(raw.gifts)) {
       if (!/^[A-Za-z]{1,32}$/.test(id) || !rec || typeof rec !== 'object') continue;
       mail.gifts[id] = { count: Math.max(1, int(rec.count, 1)), firstDay: DAY.test(rec.firstDay) ? rec.firstDay : null };
+    }
+  }
+  if (raw.outfits && typeof raw.outfits === 'object') {
+    for (const [id, rec] of Object.entries(raw.outfits)) {
+      if (!O.OUTFITS[id] || !rec || typeof rec !== 'object') continue;
+      mail.outfits[id] = { firstDay: DAY.test(rec.firstDay) ? rec.firstDay : null, tried: rec.tried === true };
     }
   }
   if (DAY.test(raw.lastDay)) mail.lastDay = raw.lastDay;
