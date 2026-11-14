@@ -234,7 +234,8 @@ function hideDragImage() {
   if (!win || !win.visible) {
     if (dragImage.phase === 'left') {
       dragImage.phase = 'ok';
-      console.log(`[拖动图标] 大图标${win ? '已经藏起来了' : '的窗口找不到（可能本来就没有）'}`);
+      // 找不到那个窗口也算成功：用户的 Windows 11 上就是这样（实测大图标确实不见了），后备的办法用不上
+      console.log(`[拖动图标] 好了（${win ? '图标窗口已经看不见了' : '找不到 SysDragImage 窗口，后备办法用不上，但大图标已经不画了'}）`);
     }
     return;
   }
