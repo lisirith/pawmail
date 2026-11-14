@@ -53,6 +53,7 @@ function createMockBridge() {
     },
     setTrayIcon() {},
     setEditing() {},
+    dragImage() {},
     /** 预览时没有后台：假装都吃下了（拖进来的东西不会被动） */
     async feed(files) {
       await new Promise((resolve) => setTimeout(resolve, 600));

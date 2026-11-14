@@ -7,6 +7,7 @@ import { Pet } from './pet/pet.js';
 import { Brain } from './pet/brain.js';
 import { RIG, drawHeadOnly } from './pet/draw.js';
 import { lookById } from './pet/looks.js';
+import { drawFood, foodOfMime, foodOfName } from './pet/food.js';
 import { makePose, poseDistance, copyPose } from './pet/pose.js';
 import { Bubble } from './ui/bubble.js';
 import { PetMenu } from './ui/menu.js';
@@ -427,12 +428,55 @@ async function main() {
   const canEat = () => pet.mode === 'ground' && brain.name !== 'eat' && brain.name !== 'arrive' && !areaEditor.isOpen && !press;
   let foodOver = false; // 文件正停在它身上
   let foodSeenAt = -Infinity;
+  let dragImageAskedAt = -Infinity;
 
-  function setFood(on) {
+  // 跟在鼠标旁边的小纸团。Windows 自己那个半透明的大文件图标会盖住它的脸，所以文件停在它身上时，
+  // 我们请后台把那个大图标藏起来，换成这个小纸团（拖走以后，Windows 的图标会自己回来）
+  const foodCursor = document.getElementById('food-cursor');
+  const foodCursorCtx = foodCursor.getContext('2d');
+  const FOOD_BOX = 76; // 小纸团画布的大小（CSS 像素）
+  const FOOD_OFFSET = { x: 5, y: 7 }; // 纸团中心在鼠标尖的右下方一点：像是被鼠标捏着
+  const held = { food: null, count: 0, k: 0, transform: '' };
+
+  function showHeldFood(food, count, x, y) {
+    const k = world.scale * 1.15;
+    if (food !== held.food || count !== held.count || k !== held.k || foodCursor.width !== Math.round(FOOD_BOX * dpr)) {
+      held.food = food;
+      held.count = count;
+      held.k = k;
+      foodCursor.width = Math.round(FOOD_BOX * dpr);
+      foodCursor.height = Math.round(FOOD_BOX * dpr);
+      foodCursor.style.width = `${FOOD_BOX}px`;
+      foodCursor.style.height = `${FOOD_BOX}px`;
+      foodCursorCtx.setTransform(dpr * k, 0, 0, dpr * k, (FOOD_BOX / 2) * dpr, (FOOD_BOX / 2) * dpr);
+      foodCursorCtx.clearRect(-FOOD_BOX, -FOOD_BOX, FOOD_BOX * 2, FOOD_BOX * 2);
+      drawFood(foodCursorCtx, food, { count });
+    }
+    const transform = `translate3d(${Math.round(x + FOOD_OFFSET.x - FOOD_BOX / 2)}px, ${Math.round(y + FOOD_OFFSET.y - FOOD_BOX / 2)}px, 0)`;
+    if (transform !== held.transform) {
+      held.transform = transform; // 位置没变就不去碰页面（省电）
+      foodCursor.style.transform = transform;
+    }
+    if (foodCursor.hidden) foodCursor.hidden = false;
+  }
+
+  function hideHeldFood() {
+    if (!foodCursor.hidden) foodCursor.hidden = true;
+    held.transform = '';
+  }
+
+  /** how：文件被拿走了（'leave'）还是放下了（'drop'） */
+  function setFood(on, how = 'leave') {
     if (on === foodOver) return;
     foodOver = on;
-    if (on) bridge.log('[喂食] 有文件拖到了宠物身上');
-    brain.onFood(on);
+    if (on) {
+      bridge.log('[喂食] 有文件拖到了宠物身上');
+    } else {
+      hideHeldFood();
+      bridge.dragImage(how);
+      dragImageAskedAt = -Infinity;
+    }
+    brain.onFood(on, how);
   }
 
   window.addEventListener('dragenter', (e) => {
@@ -448,6 +492,14 @@ async function main() {
     e.dataTransfer.dropEffect = over ? 'copy' : 'none';
     foodSeenAt = performance.now();
     setFood(over);
+    if (!over) return;
+    // 还没松手时，只知道文件的类型（不知道文件名），先按类型挑个纸团；松手以后再按文件名挑准
+    const files = Array.from(e.dataTransfer.items || []).filter((item) => item.kind === 'file');
+    showHeldFood(foodOfMime(files[0] && files[0].type), files.length, e.clientX, e.clientY);
+    if (foodSeenAt - dragImageAskedAt > 100) {
+      dragImageAskedAt = foodSeenAt;
+      bridge.dragImage('hide');
+    }
   });
 
   window.addEventListener('dragleave', (e) => {
@@ -457,18 +509,20 @@ async function main() {
   window.addEventListener('drop', (e) => {
     e.preventDefault(); // 不让浏览器自己去"打开"这个文件
     const over = isFileDrag(e) && canEat() && !!pet.hit(e.clientX, e.clientY);
-    setFood(false);
+    setFood(false, 'drop');
     if (!over) return;
     const files = Array.from(e.dataTransfer.files || []);
     if (!files.length) return;
-    // 是文件还是文件夹？只是为了画对图标（真正的检查在后台）
+    // 每样东西揉成什么纸团：文件夹、文档、图片……（只是为了画对；真正的检查在后台）
     const items = Array.from(e.dataTransfer.items || [])
       .filter((item) => item.kind === 'file')
       .map((item) => {
         const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
-        return { kind: entry && entry.isDirectory ? 'folder' : 'file' };
+        const file = item.getAsFile();
+        return { food: foodOfName(file && file.name, !!(entry && entry.isDirectory)) };
       });
-    const eat = brain.onFeed(items.length ? items : files.map(() => ({ kind: 'file' })), pet.toLocal(e.clientX, e.clientY));
+    const from = pet.toLocal(e.clientX + FOOD_OFFSET.x, e.clientY + FOOD_OFFSET.y); // 从小纸团所在的地方飞进嘴里
+    const eat = brain.onFeed(items.length ? items : files.map((f) => ({ food: foodOfName(f.name) })), from);
     bridge.feed(files).then(
       (result) => eat.resolve(result),
       (err) => {
@@ -669,7 +723,7 @@ async function main() {
       menuIdle = 0;
     }
     // 拖着文件停在它身上时，浏览器会一直发 dragover；超过 1.2 秒没收到，说明拖走了（保险）
-    if (foodOver && performance.now() - foodSeenAt > 1200) setFood(false);
+    if (foodOver && performance.now() - foodSeenAt > 1200) setFood(false, 'leave');
     pet.begin(dt);
     brain.update(dt);
     pet.finish(dt);

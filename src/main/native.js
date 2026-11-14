@@ -3,18 +3,26 @@
 //   sendToBottom  "只待在桌面上"模式需要把窗口压到所有窗口的最下面，Electron 自己做不到。
 //   rootWindowAt  查一下屏幕上某个点最上面是哪个窗口（只在自检时用，用来确认"鼠标穿透"真的生效）。
 //   volumeOf      一个文件在哪个盘上、是不是本机的硬盘（喂它吃文件之前要查，见 feed.js）。
+//   dragImage…    拖着文件到宠物身上时，不让 Windows 画那个挡住它脸的大文件图标（见下面的说明）。
 // 如果 koffi 加载失败，程序照样能运行，只是"只待在桌面上"模式的效果会差一点，也不能喂它吃文件了。
 
+let koffi = null;
 let SetWindowPos = null;
 let WindowFromPoint = null;
 let GetAncestor = null;
 let GetDriveTypeW = null;
 let GetVolumePathNameW = null;
 let GetVolumeNameForVolumeMountPointW = null;
+let FindWindowW = null;
+let IsWindowVisible = null;
+let ShowWindow = null;
+let CoInitializeEx = null;
+let CoCreateInstance = null;
+let HelperDragLeave = null;
 
 if (process.platform === 'win32') {
   try {
-    const koffi = require('koffi');
+    koffi = require('koffi');
     const user32 = koffi.load('user32.dll');
     koffi.struct('POINT', { x: 'long', y: 'long' });
     SetWindowPos = user32.func(
@@ -28,6 +36,14 @@ if (process.platform === 'win32') {
     GetVolumeNameForVolumeMountPointW = kernel32.func(
       'int __stdcall GetVolumeNameForVolumeMountPointW(str16 lpszVolumeMountPoint, _Out_ uint8_t *buf, uint32_t cch)'
     );
+    FindWindowW = user32.func('void * __stdcall FindWindowW(str16 lpClassName, str16 lpWindowName)');
+    IsWindowVisible = user32.func('int __stdcall IsWindowVisible(void *hWnd)');
+    ShowWindow = user32.func('int __stdcall ShowWindow(void *hWnd, int nCmdShow)');
+    const ole32 = koffi.load('ole32.dll');
+    koffi.struct('PAWMAIL_GUID', { Data1: 'uint32', Data2: 'uint16', Data3: 'uint16', Data4: koffi.array('uint8', 8) });
+    CoInitializeEx = ole32.func('long __stdcall CoInitializeEx(void *reserved, uint32_t coinit)');
+    CoCreateInstance = ole32.func('long __stdcall CoCreateInstance(PAWMAIL_GUID *rclsid, void *outer, uint32_t ctx, PAWMAIL_GUID *riid, _Out_ void **ppv)');
+    HelperDragLeave = koffi.proto('long __stdcall PawmailHelperDragLeave(void *self)');
   } catch (err) {
     console.warn('[native] koffi 不可用，"只待在桌面上"模式会降级：', err.message);
   }
@@ -99,4 +115,80 @@ function rootWindowAt(x, y) {
   }
 }
 
-module.exports = { sendToBottom, rootWindowAt, handleOf, volumeOf, available: !!SetWindowPos };
+// ---------------------------------------------------------------- 拖文件时的那个大图标
+//
+// 从文件管理器拖文件时，鼠标下面那个半透明的大图标是 Windows 的"拖动图标管家"画的：
+// 鼠标停在哪个窗口上，那个窗口就要告诉管家"拖进来了 / 在动 / 离开了"，管家据此画图标。
+// 我们窗口里的拖放是 Chromium 管的，它会一直告诉管家"在动"，所以大图标会盖住宠物的脸。
+// 办法：管家在一个程序里只有一个（实测：同一个程序里创建两次，拿到的是同一个），
+// 所以我们自己再"拿"一次这个管家，告诉它"已经离开了"，它就不在我们的窗口上画了。
+// 等文件拖离宠物，鼠标下面换成别的窗口，那个窗口会重新告诉管家"拖进来了"，图标自己就回来了。
+
+const CLSID_DragDropHelper = { Data1: 0x4657278a, Data2: 0x411b, Data3: 0x11d2, Data4: [0x83, 0x9a, 0x00, 0xc0, 0x4f, 0xd9, 0x18, 0xd0] };
+const IID_IDropTargetHelper = { Data1: 0x4657278b, Data2: 0x411b, Data3: 0x11d2, Data4: [0x83, 0x9a, 0x00, 0xc0, 0x4f, 0xd9, 0x18, 0xd0] };
+const CO_E_NOTINITIALIZED = 0x800401f0;
+let dragHelper; // undefined = 还没试过；null = 拿不到
+
+function dropTargetHelper() {
+  if (dragHelper !== undefined) return dragHelper;
+  dragHelper = null;
+  if (!CoCreateInstance) return null;
+  try {
+    const out = [null];
+    let hr = CoCreateInstance(CLSID_DragDropHelper, null, 1, IID_IDropTargetHelper, out) >>> 0;
+    if (hr === CO_E_NOTINITIALIZED) {
+      CoInitializeEx(null, 2);
+      hr = CoCreateInstance(CLSID_DragDropHelper, null, 1, IID_IDropTargetHelper, out) >>> 0;
+    }
+    if (hr === 0 && out[0]) dragHelper = out[0];
+  } catch (err) {
+    console.warn('[native] 拿不到拖动图标管家：', err.message);
+  }
+  return dragHelper;
+}
+
+/** 告诉拖动图标管家"拖着的东西已经离开了"：它就不在我们的窗口上画那个大图标了。返回 Windows 的结果码（0 = 成功） */
+function dragImageLeave() {
+  const helper = dropTargetHelper();
+  if (!helper) return null;
+  try {
+    const vtable = koffi.decode(helper, 'void *');
+    const slots = koffi.decode(vtable, koffi.array('void *', 8)); // IUnknown 三个 + DragEnter、DragLeave……
+    return koffi.call(slots[4], HelperDragLeave, helper) >>> 0;
+  } catch (err) {
+    console.warn('[native] DragLeave 失败：', err.message);
+    return null;
+  }
+}
+
+/** Windows 画拖动图标用的那个窗口（只在拖东西时才有）：{ hwnd, visible }；没有返回 null */
+function dragImageWindow() {
+  if (!FindWindowW) return null;
+  try {
+    const hwnd = FindWindowW('SysDragImage', null);
+    return hwnd ? { hwnd, visible: !!IsWindowVisible(hwnd) } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 直接把拖动图标的窗口藏起来 / 放出来（上面的办法不管用时的后备） */
+function setDragImageWindowVisible(hwnd, visible) {
+  if (!ShowWindow || !hwnd) return;
+  try {
+    ShowWindow(hwnd, visible ? 8 /* SW_SHOWNA：显示，但不抢焦点 */ : 0 /* SW_HIDE */);
+  } catch {
+    /* 窗口已经没了（拖放结束了）：不用管 */
+  }
+}
+
+module.exports = {
+  sendToBottom,
+  rootWindowAt,
+  handleOf,
+  volumeOf,
+  dragImageLeave,
+  dragImageWindow,
+  setDragImageWindowVisible,
+  available: !!SetWindowPos,
+};

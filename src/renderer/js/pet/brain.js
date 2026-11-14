@@ -392,10 +392,10 @@ export class Brain {
   }
 
   /**
-   * 有人拖着文件到了它身上（on = true），或者又拿走了（on = false）。
+   * 有人拖着文件到了它身上（on = true），或者又没了（on = false；how：'leave' 拿走了 | 'drop' 放下了）。
    * 文件 = 吃的：它会张大嘴等着喂。睡着了也会被"香味"弄醒。
    */
-  onFood(on) {
+  onFood(on, how = 'leave') {
     const was = this.foodNear;
     this.foodNear = on;
     const pet = this.pet;
@@ -403,7 +403,7 @@ export class Brain {
       if (pet.mode !== 'ground' || this.name === 'eat' || this.name === 'arrive') return;
       if (this.name === 'sleep') pet.fx.spawn('bang', { x: 28, y: pet.headTop() + 4, life: 0.7 });
       this.start('hungry');
-    } else if (!on && was && this.name === 'hungry') {
+    } else if (!on && was && how === 'leave' && this.name === 'hungry') {
       pet.fx.spawn('question', { x: 30, y: pet.headTop() - 2, life: 1 }); // 咦？不给我吃了？
     }
   }

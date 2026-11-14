@@ -8,6 +8,7 @@ import { SPECIES } from './pet/species/index.js';
 import { makePose } from './pet/pose.js';
 import { drawPet, getGeometry } from './pet/draw.js';
 import { LOOKS } from './pet/looks.js';
+import { drawFood, FOOD_TYPES } from './pet/food.js';
 
 const POSES = [
   ['站立', {}],
@@ -125,7 +126,34 @@ if (params.get('compare') === '1') {
   drawCompare().catch((err) => console.error(err));
 }
 
-for (const bg of params.get('compare') === '1' ? [] : backgrounds) {
+// ?food=1：喂给它的各种"纸团"（放大看一遍，再看看实际大小）
+const showFood = params.get('food') === '1';
+if (showFood) {
+  for (const [bg, zoom] of [['light', 4], ['light', 1.3], ['dark', 1.3]]) {
+    const row = document.createElement('div');
+    row.className = `row bg-${bg}`;
+    for (const type of FOOD_TYPES) {
+      const figure = document.createElement('figure');
+      const size = zoom * 34;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(size * dpr);
+      canvas.height = Math.round(size * dpr);
+      canvas.style.width = `${size}px`;
+      canvas.style.height = `${size}px`;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr * zoom, dpr * zoom);
+      ctx.translate(17, 17);
+      drawFood(ctx, type, { count: type === 'doc' && zoom > 2 ? 3 : 0 });
+      const caption = document.createElement('figcaption');
+      caption.textContent = type;
+      figure.append(canvas, caption);
+      row.append(figure);
+    }
+    grid.append(row);
+  }
+}
+
+for (const bg of params.get('compare') === '1' || showFood ? [] : backgrounds) {
   for (const sp of Object.values(SPECIES)) {
     if (only && sp.id !== only) continue;
     const row = document.createElement('div');

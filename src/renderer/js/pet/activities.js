@@ -19,12 +19,13 @@ function mouthPoint(pet) {
   return { x: g.headCx + pet.pose.lookX * 6, y: g.headCy + (face.noseY ?? 12) + 5 - pet.pose.lift };
 }
 
-/** 从嘴里吐出来 n 个文件 / 文件夹图标（吃不下的东西，原样吐还给你） */
-function spitOut(pet, kinds) {
+/** 从嘴里吐出来几个纸团（吃不下的东西原样吐还给你）。foods：纸团的种类，见 food.js */
+function spitOut(pet, foods) {
   const m = mouthPoint(pet);
-  kinds.slice(0, 6).forEach((kind, i) => {
+  foods.slice(0, 6).forEach((food, i) => {
     const dir = i % 2 === 0 ? 1 : -1;
-    pet.fx.spawn(kind === 'folder' ? 'folder' : 'file', {
+    pet.fx.spawn('food', {
+      food,
       x: m.x,
       y: m.y,
       vx: dir * rand(45, 85),
@@ -813,20 +814,21 @@ export const ACTIVITIES = {
   }),
 
   /**
-   * 吃！p.items：拖进来的东西 [{ kind: 'file' | 'folder' }]；p.from：它们从哪里飞过来（宠物坐标）。
-   * 文件先飞进嘴里，然后一直嚼着，等后台真的把东西放进回收站、告诉我们结果（resolve）以后：
+   * 吃！p.items：拖进来的东西 [{ food }]（food 是纸团的种类，见 food.js）；p.from：从哪里飞过来（宠物坐标）。
+   * 揉成纸团的文件先飞进嘴里，然后一直嚼着，等后台真的把东西放进回收站、告诉我们结果（resolve）以后：
    *   都吃下了 → 咽下去、拍拍肚子、冒爱心
-   *   有吃不下的 → 吃不下的原样吐出来，说说为什么
+   *   有吃不下的 → 吃不下的纸团原样吐出来，说说为什么
    * 只有后台说"吃下了"，它才会咽下去：画面上演的和真实发生的一致。
    */
   eat: (b, p) => {
     const pet = b.pet;
-    const kinds = (p.items || []).map((it) => (it && it.kind === 'folder' ? 'folder' : 'file'));
-    const shown = kinds.slice(0, 6);
+    const foods = (p.items || []).map((it) => (it && it.food) || (it && it.kind === 'folder' ? 'folder' : 'unknown'));
+    const shown = foods.slice(0, 6);
     const from = p.from || { x: 0, y: -60 };
     const mouth = mouthPoint(pet);
-    shown.forEach((kind, i) => {
-      pet.fx.spawn(kind, {
+    shown.forEach((food, i) => {
+      pet.fx.spawn('food', {
+        food,
         from: { x: from.x + (i - (shown.length - 1) / 2) * 7, y: from.y - 4 },
         to: mouth,
         arc: 16,
@@ -856,7 +858,11 @@ export const ACTIVITIES = {
         const res = this.result;
         const items = res && Array.isArray(res.items) ? res.items : [];
         const eaten = res ? items.filter((it) => it.ok).length : 0;
-        const refused = res ? items.filter((it) => !it.ok).map((it) => it.kind) : kinds;
+        // 吐出来的纸团和飞进去的是同一种（后台的结果和拖进来的东西是一一对应的；对不上时按文件/文件夹猜）
+        const sameOrder = items.length === foods.length;
+        const refused = res
+          ? items.map((it, i) => (it.ok ? null : sameOrder ? foods[i] : it.kind === 'folder' ? 'folder' : 'unknown')).filter(Boolean)
+          : foods;
         const reason = (res && res.reason) || 'failed';
         if (eaten > 0) b.reward({ mood: Math.min(0.12, 0.04 * eaten), boredom: -0.3, social: -0.1 });
         if (refused.length > 0) {

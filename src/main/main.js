@@ -212,6 +212,56 @@ function startSystemWatch() {
   powerMonitor.on('resume', () => overlay.resume());
 }
 
+// ---------------------------------------------------------------- 拖文件时的大图标
+
+// 每次文件拖到宠物身上，按这个顺序试（见 native.js 的说明）：
+//   1. 告诉 Windows 的拖动图标管家"已经离开了"，它就不在我们的窗口上画了
+//   2. 过一小会儿看看那个图标窗口还看不看得见；又冒出来了就再说一次（最多两次）
+//   3. 还是不行：直接把那个图标窗口藏起来，文件拖走时再放出来
+const DRAG_IMAGE_IDLE = { phase: 'idle', at: 0, reshown: 0, hwnd: null };
+let dragImage = { ...DRAG_IMAGE_IDLE };
+
+function hideDragImage() {
+  const now = Date.now();
+  if (dragImage.phase === 'idle') {
+    const hr = native.dragImageLeave();
+    dragImage = { ...DRAG_IMAGE_IDLE, phase: 'left', at: now };
+    console.log(`[拖动图标] 请 Windows 别在宠物身上画大图标（结果码 ${hr === null ? '无' : hr.toString(16)}）`);
+    return;
+  }
+  if (now - dragImage.at < 120) return; // 给 Windows 一点时间
+  const win = native.dragImageWindow();
+  if (!win || !win.visible) {
+    if (dragImage.phase === 'left') {
+      dragImage.phase = 'ok';
+      console.log(`[拖动图标] 大图标${win ? '已经藏起来了' : '的窗口找不到（可能本来就没有）'}`);
+    }
+    return;
+  }
+  if (dragImage.phase === 'hidden') {
+    native.setDragImageWindowVisible(win.hwnd, false); // 我们藏过，它又冒出来了：再藏一次
+    return;
+  }
+  if (dragImage.reshown < 2) {
+    dragImage.reshown += 1;
+    dragImage.at = now;
+    native.dragImageLeave();
+    console.log(`[拖动图标] 大图标还看得见，再请一次（第 ${dragImage.reshown} 次）`);
+    return;
+  }
+  native.setDragImageWindowVisible(win.hwnd, false);
+  dragImage = { ...dragImage, phase: 'hidden', hwnd: win.hwnd, at: now };
+  console.log('[拖动图标] 请了也没用，直接把图标窗口藏起来了');
+}
+
+/** 文件拖走了（restore = true）或者松手了：收尾 */
+function endDragImage(restore) {
+  if (dragImage.phase === 'idle') return;
+  if (restore && dragImage.phase === 'hidden') native.setDragImageWindowVisible(dragImage.hwnd, true);
+  console.log(`[拖动图标] 结束（${restore ? '拖走了' : '松手了'}）：${dragImage.phase}`);
+  dragImage = { ...DRAG_IMAGE_IDLE };
+}
+
 // ---------------------------------------------------------------- 宠物窗口发来的消息
 
 function registerIpc() {
@@ -261,6 +311,16 @@ function registerIpc() {
 
   ipcMain.on('pawmail:editing', (event, flag) => {
     if (fromOverlay(event)) overlay.setEditing(!!flag);
+  });
+
+  // 拖着文件停在宠物身上时，不让 Windows 画那个挡住它脸的大文件图标（画面那边会换成一个小纸团）。
+  //   'hide'  文件正停在它身上（画面每 0.1 秒左右说一次）
+  //   'leave' 文件拖走了：如果我们直接藏过 Windows 的图标窗口，把它放出来
+  //   'drop'  松手了：拖放结束，Windows 自己会收拾那个图标
+  ipcMain.on('pawmail:drag-image', (event, mode) => {
+    if (!fromOverlay(event)) return;
+    if (mode === 'hide') hideDragImage();
+    else if (mode === 'leave' || mode === 'drop') endDragImage(mode === 'leave');
   });
 
   // 把文件拖给它吃（放进回收站）。路径由 preload 直接交给我们，画面本身拿不到完整路径。

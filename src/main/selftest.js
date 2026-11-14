@@ -566,7 +566,32 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
       show
     );
 
-    // 5. 画面拿到的只是"假文件"（没有真实路径）时：后台什么都不吃
+    // 5. 拖着文件停在它身上：鼠标旁边换成小纸团（代替 Windows 那个挡脸的大图标），它张大嘴等着；拖走后纸团消失
+    const hover = await js(`
+      const P = window.__pawmail;
+      P.brain.start('idle');
+      P.run(0.3);
+      const dt = new DataTransfer();
+      dt.items.add(new File(['x'], 'photo.png', { type: 'image/png' }));
+      const x = P.pet.x;
+      const y = P.pet.y - 60 * P.world.scale;
+      for (const type of ['dragenter', 'dragover']) {
+        window.dispatchEvent(new DragEvent(type, { dataTransfer: dt, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+      }
+      P.run(0.3);
+      const ball = document.getElementById('food-cursor');
+      const during = { activity: P.brain.name, ball: !ball.hidden };
+      window.dispatchEvent(new DragEvent('dragleave', { dataTransfer: dt, clientX: -5, clientY: -5, bubbles: true }));
+      P.run(0.3);
+      return { during, after: { activity: P.brain.name, ball: !ball.hidden } };
+    `);
+    check(
+      '文件停在它身上时：鼠标旁边换成小纸团、它张嘴等着；拖走后纸团消失',
+      hover.during.activity === 'hungry' && hover.during.ball && !hover.after.ball && hover.after.activity !== 'hungry',
+      hover
+    );
+
+    // 6. 画面拿到的只是"假文件"（没有真实路径）时：后台什么都不吃
     const empty = await js(`return window.pawmail.feed([new File(['x'], 'a.txt')]).then((r) => r);`);
     check('不是从电脑上拖来的文件：后台不吃', empty && empty.eaten === 0 && empty.items.length === 0, empty);
   }

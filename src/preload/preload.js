@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('pawmail', {
     }
     return ipcRenderer.invoke('pawmail:feed', paths);
   },
+  /** 文件拖到它身上时，不让 Windows 画那个挡住它脸的大图标：'hide' 停在身上 | 'leave' 拖走了 | 'drop' 松手了 */
+  dragImage: (mode) => ipcRenderer.send('pawmail:drag-image', String(mode)),
   /** 打开信纸窗口（有没拆的信就直接打开那封） */
   openMail: () => ipcRenderer.send('pawmail:open-mail'),
   /** 记一次互动：'pet' 摸头 | 'poke' 戳 | 'throw' 扔 | 'dizzy' 弄晕 */
