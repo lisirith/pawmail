@@ -9,6 +9,7 @@ import { makePose } from './pet/pose.js';
 import { drawPet, getGeometry } from './pet/draw.js';
 import { LOOKS } from './pet/looks.js';
 import { drawFood, FOOD_TYPES } from './pet/food.js';
+import { OUTFITS } from './pet/outfits.js';
 
 const POSES = [
   ['站立', {}],
@@ -127,6 +128,33 @@ if (params.get('compare') === '1') {
   drawCompare().catch((err) => console.error(err));
 }
 
+// ?outfits=1：衣柜里的每件衣服，穿在猫和熊猫身上、各种姿势下的样子（&only=capRed,hoodie 只看几件；&coat=lucky 招财猫）
+const showOutfits = params.get('outfits') === '1';
+if (showOutfits) {
+  const OUTFIT_POSES = [
+    ['站', {}],
+    ['坐', { crouch: 1, tailCurl: 0.35 }],
+    ['走', { facing: 1, lift: 2, lean: 0.05, footLY: 5, footLX: 4, footRX: -4, armL: -0.25, armR: 0.3 }],
+    ['欢呼', { armL: 1.8, armR: 1.8, eyes: 'happy', mouth: 'smile', mouthOpen: 0.6 }],
+    ['趴', { loaf: 1, eyes: 'sleep', headTilt: 0.14, headY: 3 }],
+  ];
+  const onlyOutfits = params.get('only') ? params.get('only').split(',') : null;
+  const combos = [['全套 A', { hat: 'capRed', glasses: 'roundGlasses', top: 'sailorTop', bag: 'backpack', held: 'bobaTea' }], ['全套 B', { hat: 'wizardHat', glasses: 'starGlasses', top: 'tangJacket', bag: 'catBag', held: 'bamboo' }]];
+  const rows = [...Object.entries(OUTFITS).map(([id, art]) => [id, { [art.slot]: id }]), ...combos];
+  for (const [name, outfit] of rows) {
+    if (onlyOutfits && !onlyOutfits.includes(name)) continue;
+    const row = document.createElement('div');
+    row.className = 'row bg-light';
+    for (const sp of appearances) {
+      for (const [label, pose] of OUTFIT_POSES) {
+        const holding = outfit.held && !pose.loaf ? { armL: -0.75, armR: -0.75 } : {};
+        cell(row, `${name} · ${sp.id} ${label}`, sp, { ...pose, ...holding }, { outfit });
+      }
+    }
+    grid.append(row);
+  }
+}
+
 // ?food=1：喂给它的各种"纸团"（放大看一遍，再看看实际大小）
 const showFood = params.get('food') === '1';
 if (showFood) {
@@ -154,7 +182,7 @@ if (showFood) {
   }
 }
 
-for (const bg of params.get('compare') === '1' || showFood ? [] : backgrounds) {
+for (const bg of params.get('compare') === '1' || showFood || showOutfits ? [] : backgrounds) {
   for (const sp of appearances) {
     if (only && sp.id !== only) continue;
     const row = document.createElement('div');

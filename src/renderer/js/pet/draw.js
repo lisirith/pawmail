@@ -8,6 +8,7 @@
 
 import { TAU, clamp } from '../util/math.js';
 import { drawLookHead, drawLookNeck, drawHeldItem, drawLookCover } from './looks.js';
+import { resolveOutfit } from './outfits.js';
 
 export const RIG = Object.freeze({
   // 宠物所在的小画布的大小，以及"脚底中心"在这块画布里的位置
@@ -188,7 +189,7 @@ function drawFeet(ctx, sp, P, g) {
   }
 }
 
-function drawArm(ctx, sp, P, g, s) {
+function drawArm(ctx, sp, P, g, s, top = null) {
   const pal = sp.palette;
   const a = s < 0 ? P.armL : P.armR;
   if (g.loaf > 0.9) return; // 趴着时手收在身体下面
@@ -208,6 +209,7 @@ function drawArm(ctx, sp, P, g, s) {
   // 共用关节和动作，轮廓由每种动物独立绘制；不再把所有四肢都画成胶囊。
   if (sp.drawArmShape) {
     sp.drawArmShape(ctx, P, g, { side: s, len, r, legs });
+    if (top && top.sleeve) top.sleeve(ctx, { side: s, len, r, legs }); // 上衣的袖子套在手臂上
     ctx.restore();
     return;
   }
@@ -237,6 +239,7 @@ function drawArm(ctx, sp, P, g, s) {
   ctx.lineWidth = LW;
   ctx.stroke();
   ctx.restore();
+  if (top && top.sleeve) top.sleeve(ctx, { side: s, len, r, legs }); // 上衣的袖子套在手臂上
   ctx.restore();
 }
 
@@ -515,18 +518,22 @@ function drawFace(ctx, sp, P, lx, ly, time) {
   if (sp.drawFaceExtras) sp.drawFaceExtras(ctx, lx, ly);
 }
 
-function drawHead(ctx, sp, P, g, time, look) {
+function drawHead(ctx, sp, P, g, time, look, outfit = null) {
   const pal = sp.palette;
   const { rx, ry } = sp.head;
   const lx = clamp(P.lookX + g.facing * 0.55, -1, 1);
   const ly = clamp(P.lookY, -1, 1);
+  const hat = outfit && outfit.hat;
 
   ctx.save();
   ctx.translate(g.headCx, g.headCy);
   ctx.rotate(P.headTilt);
 
-  sp.drawEar(ctx, -1, P, lx, ly);
-  sp.drawEar(ctx, 1, P, lx, ly);
+  if (!(hat && hat.hidesEars)) {
+    // 戴毛线帽这种帽子时，耳朵收进帽子里，不画
+    sp.drawEar(ctx, -1, P, lx, ly);
+    sp.drawEar(ctx, 1, P, lx, ly);
+  }
 
   // 头的轮廓：默认是年糕形；动物可以换成自己的（比如熊猫两颊毛茸茸的）
   const outline = () => (sp.headPath || headPath)(ctx, rx, ry);
@@ -546,7 +553,10 @@ function drawHead(ctx, sp, P, g, time, look) {
   ctx.stroke();
 
   drawFace(ctx, sp, P, lx, ly, time);
-  drawLookHead(ctx, look, sp, P, lx, time); // 帽子、兔耳朵……（以后的换装也画在这里）
+  const info = { sp, P, lx, ly, time };
+  if (outfit && outfit.glasses) outfit.glasses.glasses(ctx, info); // 换装：眼镜
+  drawLookHead(ctx, look, sp, P, lx, time); // 节日的帽子、兔耳朵……
+  if (hat) hat.hat(ctx, info); // 换装：帽子（过节那天节日戴了帽子，这里就是空的）
   ctx.restore();
 }
 
@@ -642,13 +652,15 @@ function drawCarried(ctx, sp, P, g, lift, gold) {
  * @param P     姿势（见 pose.js）
  * @param opts  { time: 当前时间（秒，转圈眼睛用）, shadow: 是否画影子,
  *               carry: 手里有没有信, carryLift: 信举多高（0 胸前 … 1 头顶）, carryGold: 是不是金色信封,
- *               look: 节日装扮（见 looks.js）, sheetLift: 万圣节白布撩起来多少 }
+ *               look: 节日装扮（见 looks.js）, sheetLift: 万圣节白布撩起来多少,
+ *               outfit: 穿着的衣服 { hat, glasses, top, bag, held }，每项是衣服的编号（见 outfits.js） }
  */
 export function drawPet(ctx, sp, P, opts = {}) {
   const pal = sp.palette;
   const g = getGeometry(sp, P);
   const time = opts.time || 0;
   const look = opts.look || null;
+  const outfit = resolveOutfit(opts.outfit, look); // 换装：穿着的衣服（见 outfits.js）
   const carryLift = opts.carry ? clamp(opts.carryLift || 0, 0, 1) : -1; // -1 = 手里没东西
 
   ctx.save();
@@ -674,6 +686,8 @@ export function drawPet(ctx, sp, P, opts = {}) {
   const torso = () => sp.torsoPath
     ? sp.torsoPath(ctx, g)
     : torsoPath(ctx, g.torsoCx, g.torsoCy, g.torsoRxTop, g.torsoRxBot, g.torsoRy);
+  const body = { sp, P, g, torso, time };
+  if (outfit.bag && outfit.bag.back) outfit.bag.back(ctx, body); // 背在身后的包：被身体挡住一部分
   torso();
   ctx.fillStyle = sp.torsoFill ? sp.torsoFill(ctx, g) : pal.fur;
   ctx.fill();
@@ -687,7 +701,9 @@ export function drawPet(ctx, sp, P, opts = {}) {
   ctx.strokeStyle = pal.outline;
   ctx.lineWidth = LW;
   ctx.stroke();
-  // （以后下装、上衣画在这里）
+  if (outfit.top) outfit.top.body(ctx, body); // 换装：上衣（裁剪在身体轮廓里）
+  if (outfit.bag && outfit.bag.front) outfit.bag.front(ctx, body); // 换装：背带、斜挎的小包
+  // （以后下装画在这里）
 
   if (feetInFront) drawFeet(ctx, sp, P, g);
 
@@ -701,8 +717,8 @@ export function drawPet(ctx, sp, P, opts = {}) {
     : 0;
   const frontL = P.armL < -1.25 ? 1 : restingInFront(P.armL);
   const frontR = P.armR < -1.25 ? 1 : restingInFront(P.armR);
-  if (frontL < 1) drawArm(ctx, sp, P, g, -1);
-  if (frontR < 1) drawArm(ctx, sp, P, g, 1);
+  if (frontL < 1) drawArm(ctx, sp, P, g, -1, outfit.top);
+  if (frontR < 1) drawArm(ctx, sp, P, g, 1, outfit.top);
 
   if (carryLift >= 0 && carryLift < 0.5) {
     drawCarried(ctx, sp, P, g, carryLift, opts.carryGold); // 抱在胸前：在头的后面
@@ -712,16 +728,22 @@ export function drawPet(ctx, sp, P, opts = {}) {
     ctx.translate(g.torsoCx, g.torsoCy + 1);
     drawHeldItem(ctx, look, time);
     ctx.restore();
+  } else if (carryLift < 0 && outfit.held && g.loaf < 0.5) {
+    // 换装：手里拿着的东西（奶茶、小鱼、竹子……）。有信要拆、过节拿着灯笼时先放下
+    ctx.save();
+    ctx.translate(g.torsoCx, g.torsoCy + 1);
+    outfit.held.held(ctx, body);
+    ctx.restore();
   }
 
-  drawHead(ctx, sp, P, g, time, look);
+  drawHead(ctx, sp, P, g, time, look, outfit);
   drawLookNeck(ctx, look, g); // 围巾、香囊挂在下巴下面
 
   for (const [side, alpha] of [[-1, frontL], [1, frontR]]) {
     if (alpha <= 0) continue;
     ctx.save();
     ctx.globalAlpha *= alpha;
-    drawArm(ctx, sp, P, g, side);
+    drawArm(ctx, sp, P, g, side, outfit.top);
     ctx.restore();
   }
 
