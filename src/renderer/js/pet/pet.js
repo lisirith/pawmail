@@ -127,6 +127,7 @@ export class Pet {
     s.carryLift = 0;
     s.sheetLift = 0;
     s.tilt = 0;
+    s.tailSide = 0; // 0 = 尾巴跟着朝向自己换边；-1 / 1 = 动作指定尾巴在哪边
   }
 
   finish(dt) {
@@ -225,7 +226,8 @@ export class Pet {
 
     // 尾巴
     T.tail += wobble(t * s.tailSpeed, this.seed + 3) * s.tailAmp;
-    if (Math.abs(T.facing) > 0.3) T.tailSide = -sign(T.facing);
+    if (s.tailSide) T.tailSide = s.tailSide; // 动作指定了尾巴在哪边（比如扒墙时尾巴不能伸进墙里）
+    else if (Math.abs(T.facing) > 0.3) T.tailSide = -sign(T.facing);
     else T.tailSide = this.pose.tailSide >= 0 ? 1 : -1;
 
     // 手里有信（或者节日的灯笼、月饼，衣柜里的奶茶、小鱼……）、而这个动作又没用到手：两只手抱在胸前

@@ -190,9 +190,13 @@ function drawFeet(ctx, sp, P, g) {
   }
 }
 
-function drawArm(ctx, sp, P, g, s, top = null) {
+/**
+ * 画一只手臂。s = -1 左手 / 1 右手（画在哪一边）。
+ * swap：扒墙时离墙远的那只手绕到墙这一边来画 { a 它自己的角度, dx, dy 肩膀挪一点，和近处那只错开 }
+ */
+function drawArm(ctx, sp, P, g, s, top = null, swap = null) {
   const pal = sp.palette;
-  const a = s < 0 ? P.armL : P.armR;
+  const a = swap ? swap.a : s < 0 ? P.armL : P.armR;
   if (g.loaf > 0.9) return; // 趴着时手收在身体下面
   const b = g.build;
   // 猫坐下时，自然垂着的手就是两条前腿：挪到肚子前面，伸直撑到地上
@@ -205,7 +209,7 @@ function drawArm(ctx, sp, P, g, s, top = null) {
   const px = s * ((20.5 + g.loaf * 3 + g.sit * 1.5) * b.torso - legs * (b.frontLegInset ?? 9.5) - fold * (b.foldInset || 0)) + g.facing * 2.5;
   const py = g.torsoCy - g.torsoRy * 0.42;
   ctx.save();
-  ctx.translate(px, py);
+  ctx.translate(px + (swap ? swap.dx : 0), py + (swap ? swap.dy : 0));
   ctx.rotate(-s * (0.24 * (1 - legs) + a + rest));
   // 共用关节和动作，轮廓由每种动物独立绘制；不再把所有四肢都画成胶囊。
   if (sp.drawArmShape) {
@@ -689,6 +693,20 @@ export function drawPet(ctx, sp, P, opts = {}) {
     : torsoPath(ctx, g.torsoCx, g.torsoCy, g.torsoRxTop, g.torsoRxBot, g.torsoRy);
   const body = { sp, P, g, torso, time };
   if (outfit.bag && outfit.bag.back) outfit.bag.back(ctx, body); // 背在身后的包：被身体挡住一部分
+
+  // 扒墙（P.wallArm）：离墙远的那只手绕到墙这一边，扒在墙上（两只手一前一后都扒着墙，不会有一只悬在半空）。
+  // 它比身子先画，靠肩膀的那一截被身子挡住，只露出伸向墙的那一段，看起来就是"另一边的那只手"。
+  // 肩膀往上、往里挪一点，和近处那只手错开
+  const wallSide = Math.sign(P.wallArm || 0);
+  const wallK = clamp(Math.abs(P.wallArm || 0), 0, 1);
+  const farSide = -wallSide; // 离墙远的那只手
+  if (wallK > 0.01 && g.loaf < 0.9) {
+    ctx.save();
+    ctx.globalAlpha *= wallK;
+    drawArm(ctx, sp, P, g, wallSide, outfit.top, { a: farSide < 0 ? P.armL : P.armR, dx: -wallSide * 3, dy: -4 });
+    ctx.restore();
+  }
+
   torso();
   ctx.fillStyle = sp.torsoFill ? sp.torsoFill(ctx, g) : pal.fur;
   ctx.fill();
@@ -718,8 +736,16 @@ export function drawPet(ctx, sp, P, opts = {}) {
     : 0;
   const frontL = P.armL < -1.25 ? 1 : restingInFront(P.armL);
   const frontR = P.armR < -1.25 ? 1 : restingInFront(P.armR);
-  if (frontL < 1) drawArm(ctx, sp, P, g, -1, outfit.top);
-  if (frontR < 1) drawArm(ctx, sp, P, g, 1, outfit.top);
+  // 扒墙时离墙远的那只手已经画到墙那边去了，原来的位置上就不画（刚扒上墙、跳下来的一瞬间，两边一个淡出一个淡入）
+  const keep = (s) => (wallK > 0.01 && s === farSide ? 1 - wallK : 1);
+  for (const [side, front] of [[-1, frontL], [1, frontR]]) {
+    const k = keep(side);
+    if (front >= 1 || k <= 0.01) continue;
+    ctx.save();
+    ctx.globalAlpha *= k;
+    drawArm(ctx, sp, P, g, side, outfit.top);
+    ctx.restore();
+  }
 
   if (carryLift >= 0 && carryLift < 0.5) {
     drawCarried(ctx, sp, P, g, carryLift, opts.carryGold); // 抱在胸前：在头的后面
@@ -740,8 +766,9 @@ export function drawPet(ctx, sp, P, opts = {}) {
   drawHead(ctx, sp, P, g, time, look, outfit);
   drawLookNeck(ctx, look, g); // 围巾、香囊挂在下巴下面
 
-  for (const [side, alpha] of [[-1, frontL], [1, frontR]]) {
-    if (alpha <= 0) continue;
+  for (const [side, front] of [[-1, frontL], [1, frontR]]) {
+    const alpha = front * keep(side);
+    if (alpha <= 0.01) continue;
     ctx.save();
     ctx.globalAlpha *= alpha;
     drawArm(ctx, sp, P, g, side, outfit.top);

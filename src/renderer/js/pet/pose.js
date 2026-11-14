@@ -34,6 +34,9 @@ export const POSE_DEFAULTS = Object.freeze({
   // —— 手 ——（0 = 自然下垂，越大抬得越高）
   armL: 0,
   armR: 0,
+  // 扒墙：-1 左边的墙 … 0 不扒 … 1 右边的墙。扒着墙时，离墙远的那只手也绕到墙这一边，
+  // 从身子后面伸出来扒着墙（两只手一前一后都在墙上）；它的角度还是看 armL / armR
+  wallArm: 0,
 
   // —— 脚 ——（相对站立位置的偏移）
   footLX: 0,
@@ -107,6 +110,7 @@ const POSE_PIXELS = Object.freeze({
   earDroop: 22,
   armL: 20,
   armR: 20,
+  wallArm: 40,
   footLX: 1,
   footLY: 1,
   footRX: 1,

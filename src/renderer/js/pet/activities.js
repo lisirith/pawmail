@@ -1051,14 +1051,17 @@ export const ACTIVITIES = {
         }
 
         if (this.phase === 'reach') {
-          // 转身面向墙，抬头看看上面，蹲一下，两只手举起来扒住
+          // 转身面向墙，抬头看看上面，蹲一下，两只手举起来扒住（离墙远的那只手绕到墙这边，见 draw.js 的 wallArm）
           const u = clamp(this.pt / 0.55, 0, 1);
+          const e = easeInOut(u);
           s.fps = 60;
           s.gaze = 'none';
           T.facing = side * 0.85;
           T.lookX = side * 0.3;
           T.lookY = -0.85;
-          T.armL = T.armR = 1.8 * easeInOut(u);
+          T.armL = (side < 0 ? 1.6 : 1.9) * e;
+          T.armR = (side > 0 ? 1.6 : 1.9) * e;
+          T.wallArm = side * e;
           T.crouch = 0.3 * bell(u);
           T.earDroop = -0.15;
           if (u >= 1) {
@@ -1100,8 +1103,12 @@ export const ACTIVITIES = {
         pet.x = this.wallX(w);
         T.footLX = T.footRX = side * 9; // 脚蹬着墙
         T.lean = side * 0.03;
-        T.tailCurl = 0; // 尾巴垂下来
+        T.wallArm = side; // 两只手都扒在墙上（离墙远的那只从身子后面伸过来）
+        // 尾巴：爬高了就整条垂下来（圆滚滚的，不压扁）；刚离地时还翘着，免得垂到地板下面去
+        T.tailCurl = 1;
+        T.tailHang = clamp(this.climbed / (50 * w.scale), 0, 1);
         s.tilt = side * 0.08; // 整个身子往墙那边靠一点
+        s.tailSide = -side; // 尾巴一直在屋子这边：回头看屋里时也不换边（换边那一下尾巴会变成一根细棍，而且会伸进墙里）
 
         if (this.phase === 'up' || this.phase === 'down') {
           const up = this.phase === 'up';
@@ -1113,9 +1120,9 @@ export const ACTIVITIES = {
           const sn = Math.sin(this.cyc);
           const push = 0.2 + 0.8 * Math.abs(sn);
           this.climbed += (up ? 1 : -1.3) * this.speed * push * dt;
-          // 靠墙的那只爪子扒在墙上，另一只爪子往上够；两只轮流使劲
-          const near = 1.4 + 0.22 * sn;
-          const far = 1.95 - 0.3 * sn;
+          // 两只爪子都扒在墙上，一只往上够、另一只往下拉，轮流换手（和对面那只脚一起动，像真的在爬）
+          const near = 1.72 + 0.25 * sn;
+          const far = 1.72 - 0.25 * sn;
           T.armL = side < 0 ? near : far;
           T.armR = side > 0 ? near : far;
           T.footLY = Math.max(0, -sn) * 7;
@@ -1146,15 +1153,15 @@ export const ACTIVITIES = {
           return false;
         }
 
-        // cling：一只爪子扒着墙，另一只垂下来放松，脚轻轻晃；转过头来东张西望
+        // cling：两只爪子一高一低扒着墙（偶尔轻轻换一下着力），脚轻轻晃；转过头来东张西望
         s.fps = 30;
         s.gaze = 'none';
         s.tailAmp = 0.7;
         s.tailSpeed = 1.6;
         pet.y = w.groundY - this.climbed;
-        const hang = 0.45 + Math.sin(t * 1.7) * 0.12;
-        T.armL = side < 0 ? 1.5 : hang;
-        T.armR = side > 0 ? 1.5 : hang;
+        const shift = Math.sin(t * 1.3) * 0.07;
+        T.armL = side < 0 ? 1.6 + shift : 1.92 - shift;
+        T.armR = side > 0 ? 1.6 + shift : 1.92 - shift;
         T.footLY = Math.max(0, Math.sin(t * 2.2)) * 2.5;
         T.footRY = Math.max(0, -Math.sin(t * 2.2)) * 2.5;
         if (this.pt < 1.1) {
@@ -1196,7 +1203,6 @@ export const ACTIVITIES = {
 
   // ------------------------------------------------------------ 被拎起来、掉下去
 
-  /** 被鼠标拎着：四肢垂下来，跟着晃 */
   /**
    * 被你拎着，像拎小猫的后脖梗：
    *   - 刚被抓住：吓一跳，眼睛瞪圆，手往上一缩
