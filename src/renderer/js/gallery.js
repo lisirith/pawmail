@@ -152,7 +152,9 @@ if (showOutfits) {
     row.className = 'row bg-light';
     for (const sp of appearances) {
       for (const [label, pose] of OUTFIT_POSES) {
-        const holding = outfit.held && !pose.loaf ? { armL: -0.75, armR: -0.75 } : {};
+        // 手里拿着东西时两只手抱在胸前；欢呼、爬墙时两只手都忙着，东西会收起来（见 draw.js 的 holdAmount）
+        const busy = pose.loaf || pose.wallArm || pose.armL > 1;
+        const holding = outfit.held && !busy ? { armL: -0.75, armR: -0.75 } : {};
         cell(row, `${name} · ${sp.id} ${label}`, sp, { ...pose, ...holding }, { outfit });
       }
     }

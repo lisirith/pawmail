@@ -625,10 +625,35 @@ export function drawEnvelope(ctx, w = 30, h = 21, { gold = false } = {}) {
 }
 
 /**
+ * 手里的东西（信、节日的灯笼、衣柜里的奶茶……）现在有没有爪子拿着：0 没有 … 1 有。
+ * 这些东西是画在胸口的，所以得有一只爪子在胸前（手臂角度大约 -1.15 ～ -0.4）才算拿着。
+ * 两只手都在忙别的（挥手、欢呼、爬墙、往下掉……）时是 0：东西先收起来，手回到胸前再拿出来，
+ * 不然会看到它悬在半空（用户反馈过）。中间那一小段是为了收起、拿出时不要"啪"地一下出现。
+ */
+export function holdAmount(P) {
+  const near = (a) => clamp(Math.min((a + 1.45) / 0.3, (-0.15 - a) / 0.25), 0, 1);
+  return Math.max(near(P.armL), near(P.armR));
+}
+
+/** 按"拿着多少"（0…1）画手里的东西：没完全拿稳时小一点、淡一点，像正从怀里掏出来 */
+function withHold(ctx, amount, draw) {
+  if (amount <= 0.02) return;
+  ctx.save();
+  if (amount < 1) {
+    ctx.globalAlpha *= amount;
+    const k = 0.7 + 0.3 * amount;
+    ctx.scale(k, k);
+  }
+  draw();
+  ctx.restore();
+}
+
+/**
  * 画它手里拿着的信。
  * lift：0 = 抱在胸前，1 = 举过头顶（提醒你"有信"的时候）。趴下睡觉时，信放在身边的地上。
+ * vis：0…1，信有没有被拿着（见 holdAmount）
  */
-function drawCarried(ctx, sp, P, g, lift, gold) {
+function drawCarried(ctx, sp, P, g, lift, gold, vis = 1) {
   let x;
   let y;
   let rot;
@@ -646,7 +671,7 @@ function drawCarried(ctx, sp, P, g, lift, gold) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rot);
-  drawEnvelope(ctx, 30, 21, { gold });
+  withHold(ctx, vis, () => drawEnvelope(ctx, 30, 21, { gold }));
   ctx.restore();
 }
 
@@ -758,19 +783,24 @@ export function drawPet(ctx, sp, P, opts = {}) {
     ctx.restore();
   }
 
+  // 手里的东西都画在胸口：得有爪子在胸前拿着才画（见 holdAmount）；趴下睡觉时也收起来
+  const hold = holdAmount(P);
+  const heldVis = hold * clamp((0.65 - g.loaf) / 0.3, 0, 1);
   if (carryLift >= 0 && carryLift < 0.5) {
-    drawCarried(ctx, sp, P, g, carryLift, opts.carryGold); // 抱在胸前：在头的后面
-  } else if (carryLift < 0 && look && look.held && g.loaf < 0.5) {
+    // 信抱在胸前（在头的后面）。趴着睡觉时信放在身边的地上；正往上举的时候（showMail）也一直看得见
+    const vis = g.loaf > 0.5 ? 1 : Math.max(hold, clamp(carryLift / 0.12, 0, 1));
+    if (vis > 0.02) drawCarried(ctx, sp, P, g, carryLift, opts.carryGold, vis);
+  } else if (carryLift < 0 && look && look.held) {
     // 手里没有信的时候，抱着节日的东西（灯笼、月饼……）
     ctx.save();
     ctx.translate(g.torsoCx, g.torsoCy + 1);
-    drawHeldItem(ctx, look, time);
+    withHold(ctx, heldVis, () => drawHeldItem(ctx, look, time));
     ctx.restore();
-  } else if (carryLift < 0 && outfit.held && g.loaf < 0.5) {
+  } else if (carryLift < 0 && outfit.held) {
     // 换装：手里拿着的东西（奶茶、小鱼、竹子……）。有信要拆、过节拿着灯笼时先放下
     ctx.save();
     ctx.translate(g.torsoCx, g.torsoCy + 1);
-    outfit.held.held(ctx, body);
+    withHold(ctx, heldVis, () => outfit.held.held(ctx, body));
     ctx.restore();
   }
 

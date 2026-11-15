@@ -9,7 +9,7 @@
 
 import { TAU, clamp, damp, Spring, rand, chance, wobble, bell, sign, random, pickWeighted } from '../util/math.js';
 import { makePose, resetPose, POSE_KEYS, HALF_LIFE } from './pose.js';
-import { drawPet, hitTest, getGeometry, RIG } from './draw.js';
+import { drawPet, hitTest, getGeometry, holdAmount, RIG } from './draw.js';
 import { Fx, CONFETTI_COLORS } from './fx.js';
 import { OUTFITS, OUTFIT_SLOTS } from './outfits.js';
 
@@ -105,6 +105,11 @@ export class Pet {
     return !!(this.outfit && this.outfit.held && !(this.look && this.look.held));
   }
 
+  /** 手里有没有东西要拿：等你拆的信、节日的灯笼和月饼、衣柜里的奶茶和小鱼…… */
+  get holding() {
+    return this.carry || !!(this.look && this.look.held) || this.holdsOutfitItem;
+  }
+
   /** 头顶（含耳朵）在宠物坐标里的 y，特效用它来决定从哪里冒出来 */
   headTop() {
     const g = getGeometry(this.sp, this.pose);
@@ -185,7 +190,8 @@ export class Pet {
       for (let i = 0; i < 9; i++) {
         this.fx.spawn('confetti', { ambient: true, x: rand(-30, 30), y: top + 8, vx: rand(-70, 70), vy: -rand(60, 110), ay: 140, life: rand(1.6, 2.3), size: rand(0.8, 1.2), rot: rand(0, 3), vrot: rand(-6, 6), phase: rand(0, 6), color: CONFETTI_COLORS[i % CONFETTI_COLORS.length] });
       }
-    } else if (type === 'sparks' && !this.carry) {
+    } else if (type === 'sparks' && !this.carry && holdAmount(this.pose) > 0.5) {
+      // 仙女棒拿在手里才冒火星（手忙别的、把它收起来的时候不冒）
       this.lookFxClock = rand(0.3, 0.5);
       const g = getGeometry(this.sp, this.pose);
       for (let i = 0; i < 2; i++) {
@@ -230,11 +236,13 @@ export class Pet {
     else if (Math.abs(T.facing) > 0.3) T.tailSide = -sign(T.facing);
     else T.tailSide = this.pose.tailSide >= 0 ? 1 : -1;
 
-    // 手里有信（或者节日的灯笼、月饼，衣柜里的奶茶、小鱼……）、而这个动作又没用到手：两只手抱在胸前
-    const holding = this.carry || (this.look && this.look.held) || this.holdsOutfitItem;
-    if (holding && this.mode === 'ground' && T.armL === 0 && T.armR === 0 && T.loaf < 0.5) {
-      T.armL = -0.75;
-      T.armR = -0.75;
+    // 手里有信（或者节日的灯笼、月饼，衣柜里的奶茶、小鱼……）：这个动作没用到的手，抱在胸前拿着它。
+    // 只用一只手的动作（挥手、舔爪子），另一只手照样拿着；两只手都占着（欢呼、伸懒腰）就拿不了，
+    // 画的时候东西会先收起来（见 draw.js 的 holdAmount），不会悬在半空。
+    // "没用到" = 手臂角度很小（垂着，或者只是轻轻摆一下）
+    if (this.holding && this.mode === 'ground' && T.loaf < 0.5) {
+      if (Math.abs(T.armL) < 0.4) T.armL = -0.75;
+      if (Math.abs(T.armR) < 0.4) T.armR = -0.75;
     }
 
     // 困的时候眼皮下垂

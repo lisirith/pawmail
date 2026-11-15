@@ -91,8 +91,11 @@ function locomote(b, st, dt, tx, gait, speedMul = 1) {
   T.footRX = c * 4 * dir;
   T.lift += Math.abs(s) * gait.bob;
   T.lean += dir * gait.lean + s * gait.sway;
-  T.armL += -s * gait.arm;
-  T.armR += s * gait.arm;
+  if (!pet.holding) {
+    // 手里拿着东西（信、灯笼、奶茶……）时不甩手：两只手抱着它走（见 pet.js 的 #micro）
+    T.armL += -s * gait.arm;
+    T.armR += s * gait.arm;
+  }
   T.headTilt += -s * 0.025;
   return Math.abs(tx - pet.x) < 0.75;
 }

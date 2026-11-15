@@ -363,23 +363,35 @@ function createCat(coatId = 'tabby') {
 
   // 按蓝笔描合完整的花生形外缘；舒展、卷尾和摆动连续变形这条轮廓。
   function drawTail(ctx, P, g) {
-    const s = P.tailSide, c = clamp(P.tailCurl + g.sit * 0.2, 0, 1), sway = P.tail, by = g.tailBaseY;
-    // 被拎起来时（tailHang）：整条尾巴绕着尾根往下转，顺着尾巴的走向稍微缩短一点，
-    // 但横着的粗细一点不变——尾巴是圆柱一样的，不能压成纸片（用户反馈）
+    const s = P.tailSide, c = clamp(P.tailCurl + g.sit * 0.2, 0, 1), sway = P.tail;
+    // 尾巴永远是"翘着"时的那一条：圆滚滚的，粗细不变（尾巴像圆柱，不能压成纸片——用户反馈过）。
+    // 要放低时，是整条绕着尾根往下转、顺着尾巴的走向稍微缩短一点：
+    //   - tailCurl 越小（走路、坐着、睡觉）转得越低。以前的做法是把整条尾巴上下压扁，睡觉时只剩四成高。
+    //     转多少、缩多少，是照着"以前压扁以后尾巴中线的方向和长度"算的，所以尾巴还在原来的位置，只是不扁了
+    //   - tailHang（被拎起来、爬墙）再整条往下垂，短 15%
+    const UX = 0.77, UY = -0.638; // 尾巴大致的走向（从尾根指向尾尖）
+    const vx = UX * lerp(1.06, 0.997, c) / 0.997, vy = UY * lerp(0.32, 1.036, c) / 1.036;
+    const lower = Math.atan2(vy, vx) - Math.atan2(UY, UX); // 以前压扁后的中线比翘着时低了多少（弧度）
     const hang = P.tailHang || 0;
-    const turn = hang * 1.1, tc = Math.cos(turn), ts = Math.sin(turn);
-    const shorten = hang * 0.15;
-    const ux = 0.79, uy = -0.61; // 尾巴大致的走向（从尾根指向尾尖）
+    /** 尾巴上的一点，相对尾根的位置。keep = 顺着尾巴方向保留多长，turn = 绕尾根转多少 */
+    const local = (x, y, keep, turn) => {
+      let dx = (x - 16) * 0.997, dy = (y + 9.4) * 1.036;
+      const along = dx * UX + dy * UY; // 只缩"顺着尾巴"的那个方向，粗细方向不缩
+      dx -= along * (1 - keep) * UX;
+      dy -= along * (1 - keep) * UY;
+      const cs = Math.cos(turn), sn = Math.sin(turn);
+      return [dx * cs - dy * sn, dx * sn + dy * cs];
+    };
+    // 坐着、趴着时尾巴转低了，下面那一侧会低过地面：把尾根抬高一点，让尾巴正好搁在地上
+    // （只按"放低"算，不算被拎起来时的下垂——那时候在半空，尾巴本来就该垂到脚下面）
+    const keepLow = Math.hypot(vx, vy);
+    let sink = 0;
+    for (const [x, y] of [[18.8, 6.6], [31, 3], [39.3, -7]]) sink = Math.max(sink, local(x, y, keepLow, lower)[1]);
+    const by = g.tailBaseY - Math.max(0, g.tailBaseY + sink - 1 - P.lift);
+    const keep = keepLow * (1 - 0.15 * hang), turn = lower + hang * 1.1;
     const point = (x, y) => {
       const flex = Math.pow(clamp((x - 16) / 58, 0, 1), 2);
-      let dx = (x - 16) * lerp(1.06, 0.997, c);
-      let dy = (y + 9.4) * lerp(0.32, 1.036, c);
-      if (hang > 0) {
-        const along = dx * ux + dy * uy; // 只缩"顺着尾巴"的那个方向，粗细方向不缩
-        dx -= along * shorten * ux;
-        dy -= along * shorten * uy;
-        [dx, dy] = [dx * tc - dy * ts, dx * ts + dy * tc];
-      }
+      const [dx, dy] = local(x, y, keep, turn);
       return [s * (16 + dx) + sway * 6 * flex, by + dy + sway * 2 * flex];
     };
     const move = (x, y) => ctx.moveTo(...point(x, y));
@@ -397,7 +409,7 @@ function createCat(coatId = 'tabby') {
       curve(19, -5, 17, -7, 16, -9.4);
       ctx.closePath();
     };
-    const wash = hang > 0 ? point(50, -32.6) : [s * 50, by - 24]; // 尾巴垂下来时，明暗也跟着转下来
+    const wash = point(50, -32.6); // 明暗跟着尾巴一起转（翘着时就是原来的位置）
     shape(); ctx.fillStyle = furWash(ctx, wash[0], wash[1], 58); ctx.fill();
     ctx.save(); shape(); ctx.clip();
     if (lucky) {
