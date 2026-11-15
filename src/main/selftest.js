@@ -140,7 +140,82 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
   await testWardrobe();
   await testReports();
   await testFestivals();
+  await testFullscreen();
+  await testHints();
   return finish();
+
+  // ---------------------------------------------------------------- 全屏时躲起来
+
+  async function testFullscreen() {
+    const { BrowserWindow } = require('electron');
+    // 自己开一个真正全屏的黑窗口，问 native.js：它算不算"铺满了整个主屏幕"
+    const full = new BrowserWindow({ fullscreen: true, frame: false, show: false, backgroundColor: '#101010', skipTaskbar: true, focusable: false });
+    full.showInactive();
+    await wait(700);
+    const fullCovers = native.coversPrimaryScreen(native.handleOf(full));
+    full.destroy();
+    // 最大化的普通窗口不算全屏（它不盖住任务栏）；我们自己的透明窗口也不算
+    const max = new BrowserWindow({ width: 500, height: 300, show: false, skipTaskbar: true, focusable: false });
+    max.maximize();
+    max.showInactive();
+    await wait(500);
+    const maxCovers = native.coversPrimaryScreen(native.handleOf(max));
+    max.destroy();
+    const ownCovers = native.coversPrimaryScreen(native.handleOf(overlay.win));
+    check('能认出全屏的窗口；最大化的窗口和我们自己的透明窗口不算全屏', !native.available || (fullCovers === true && maxCovers === false && ownCovers === false), {
+      fullCovers,
+      maxCovers,
+      ownCovers,
+      foregroundNow: native.foregroundFullscreen(),
+    });
+
+    // 藏起来、再回来：回来以后还是不抢焦点、鼠标照样穿过去、层次和原来一样
+    const onTopBefore = overlay.win.isAlwaysOnTop();
+    overlay.setHidden(true);
+    await wait(250);
+    const hidden = !overlay.win.isVisible() && !overlay.polling;
+    overlay.setHidden(false);
+    await wait(350);
+    const back = overlay.win.isVisible() && overlay.polling && !overlay.capturing && overlay.win.isAlwaysOnTop() === onTopBefore && !overlay.win.isFocused();
+    check('有全屏程序时整块窗口藏起来，退出后回来（不抢焦点、鼠标照样穿透）', hidden && back, { hidden, back });
+    const alive = await js(`const P = window.__pawmail; P.run(0.2); return { x: P.pet.x > 0, mode: P.pet.mode };`);
+    check('藏起来再回来以后，画面照常运行', !!alive && alive.x === true, alive);
+  }
+
+  // ---------------------------------------------------------------- 小提示
+
+  async function testHints() {
+    // 先把信都拆掉（手里有信时不提醒），并且假装你在电脑前
+    for (const l of store.data.mail.letters) if (!l.opened) mail.markOpened(l.id, { quiet: true });
+    mail.onChange();
+    setSetting('feedHints', 0);
+    setSetting('fedBefore', true);
+    await wait(300);
+    const prepare = `
+      const P = window.__pawmail;
+      P.world.system.idle = 0;
+      P.run(0.3);
+      P.brain.queue.length = 0;
+      P.brain.start('idle');
+      P.bubble.hide();
+      P.run(0.1);`;
+    const fed = await js(`${prepare} return P.hintFeed();`);
+    setSetting('fedBefore', false);
+    await wait(300);
+    const hint = await js(`${prepare}
+      const first = P.hintFeed();
+      const queued = P.brain.queue.map((q) => [q[0], q[1] && q[1].line]);
+      const second = P.hintFeed();
+      P.run(1.4);
+      return { first, second, queued, said: document.querySelector('#bubble .bubble-text').textContent, activity: P.brain.name };`);
+    await wait(300);
+    check(
+      '从没喂过它：它会挥手提醒一次"不要的文件可以拖给我吃"；同一次开机不说第二遍；喂过的人不提醒',
+      fed === false && hint.first === true && hint.second === false && hint.queued.some(([name, line]) => name === 'greet' && line === 'hintFeed') && store.data.settings.feedHints === 1 && hint.said.length > 4,
+      { fed, ...hint, feedHints: store.data.settings.feedHints }
+    );
+    await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.bubble.hide(); P.run(0.2); return true;`);
+  }
 
   // ---------------------------------------------------------------- 活动范围、爬墙
 

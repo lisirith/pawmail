@@ -4,6 +4,7 @@
 //   rootWindowAt  查一下屏幕上某个点最上面是哪个窗口（只在自检时用，用来确认"鼠标穿透"真的生效）。
 //   volumeOf      一个文件在哪个盘上、是不是本机的硬盘（喂它吃文件之前要查，见 feed.js）。
 //   dragImage…    拖着文件到宠物身上时，不让 Windows 画那个挡住它脸的大文件图标（见下面的说明）。
+//   foregroundFullscreen  最前面的窗口是不是铺满了整个主屏幕（有人在全屏打游戏、看视频时，宠物先躲起来）。
 // 如果 koffi 加载失败，程序照样能运行，只是"只待在桌面上"模式的效果会差一点，也不能喂它吃文件了。
 
 let koffi = null;
@@ -19,6 +20,12 @@ let ShowWindow = null;
 let CoInitializeEx = null;
 let CoCreateInstance = null;
 let HelperDragLeave = null;
+let GetForegroundWindow = null;
+let GetWindowRect = null;
+let GetClassNameW = null;
+let MonitorFromWindow = null;
+let GetMonitorInfoW = null;
+let IsZoomed = null;
 
 if (process.platform === 'win32') {
   try {
@@ -44,6 +51,15 @@ if (process.platform === 'win32') {
     CoInitializeEx = ole32.func('long __stdcall CoInitializeEx(void *reserved, uint32_t coinit)');
     CoCreateInstance = ole32.func('long __stdcall CoCreateInstance(PAWMAIL_GUID *rclsid, void *outer, uint32_t ctx, PAWMAIL_GUID *riid, _Out_ void **ppv)');
     HelperDragLeave = koffi.proto('long __stdcall PawmailHelperDragLeave(void *self)');
+    // 判断"最前面的窗口是不是全屏"要用的几个
+    koffi.struct('PAWMAIL_RECT', { left: 'long', top: 'long', right: 'long', bottom: 'long' });
+    koffi.struct('PAWMAIL_MONITORINFO', { cbSize: 'uint32', rcMonitor: 'PAWMAIL_RECT', rcWork: 'PAWMAIL_RECT', dwFlags: 'uint32' });
+    GetForegroundWindow = user32.func('intptr_t __stdcall GetForegroundWindow()');
+    GetWindowRect = user32.func('int __stdcall GetWindowRect(intptr_t hWnd, _Out_ PAWMAIL_RECT *rect)');
+    GetClassNameW = user32.func('int __stdcall GetClassNameW(intptr_t hWnd, _Out_ uint8_t *buf, int cch)');
+    MonitorFromWindow = user32.func('intptr_t __stdcall MonitorFromWindow(intptr_t hWnd, uint32_t flags)');
+    GetMonitorInfoW = user32.func('int __stdcall GetMonitorInfoW(intptr_t hMonitor, _Inout_ PAWMAIL_MONITORINFO *info)');
+    IsZoomed = user32.func('int __stdcall IsZoomed(intptr_t hWnd)');
   } catch (err) {
     console.warn('[native] koffi 不可用，"只待在桌面上"模式会降级：', err.message);
   }
@@ -112,6 +128,55 @@ function rootWindowAt(x, y) {
   } catch (err) {
     console.warn('[native] WindowFromPoint 失败：', err.message);
     return null;
+  }
+}
+
+// ---------------------------------------------------------------- 有没有全屏的程序在最前面
+//
+// 有人在全屏打游戏、全屏看视频时，宠物还在画面上走来走去会很烦，所以要先躲起来（见 main.js 的 watchFullscreen）。
+// 判断的办法：看"最前面的那个窗口"是不是正好铺满了整个主屏幕（宠物只住在主屏幕上）。
+// 只看窗口的大小和它是不是 Windows 自己的桌面，不看它是哪个程序、叫什么名字——我们不记录你在用什么。
+
+const MONITOR_DEFAULTTONEAREST = 2;
+const MONITORINFOF_PRIMARY = 1;
+// Windows 自己的界面：桌面（点一下桌面，最前面的窗口就是它，它也铺满屏幕）、切换窗口时的那一层。这些不算全屏程序
+const SHELL_CLASSES = new Set(['Progman', 'WorkerW', 'Shell_TrayWnd', 'MultitaskingViewFrame', 'XamlExplorerHostIslandWindow', 'TaskSwitcherWnd', 'TaskSwitcherOverlayWnd', 'ForegroundStaging']);
+
+/**
+ * 这个窗口（句柄）是不是铺满了整个主屏幕。查不了返回 false。
+ *   - 最大化的窗口不算：它不盖住任务栏。任务栏设成自动隐藏时，最大化的窗口四边会比屏幕多出几个像素，
+ *     也"盖住"了整个屏幕，所以要另外排除（真正全屏的窗口是正好等于屏幕大小的）。
+ *   - 少 1 个像素都不算：有些程序（包括我们自己的透明窗口）故意少铺 1 像素，就是不想被当成全屏。
+ */
+function coversPrimaryScreen(hwnd) {
+  if (!GetWindowRect || !MonitorFromWindow || !GetMonitorInfoW || !hwnd) return false;
+  try {
+    const rect = {};
+    if (!GetWindowRect(hwnd, rect)) return false;
+    const info = { cbSize: 40, rcMonitor: { left: 0, top: 0, right: 0, bottom: 0 }, rcWork: { left: 0, top: 0, right: 0, bottom: 0 }, dwFlags: 0 };
+    if (!GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), info)) return false;
+    if (!(info.dwFlags & MONITORINFOF_PRIMARY)) return false; // 在别的显示器上：不影响宠物
+    const m = info.rcMonitor;
+    const covers = rect.left <= m.left && rect.top <= m.top && rect.right >= m.right && rect.bottom >= m.bottom;
+    if (!covers) return false;
+    const exact = rect.left === m.left && rect.top === m.top && rect.right === m.right && rect.bottom === m.bottom;
+    if (!exact && IsZoomed && IsZoomed(hwnd)) return false; // 只是最大化（任务栏自动隐藏）
+    const buf = Buffer.alloc(2 * 128);
+    const cls = GetClassNameW && GetClassNameW(hwnd, buf, 128) ? wideString(buf) : '';
+    return !SHELL_CLASSES.has(cls);
+  } catch (err) {
+    console.warn('[native] 查不了窗口是不是全屏：', err.message);
+    return false;
+  }
+}
+
+/** 现在最前面的窗口是不是全屏的（铺满了整个主屏幕）。查不了返回 false（宁可不躲） */
+function foregroundFullscreen() {
+  if (!GetForegroundWindow) return false;
+  try {
+    return coversPrimaryScreen(GetForegroundWindow());
+  } catch {
+    return false;
   }
 }
 
@@ -190,5 +255,7 @@ module.exports = {
   dragImageLeave,
   dragImageWindow,
   setDragImageWindowVisible,
+  coversPrimaryScreen,
+  foregroundFullscreen,
   available: !!SetWindowPos,
 };

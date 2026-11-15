@@ -35,6 +35,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   area: null, // 活动范围 { x, y, w, h }，都是占整个窗口的比例（0~1）；null = 整个屏幕
   fedBefore: false, // 有没有喂它吃过文件（第一次吃的时候，它会解释"其实是放进了回收站"）
   outfit: O.EMPTY, // 现在穿着的衣服 { hat, glasses, top, bag, held }，每个部位是衣服编号或 null（见 shared/outfits/catalog.js）
+  hideOnFullscreen: true, // 有全屏的程序在最前面（打游戏、全屏看视频）时，宠物先躲起来
+  feedHints: 0, // 提醒过几次"不要的文件可以拖给我吃"（最多 3 次；喂过一次就不再提醒）
 });
 
 /** 活动范围：四个 0~1 之间的数字，方框不能超出窗口，也不能小得离谱 */
@@ -73,6 +75,8 @@ const VALID = {
   fedBefore: (v) => typeof v === 'boolean',
   // 这里只查"样子对不对"（五个部位、每件衣服穿对了部位）；"你有没有这件衣服"由 main.js 再查一遍
   outfit: (v) => O.sanitizeOutfit(v) !== null,
+  hideOnFullscreen: (v) => typeof v === 'boolean',
+  feedHints: (v) => Number.isInteger(v) && v >= 0 && v <= 3,
 };
 
 function isValidSetting(key, value) {

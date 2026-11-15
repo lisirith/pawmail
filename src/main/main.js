@@ -111,6 +111,7 @@ function setSetting(key, value) {
   store.saveSoon();
   if (key === 'displayMode') overlay.setDisplayMode(value);
   if (key === 'autoStart') applyAutoStart(value);
+  if (key === 'hideOnFullscreen' && !value) showAfterFullscreen(); // 关掉"全屏时躲起来"：正躲着的话马上出来
   overlay.send('settings', effectiveSettings());
   if (tray) tray.refresh();
   if (mail && ['language', 'species', 'catCoat', 'petName', 'birthday', 'cultures', 'profileAsked', 'outfit'].includes(key)) mail.refresh();
@@ -210,6 +211,8 @@ function startSystemWatch() {
     mail.check(nowMs(), idle < 120); // 新的一天、而且你在电脑前：来信
     refreshFestival(); // 过了凌晨 4 点，节日可能开始或结束了
   }, 5000);
+  // 全屏时躲起来（自检时不看：自检要截图，不能因为你正好开着全屏的程序就失败）
+  if (!SELFTEST_DIR) setInterval(watchFullscreen, 500);
   powerMonitor.on('lock-screen', () => overlay.pause());
   powerMonitor.on('unlock-screen', () => overlay.resume());
   powerMonitor.on('suspend', () => {
@@ -217,6 +220,40 @@ function startSystemWatch() {
     store.saveNow();
   });
   powerMonitor.on('resume', () => overlay.resume());
+}
+
+// ---------------------------------------------------------------- 全屏时躲起来
+
+// 有人在全屏打游戏、全屏看视频时，宠物在画面上走来走去会很烦。所以每半秒看一次
+// "最前面的窗口是不是铺满了整个主屏幕"（native.js，只看窗口大小，不看是什么程序）：
+//   - 连着两次都是全屏（不到 1 秒）→ 整块窗口藏起来
+//   - 退出全屏后连着四次都不是（约 2 秒）→ 回来
+// 要连着几次才算，是为了切换窗口时一闪而过的全屏画面不会让它忽隐忽现。
+let fullscreenStreak = 0; // 正数 = 连着几次是全屏；负数 = 连着几次不是
+
+function showAfterFullscreen() {
+  fullscreenStreak = 0;
+  if (overlay && overlay.hidden) {
+    overlay.setHidden(false);
+    if (DEV) console.log('[全屏] 回来了');
+  }
+}
+
+function watchFullscreen() {
+  if (!overlay || quitting) return;
+  // 没开这个功能、或者你正在画活动范围（那时我们的窗口要在最前面）：不躲
+  if (!store.data.settings.hideOnFullscreen || overlay.editing) {
+    showAfterFullscreen();
+    return;
+  }
+  const full = native.foregroundFullscreen();
+  fullscreenStreak = full ? Math.max(1, fullscreenStreak + 1) : Math.min(-1, fullscreenStreak - 1);
+  if (fullscreenStreak >= 2 && !overlay.hidden) {
+    overlay.setHidden(true);
+    if (DEV) console.log('[全屏] 最前面是全屏的程序，先躲起来');
+  } else if (fullscreenStreak <= -4) {
+    showAfterFullscreen();
+  }
 }
 
 // ---------------------------------------------------------------- 拖文件时的大图标

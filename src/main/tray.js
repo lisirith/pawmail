@@ -94,6 +94,12 @@ class PetTray {
           checked: !!settings.autoStart,
           click: (item) => this.onSet('autoStart', item.checked),
         },
+        {
+          label: t('menu.hideOnFullscreen'),
+          type: 'checkbox',
+          checked: settings.hideOnFullscreen !== false,
+          click: (item) => this.onSet('hideOnFullscreen', item.checked),
+        },
         { type: 'separator' },
         { label: t('menu.comeBack'), click: () => this.onCommand('comeBack') },
         { label: t('menu.sleep'), click: () => this.onCommand('sleep') },

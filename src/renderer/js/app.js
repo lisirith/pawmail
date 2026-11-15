@@ -718,6 +718,25 @@ async function main() {
   setInterval(save, 60000); // 每分钟存一次；退出时还会再存一次
   bridge.on('save-now', save);
 
+  // ------------------------------------------------------------ 小提示
+
+  // 喂文件是藏得最深的功能：没有按钮，也没人会想到"把文件拖到宠物身上"。
+  // 所以从没喂过它的人，它会偶尔挥挥手提醒一句。提醒得很克制：
+  //   - 每次开机最多一次，而且要开了十分钟以后、你在电脑前、它正闲着、手里没有等你拆的信
+  //   - 总共最多 3 次（存档里的 feedHints）；喂过一次（fedBefore）就再也不说
+  let hintedThisRun = false;
+  function maybeHintFeed(force = false) {
+    if (hintedThisRun || settings.fedBefore || (settings.feedHints || 0) >= 3) return false;
+    if (!force && world.time < 600) return false;
+    if (mail.unread > 0 || brain.userAway || pet.mode !== 'ground' || bubble.visible) return false;
+    if (!['idle', 'sit', 'lookAround'].includes(brain.name) || brain.queue.length) return false;
+    hintedThisRun = true;
+    brain.queue.push(['greet', { line: 'hintFeed', sayFor: 6, dur: 2.2 }]);
+    bridge.setSetting('feedHints', (settings.feedHints || 0) + 1);
+    return true;
+  }
+  setInterval(maybeHintFeed, 20000);
+
   // ------------------------------------------------------------ 每一帧
 
   let lastFrameAt = performance.now();
@@ -850,6 +869,8 @@ async function main() {
       areaEditor,
       openAreaEditor,
       settings: () => settings,
+      /** 测试用：马上试着提醒一次"文件可以拖给我吃"（跳过"开了十分钟"这一条，别的条件照旧） */
+      hintFeed: () => maybeHintFeed(true),
       setPointer,
       pause: () => (debug.paused = true),
       resume: () => (debug.paused = false),

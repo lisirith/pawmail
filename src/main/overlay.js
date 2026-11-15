@@ -35,6 +35,7 @@ class Overlay {
     this.capturing = false;
     this.captureAt = 0;
     this.editing = false; // 正在画"活动范围"
+    this.hidden = false; // 有全屏程序在最前面：整块窗口先藏起来（见 setHidden）
     this.bounds = { x: 0, y: 0, width: 0, height: 0 };
     this.cursor = { x: NaN, y: NaN, inside: null };
     this.pollTimer = null;
@@ -48,6 +49,7 @@ class Overlay {
 
   create(displayMode) {
     this.displayMode = displayMode === 'desktop' ? 'desktop' : 'top';
+    this.hidden = false;
     const area = workArea();
     const win = new BrowserWindow({
       x: area.x,
@@ -94,9 +96,12 @@ class Overlay {
     win.once('ready-to-show', () => {
       this.ready = true;
       this.bounds = win.getContentBounds();
-      win.showInactive();
-      this.setDisplayMode(this.displayMode);
-      this.startPolling();
+      if (!this.hidden) {
+        // 启动时正好有全屏程序在最前面的话，先不露面（见 setHidden），等退出全屏再出来
+        win.showInactive();
+        this.setDisplayMode(this.displayMode);
+        this.startPolling();
+      }
       if (this.onReady) this.onReady();
     });
 
@@ -213,7 +218,28 @@ class Overlay {
   }
 
   resume() {
-    if (this.ready) this.startPolling();
+    if (this.ready && !this.hidden) this.startPolling();
+  }
+
+  /**
+   * 有全屏的程序在最前面（打游戏、全屏看视频）：整块窗口藏起来，免得宠物在人家的画面上走来走去；
+   * 退出全屏再放出来（不抢焦点，回到原来的层次）。藏着的时候画面不刷新、也不看鼠标，几乎不费电；
+   * 回来以后画面会把这段时间补上（宠物会变困、变无聊，见 app.js 里的 brain.advance）。
+   */
+  setHidden(flag) {
+    flag = !!flag;
+    if (flag === this.hidden) return;
+    this.hidden = flag;
+    if (!this.alive || !this.ready) return;
+    if (flag) {
+      this.stopPolling();
+      this.setCapture(false);
+      this.win.hide();
+    } else {
+      this.win.showInactive();
+      this.setDisplayMode(this.displayMode);
+      this.startPolling();
+    }
   }
 
   destroy() {
