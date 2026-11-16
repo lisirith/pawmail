@@ -31,7 +31,9 @@ const flag = (name) => {
   const found = args.find((a) => a.startsWith(`--${name}=`));
   return found ? found.slice(name.length + 3) : null;
 };
-const SELFTEST_DIR = app.isPackaged ? null : flag('selftest');
+// 自检会清空信箱、改设置。所以在打包好的正式版里，只有同时指定了测试存档（--userdata）才允许跑，
+// 这样它绝不会碰到你真正的存档；开发版里随时可以跑（npm run selftest 本来就带着 --userdata）
+const SELFTEST_DIR = !app.isPackaged || flag('userdata') ? flag('selftest') : null;
 const DEV = args.includes('--dev') || !!SELFTEST_DIR;
 const TEST_PROFILE = !!flag('userdata'); // 用的是测试存档：不去动系统设置（比如开机启动项）
 const ALL_CLOTHES = DEV && args.includes('--x-allclothes');
@@ -452,6 +454,10 @@ function start() {
 
   registerIpc();
 
+  // 开了"开机启动"的话，每次启动都把启动项重新登记一遍，指到程序现在所在的位置：
+  // 免安装版解压后挪过文件夹、或者升级后位置变了，开机启动也不会失效
+  if (store.data.settings.autoStart) applyAutoStart(true);
+
   overlay = new Overlay({ dev: DEV });
   let restarts = 0;
   overlay.onGone = () => {
@@ -474,6 +480,13 @@ function start() {
     }
   };
   overlay.create(store.data.settings.displayMode);
+  // 启动的时候正好有全屏的程序在最前面（比如开机后马上开了游戏）：一开始就不露面，等退出全屏再出来。
+  // 不然它会先在人家的画面上闪一下，过一秒才躲起来
+  if (!SELFTEST_DIR && store.data.settings.hideOnFullscreen && native.foregroundFullscreen()) {
+    fullscreenStreak = 2;
+    overlay.setHidden(true);
+    if (DEV) console.log('[全屏] 启动时最前面就是全屏的程序，先不露面');
+  }
 
   tray = new PetTray({
     getModel: () => ({ t, settings: effectiveSettings(), mail: mail.summary() }),
@@ -498,6 +511,8 @@ function logDiagnostics() {
       window: overlay.win.getBounds(),
       displayMode: overlay.displayMode,
       nativeHelpers: native.available,
+      packaged: app.isPackaged, // 是不是打包好的正式版（不是的话就是开发版）
+      exe: process.execPath,
       userData: app.getPath('userData'),
       language: currentLanguage(),
       mail: mail.summary(),

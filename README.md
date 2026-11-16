@@ -184,6 +184,21 @@ node tools/build-festival-dates.js 2025 2060
 
 重新生成中国传统节日的日期表（从香港天文台下载官方农历表）。表用到 2060 年，快到了再跑一次往后延。
 
+```bash
+npm run dist
+```
+
+打包：做出别人不用装 Node.js 就能直接用的版本，放在 `dist/` 里（大约要两三分钟）：
+`Pawmail-版本号-win-x64.zip` 是免安装版（解压后双击 `Pawmail.exe`），`Pawmail-Setup-版本号.exe` 是安装程序。
+配置在 `electron-builder.yml`，版本号在 `package.json` 里改。程序图标是用代码画的（`tools/icon-eval.js` → `build/icon.png`）。
+
+```bash
+npm run selftest:packaged
+```
+
+在打包好的程序上再跑一遍自检（用单独的测试存档）。注意：跑自检时最前面不能是全屏的程序（游戏、全屏视频），
+否则 Windows 不让窗口重新置顶，和"置顶"有关的两项会失败。
+
 ### 代码结构
 
 ```

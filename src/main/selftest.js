@@ -148,14 +148,18 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
 
   async function testFullscreen() {
     const { BrowserWindow } = require('electron');
-    // 自己开一个真正全屏的黑窗口，问 native.js：它算不算"铺满了整个主屏幕"
-    const full = new BrowserWindow({ fullscreen: true, frame: false, show: false, backgroundColor: '#101010', skipTaskbar: true, focusable: false });
+    // 自己开一个真正全屏的窗口，问 native.js：它算不算"铺满了整个主屏幕"。
+    // 窗口是完全透明、鼠标能穿过去的：判断只看窗口的大小，所以不需要真的挡住屏幕——
+    // 跑自检的时候你可能正在用电脑，不能让一块黑屏闪到你眼前
+    const full = new BrowserWindow({ fullscreen: true, frame: false, show: false, skipTaskbar: true, focusable: false, opacity: 0 });
+    full.setIgnoreMouseEvents(true);
     full.showInactive();
     await wait(700);
     const fullCovers = native.coversPrimaryScreen(native.handleOf(full));
     full.destroy();
     // 最大化的普通窗口不算全屏（它不盖住任务栏）；我们自己的透明窗口也不算
-    const max = new BrowserWindow({ width: 500, height: 300, show: false, skipTaskbar: true, focusable: false });
+    const max = new BrowserWindow({ width: 500, height: 300, show: false, skipTaskbar: true, focusable: false, opacity: 0 });
+    max.setIgnoreMouseEvents(true);
     max.maximize();
     max.showInactive();
     await wait(500);

@@ -1,0 +1,62 @@
+# 打包配置：把程序做成别人能直接用的版本（工具叫 electron-builder）。
+# 运行：npm run dist      （第一次会从网上下载几个小组件）
+# 产出在 dist/ 里：
+#   Pawmail-0.1.0-win-x64.zip    免安装版：解压后双击 Pawmail.exe
+#   Pawmail-Setup-0.1.0.exe      安装程序：装到"开始"菜单，带卸载
+#   win-unpacked/                没压缩的程序文件夹（自己测试用）
+# 版本号在 package.json 的 "version" 里改。
+
+appId: app.pawmail.desktop # 和 main.js 里 app.setAppUserModelId 用的是同一个
+productName: Pawmail
+directories:
+  output: dist
+  buildResources: build # 图标在这里（build/icon.png，由 tools/icon-eval.js 画出来）
+
+# 包里只放程序本身。tools/（开发工具）、img resource/（设定图）、说明文档都不放。
+# koffi 是调用 Windows 功能的库，它带的 C++ 源码和文档运行时用不到，也不放。
+files:
+  - src/**/*
+  - package.json
+  # 姿势图鉴是开发时看的页面，正式版里用不到
+  - "!src/renderer/gallery.*"
+  - "!src/renderer/js/gallery.js"
+  - "!node_modules/koffi/doc/**"
+  - "!node_modules/koffi/lib/**"
+  - "!node_modules/koffi/vendor/**"
+  - "!node_modules/koffi/src/koffi/src/abi/**"
+  # （LICENSE.txt 要留着：用别人的开源库，分发时要带上它的许可证）
+  - "!node_modules/koffi/**/*.{cc,hh,inc,md,def}"
+  - "!node_modules/koffi/src/koffi/CMakeLists.txt"
+
+# 程序文件会被压成一个 app.asar。但 koffi 的那个 .node 文件必须留在外面：
+# Windows 没法从压缩包里加载它（留在里面的话，"只待在桌面"、喂文件、全屏时躲起来都会失效）。
+asarUnpack:
+  - node_modules/koffi/**
+  - node_modules/@koromix/**
+
+# koffi 自带已经编译好的文件，不需要在打包时重新编译（重新编译要装一大堆工具，还很慢）
+npmRebuild: false
+
+# Electron 自带 50 多种语言的界面文字，我们只用中文和英文，其余的不带，包能小几十 MB
+electronLanguages:
+  - zh-CN
+  - en-US
+
+# 直接用 node_modules 里已经下载好的 Electron，不用再从网上下载一遍
+electronDist: node_modules/electron/dist
+
+win:
+  icon: build/icon.png
+  target:
+    - target: zip
+      arch: [x64]
+    - target: nsis
+      arch: [x64]
+  artifactName: Pawmail-${version}-win-${arch}.${ext}
+
+nsis:
+  oneClick: true # 一键安装：不问问题，装完自动打开
+  perMachine: false # 只装给当前用户，不需要管理员权限
+  deleteAppDataOnUninstall: false # 卸载不删存档——信、礼物、衣服都在存档里
+  artifactName: Pawmail-Setup-${version}.${ext}
+  shortcutName: Pawmail

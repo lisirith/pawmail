@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "爪爪来信 Pawmail — a tiny desktop pet that writes you a letter every day.",
+  "author": "Pawmail",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -13,10 +14,13 @@
     "letters": "node tools/sim-letters.js",
     "snap": "electron tools/snap.js",
     "artcheck": "electron tools/check-art.js",
-    "selftest": "electron . --selftest=tools/shots/selftest --userdata=tools/shots/selftest-userdata"
+    "selftest": "electron . --selftest=tools/shots/selftest --userdata=tools/shots/selftest-userdata",
+    "dist": "electron-builder --win --x64",
+    "selftest:packaged": "node tools/selftest-packaged.js"
   },
   "devDependencies": {
-    "electron": "^45.3.0"
+    "electron": "^45.3.0",
+    "electron-builder": "^26.18.0"
   },
   "dependencies": {
     "koffi": "^3.3.7"
