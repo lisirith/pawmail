@@ -8,3 +8,5 @@ Thumbs.db
 tools/shots/
 # 每个人自己电脑上的 Claude 本地设置
 .claude/settings.local.json
+# 写给 Claude 的项目说明：里面有这台电脑的路径和关于用户的描述，只留在本机，不公开
+CLAUDE.md
