@@ -16,7 +16,8 @@
     "artcheck": "electron tools/check-art.js",
     "selftest": "electron . --selftest=tools/shots/selftest --userdata=tools/shots/selftest-userdata",
     "dist": "electron-builder --win --x64",
-    "selftest:packaged": "node tools/selftest-packaged.js"
+    "selftest:packaged": "node tools/selftest-packaged.js",
+    "promo": "node tools/promo/make.js"
   },
   "devDependencies": {
     "electron": "^45.3.0",

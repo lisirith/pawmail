@@ -1,256 +1,106 @@
-# 爪爪来信 Pawmail 🐾
+# Pawmail 🐾
 
-一只住在你电脑桌面上的小动物。它会自己散步、发呆、打瞌睡、追你的鼠标；
-你不在的时候它会出门转转，第二天你回到电脑前，它就叼着一封信等你拆——讲讲它去了哪儿，有时还随信附上一件小礼物。
+**[中文说明](README.zh-CN.md)**
 
-*A tiny pet that lives on your desktop. It wanders, naps and chases your cursor. While you're away it goes exploring, and the next day it greets you with a letter about where it went — sometimes with a little gift enclosed.*
+A tiny pet that lives on your Windows desktop. It wanders, naps and chases your cursor. While you're away it goes exploring, and the next day it greets you with a letter about where it went, sometimes with a little gift enclosed.
 
-> 目前是早期开发版（阶段 2：每日来信）。只支持 Windows。
-> *Early development build (Phase 2: daily letters). Windows only for now.*
+<p align="center"><img src="docs/images/hero-en.png" width="640" alt="An orange cat standing on the taskbar, holding up a letter: You've got mail!"></p>
 
-## 现在能做什么
+> **Free beta** for Windows 10 and 11. Everything stays on your computer; nothing is uploaded.
 
-**宠物**
+## What it does
 
-- 🐱 橘猫和 🐼 熊猫，随时可以切换
-- 站在任务栏上走来走去；不在它身上时，鼠标可以直接点到它后面的窗口
-- 会呼吸、眨眼、抖耳朵、摇尾巴，眼睛会跟着你的鼠标
-- 由"精力、无聊、想被关注、心情"驱动，自己决定做什么，不会来回重复固定的几个动作
-- 困了会打哈欠、打瞌睡、趴下睡觉；深夜更容易困；你离开电脑它会一直睡到你回来
-- 摸头、戳、双击、拎起来扔出去（甩得太狠会晕）、它会扑你的鼠标
-- **活动范围**：嫌它满屏幕跑太碍事？像截图一样拖出一个方框，它就只在方框里活动——方框的底边是地面，
-  方框外面看不见它。方框可以拖到任何位置、拖四个角改大小，随时可以改回"整个屏幕"
-- **爬墙**：走到活动范围（或屏幕）的左右两边时，它有时会扒着边往上爬，挂在半空东张西望，
-  然后慢慢爬下来或者蹬墙跳下来。爬的时候点它一下，它会跳下来
-- **喂它吃文件**：把不要的文件、文件夹拖到它身上，鼠标下的文件会变成一个揉皱的小纸团
-  （文档、文件夹、图片、音乐、视频、压缩包、程序、快捷方式的纸团各不一样），它张大嘴接住、吧唧吧唧吃掉——
-  其实是放进了**回收站**，随时可以去回收站找回来。为了不让文件真的丢，这些它不吃：
-  U 盘、网络盘上的东西（那里没有回收站），整个磁盘、Windows 和程序文件夹，"桌面""文档"这些文件夹本身，
-  它自己的程序文件夹；一次也最多吃 20 样、加起来 500 MB
-- **全屏时自动躲起来**：你全屏打游戏、全屏看视频时，它不到 1 秒就躲起来，不会在画面上走来走去；退出全屏约 2 秒后回来。
-  不想让它躲的话，托盘菜单里可以关掉"全屏时躲起来"
-- **换装**：帽子、眼镜、上衣、包包、手里拿的东西，第一批 16 件。一开始送 3 件（红色鸭舌帽、圆框眼镜、麻花毛衣），
-  其余的随每日来信捎来（第一封日常来信就有一件，之后大约每三四封一件）。信里点"帮它穿上"，或者在信纸窗口的
-  「衣柜」里点一下穿上、再点一下脱下；还没收到的衣服是灰色剪影。换上以后它会低头看看、转一圈，问你"好看吗？"。
-  猫和熊猫穿同一件衣服，会按各自的身形撑开；信里的照片、明信片和托盘图标也穿着。过节那天，节日的帽子、
-  节日手里拿的东西先用节日的，第二天自动换回来
+**It lives on your desktop.** An orange cat or a panda walks along your taskbar. It breathes, blinks, twitches its ears, follows your cursor with its eyes, and decides for itself what to do next: nap, groom, wander, climb, or come say hi. Your clicks go straight through it to the windows behind, unless you're pointing at the pet itself.
 
-**每日来信**
+Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drops back down.
 
-- 每到新的一天（凌晨 4 点为界），你回到电脑前时，它会把一封信抱在手里，时不时举过头顶提醒你
-- 信里写它去了哪儿（21 个地方，有的只在特定季节去）、在那儿遇到的小事，以及一句关于你的话——
-  比如"你昨天凌晨 1 点 40 才睡"、"我们已经连续 7 天见面了"、"昨天你把我扔出去 5 次"
-- 大约三分之二的信附有礼物，分普通、稀有、传说三档，一共 38 种，收集在图鉴里
-- **月报**：每月 1 号多一封金色的信，"11 月的我们"——一起过了几天、它去了哪些地方、带回了什么、你摸了它几次、你最晚哪天睡
-- **年度回顾**：1 月 1 日那封月报换成"2026 年的我们"，把一整年串起来
-- 信箱按月分组，可以随时重读；不想要的信可以一封封删，或者整个月一起删（删之前会再问一次，礼物会留在图鉴里）。
-  信箱最多存 800 封（两年多），超过了自动删最老的
-- 每封信都能存成一张明信片图片（普通的信 1080×1440；月报和年度回顾是 1080×1920 的长图），或者直接复制，粘贴发给朋友
-- 第一次拆信前会请你给它起个名字，以后每封信都用这个名字落款
-- 中文 / English，切换语言后以前的信也会跟着变
+<p align="center"><img src="docs/images/pickup.gif" width="480" alt="The cat being picked up with the mouse, swinging, and dropped"></p>
 
-**生日和节日**
+**A letter every day.** The first time you come back each day, it's holding a letter for you. It writes about where it went (21 places, some only in certain seasons), a little thing that happened there, and a line about you: *"You stayed up until 1:40 last night"*, *"That's 7 days in a row we've seen each other"*. About two in three letters come with a gift: 38 to collect in the album, plus festival-only ones. Every letter can be saved as a postcard image to share.
 
-- 拆完见面信后，它会寄来"一个小问题"：你的生日是哪天（只问月和日）、你过哪些节日（可以多选）。
-  之后随时可以在信纸窗口里点它的名字修改
-- 节日分成四组：🏮 中华传统节日（除夕、春节、元宵、清明、端午、七夕、中秋、冬至）、🎆 中国大陆公共假日（劳动节、国庆）、
-  🎄 西方节日（情人节、复活节、万圣节、圣诞节）、🦃 美国节日（独立日、感恩节）。
-  元旦、你的生日、你们的认识纪念日，所有人都会过
-- 过节那天：当天的信换成节日信，附一件**节日限定礼物**（只有那天拿得到，图鉴里单独一栏）；
-  它会换上节日装扮，第一次见到你时打个节日招呼——春节作揖拜年、中秋坐下赏月、圣诞戴圣诞帽身边飘雪、
-  万圣节披白布扮小鬼（时不时撩起来偷看你，还会冲你"Boo!"）或者戴小南瓜帽
-- 清明是怀念亲人的日子，所以那天它戴柳条环、去踏青，信也写得安静一些，不扮鬼
-- 中国传统节日的日期来自香港天文台的官方农历表（2025–2060 年）。电脑自带的农历有时会差一天，所以不用它
+<p align="center">
+  <img src="docs/images/letter-en.png" width="300" alt="An opened letter with a photo, the text, a gift and a piece of clothing">
+  &nbsp;
+  <img src="docs/images/postcard-en.png" width="300" alt="The same letter saved as a postcard image">
+</p>
 
-## 怎么运行
+**A wardrobe.** 16 hats, glasses, tops, bags and things to hold. It starts with three; the rest arrive with its letters. Dress it up and it looks down at its new clothes, spins around and asks how it looks.
 
-需要先安装 [Node.js](https://nodejs.org)（20 或更新的版本）。
+<p align="center"><img src="docs/images/wardrobe-en.png" width="320" alt="The wardrobe: the pet on the left, clothes by type on the right, unreceived ones as grey silhouettes"></p>
 
-**最简单：** 双击文件夹里的 `start.bat`。
+**It eats your files.** Drag files you don't need onto it and it gobbles them up. They really go to the Recycle Bin, so you can always get them back. It won't eat anything that can't be recovered (USB drives, network drives) or anything important (whole drives, Windows, your Desktop or Documents folders themselves).
 
-**或者用命令行：**
+**It climbs.** At the edge of the screen, or of the play area you draw for it, it sometimes climbs up hand over hand, looks around, and jumps back down.
 
-```bash
-npm install
-```
+<p align="center"><img src="docs/images/climb.gif" width="420" alt="The panda climbing up the side of a window and jumping down"></p>
 
-```bash
-npm start
-```
+**And also:**
 
-想每天开机自动启动：右键点它，在菜单里把"开机启动"打开。
+- Birthdays and festivals: Lunar New Year, Mid-Autumn, Halloween, Christmas and more (you choose which ones you celebrate). On the day it dresses up, sends a festival letter with a festival-only gift, and greets you in its own way.
+- A monthly letter about your month together, and a year in review on New Year's Day.
+- Hides by itself while a game or video is full-screen, and comes back when you're done.
+- Draw a box to keep it in one part of the screen.
+- English and Chinese.
 
-## 怎么和它玩
+## Download and install
 
-| 操作 | 效果 |
+Download the latest version from the **[Releases](../../releases/latest)** page. There are two kinds:
+
+- **`Pawmail-Setup-x.y.z.exe`**: an installer. Double-click it; it installs for your account only (no admin needed) and starts Pawmail.
+- **`Pawmail-x.y.z-win-x64.zip`**: no install. Unzip it anywhere and double-click `Pawmail.exe`.
+
+**"Windows protected your PC"**: the first time you run it, Windows may show this blue warning. Click **More info**, then **Run anyway**. It appears because Pawmail isn't code-signed (signing certificates cost hundreds of dollars a year, which a free beta can't justify). All of the source code is in this repository.
+
+To start it every time you sign in, right-click the pet and turn on **Start at login**.
+
+It's about 140 MB to download and uses around 175 MB of memory while running (what Task Manager shows), most of which is Electron, the framework it's built with.
+
+## How to play
+
+| Do this | And |
 |---|---|
-| 它手里拿着信时，点它一下 | 拆信 |
-| 右键点它 | 菜单：信箱、衣柜、换动物、显示方式、大小、语言、开机启动、画活动范围、哄睡、退出 |
-| 画活动范围时 | 在空白处按住拖出方框；拖方框挪位置；拖四个角改大小；点"就这里"保存，右键 = 取消 |
-| 鼠标在它身上来回移动 | 摸头 |
-| 左键点一下 | 戳它一下 |
-| 双击 | 它开心地蹦两下 |
-| 按住拖动 | 把它拎起来；松手会掉下来，带着速度松手可以把它扔出去 |
-| 把文件拖到它身上 | 喂它吃掉（放进回收站，后悔了可以找回来） |
-| 托盘图标（屏幕右下角） | 同样的菜单，另外还有"叫它回来"、一键改回"整个屏幕"、"全屏时躲起来"的开关 |
+| Click it while it's holding a letter | Open the letter |
+| Right-click it | Menu: mailbox, wardrobe, animal, display, size, language, start at login, play area, sleep, quit |
+| Move the mouse back and forth over it | Pet it |
+| Click it | Poke it |
+| Double-click it | It hops happily |
+| Press and drag | Pick it up. Let go to drop it; let go while moving to throw it |
+| Drag files onto it | Feed them to it (they go to the Recycle Bin) |
+| Click it while it's climbing | It jumps down |
+| The tray icon (bottom-right of the screen) | The same menu, plus *Call it back*, *Whole screen* and *Hide during full-screen apps* |
 
-在信纸窗口里：顶栏可以拖动窗口，点名字可以改名字、生日和过的节日，键盘 ← → 翻信，Esc 关闭。
-信箱里每封信右边的 🗑 是删除这封，月份标题右边的"删除这个月"是删除整个月。
+Can't find the tray icon? Windows 11 tucks new icons behind the `^` arrow on the taskbar.
 
-找不到托盘图标？Windows 11 会把新图标收进任务栏右边的 `^` 小箭头里。
+In the letter window: drag the top bar to move it, click the pet's name to change its name, your birthday and your festivals, use ← → to flip through letters, Esc to close.
 
-## 隐私
+## Privacy
 
-- 所有数据只保存在你自己的电脑上（`%APPDATA%\Pawmail\save.json`），不联网、不上传。
-- 为了写信，它会记下每天的几件事：你第一次和最后一次用电脑的时间、一共用了多少分钟，
-  以及那天你摸了它几次、戳了几次、扔了几次。只保留最近 60 天。
-- 你告诉它的生日（只有月和日）和过哪些节日，也只存在这个文件里。
-- 喂给它吃的文件：只是放进回收站；它只记"那天喂了几样"，不记文件名，也不看文件内容。
-- 为了在全屏时躲起来，它每半秒看一次"最前面的窗口是不是正好铺满了整个屏幕"。只看窗口的大小，
-  不看那是哪个程序，也不记录。
-- 它**不会**记录你按了什么键、打开了什么程序或网页。
-- 明信片只有在你点"存成明信片"时才会保存（在"图片\Pawmail"文件夹里）。
+- Everything is saved only on your computer, in `%APPDATA%\Pawmail\save.json`. Pawmail never connects to the internet.
+- To write its letters, it notes a few things each day: when you first and last used the computer, for how many minutes, and how many times you petted, poked or threw it. Only the last 60 days are kept.
+- Your birthday (month and day only) and your festivals are stored in the same file.
+- Files you feed it go to the Recycle Bin. It only counts how many; it doesn't record names or look inside.
+- To hide during full-screen apps, it checks twice a second whether the frontmost window exactly covers the screen. It looks only at the window's size, never at which program it is, and records nothing.
+- It does **not** record your keystrokes, programs or websites.
+- Postcards are saved only when you click *Save as postcard* (into `Pictures\Pawmail`).
 
-## 开发
+## Uninstall
 
-```bash
-npm run dev
-```
+- Installed with the installer: *Settings → Apps → Installed apps → Pawmail → Uninstall*.
+- The zip version: quit Pawmail (right-click → *Quit Pawmail*) and delete its folder.
 
-带调试信息启动，控制台会打印它每次换动作的原因。可以追加的开关：`--x-hud`（屏幕上显示状态面板）、
-`--x-newday`（假装现在是明天，马上收到一封新信）、`--x-date=2026-10-31`（跳到那一天，看看过节的样子）、
-`--x-feeddry`（喂它吃文件时只演习，不真的放进回收站）、`--x-allclothes`（衣柜里的衣服全部解锁）。
-用 `--x-newday`、`--x-date` 时请同时加 `--userdata=某个测试文件夹`，免得弄乱你真正的存档。
+Uninstalling keeps your letters and gifts, so they're still there if you reinstall. To remove them too, delete the folder `%APPDATA%\Pawmail`.
 
-```bash
-npm run preview
-```
+## Good to know
 
-不启动 Electron，直接在浏览器里看。宠物：<http://localhost:5177/>（加 `&mail=1` 看它拿着信的样子；
-`&festival=halloween&look=ghost&greet=boo` 看过节的样子；`&area=0.3,0.25,0.45,0.6` 看活动范围，四个数是方框的
-左、上、宽、高占窗口的比例）；节日装扮一览：<http://localhost:5177/src/renderer/gallery.html?looks=1>；
-信纸窗口：<http://localhost:5177/mail>（加 `?lang=en&species=panda&unread=0` 之类的参数；
-`&from=2026-11-20&days=45` 会从那天起模拟 45 天，能看到月报和年度回顾）；
-姿势图鉴：<http://localhost:5177/gallery>；衣服一览：<http://localhost:5177/src/renderer/gallery.html?outfits=1>
-（`&only=capRed,hoodie` 只看几件）；宠物穿着衣服：加 `&outfit=capRed,roundGlasses,hoodie`；
-衣柜：<http://localhost:5177/mail?view=wardrobe&days=10>；喂它吃的纸团一览：<http://localhost:5177/src/renderer/gallery.html?food=1>；
-和设定图对照：<http://localhost:5177/src/renderer/gallery.html?compare=1>（需要本机的 `img resource/` 文件夹里有设定图）。
+- This is a beta. There's no automatic update yet: to update, download the new version and install or unzip it over the old one. Your letters carry over.
+- It lives on your main monitor only.
+- The gift icons are emoji for now; original icons are coming.
+- Found a bug, or have an idea? Please open an [issue](../../issues).
 
-```bash
-npm run letters
-```
+## License
 
-"来信模拟器"：一口气模拟几十天，把收到的信（包括月报、年度回顾）打印出来，并检查中英文内容有没有缺漏。
-改了信的文字后用它检查。可以加参数，比如 `npm run letters -- 80 en panda brief`
-（80 天，英文，熊猫；`brief` 表示每天的信只打一行，月报和年度回顾照常完整打印）。
+The **code** is MIT-licensed (see [LICENSE](LICENSE)). The **artwork, characters and writing** (the pets, clothes, letters and names) are not; all rights reserved, see [ASSETS-LICENSE.md](ASSETS-LICENSE.md). You're welcome to share screenshots and videos.
 
-```bash
-npm run sim
-```
+## For developers
 
-"大脑模拟器"：把宠物的大脑快进跑几个小时，统计它都做了什么，并检查它有没有跑出活动范围。
-调整动作的权重之后用它检查效果。`npm run sim -- 6 cat 10 small` 是在一个 720×420 的小方框里模拟。
-
-```bash
-npm run selftest
-```
-
-自检：真的启动程序，自动检查透明窗口、鼠标穿透、活动范围、爬墙、喂它吃文件、来信、拆信、明信片、换装、月报、年度回顾、删信、生日、节日、装扮、全屏时躲起来、新手提示、存档等 68 项，
-结果和截图在 `tools/shots/selftest/`。
-
-```bash
-npm run snap -- "/src/renderer/gallery.html?looks=1" tools/shots/looks.png 800 1200
-```
-
-截图工具：在后台把预览页面截成图片（先开着 `npm run preview`），不依赖窗口有没有被挡住。
-
-```bash
-npm run artcheck
-```
-
-角色美术检查（先开 `npm run preview`）：检查熊猫、橘猫的姿势过渡、抱信、节日装扮和每件衣服，
-输出动作预览、深色背景和原图对照到 `tools/shots/art-review/`。对照图同时显示放大版和桌宠原始尺寸。
-不会启动桌宠后台或改动存档；本机缺少 `img resource/` 参考图时仍可检查动作。
-
-两只角色按 `img resource/ba8d7185-40d5-456b-ab17-12ce9a388f21.png` 重绘。
-选择猫后，右键桌宠或打开托盘菜单，在「猫的花色」中选择「招财猫」即可换上三花毛色、红项圈与金铃铛。两种花色共用同一套猫的轮廓和动作，也会用于信中照片和明信片。
-头、耳朵、身体、手脚和花纹各自使用独立曲线及柔和明暗，沿用共用关节与姿势参数。
-造型集中在 `species/cat.js`、`species/panda.js`；`draw.js` 负责组合部件、表情和换装。
-原图是静态造型参考，运动中的转向和姿势由这套可变形部件实现，并非逐帧复制原图。
-
-```bash
-node tools/build-festival-dates.js 2025 2060
-```
-
-重新生成中国传统节日的日期表（从香港天文台下载官方农历表）。表用到 2060 年，快到了再跑一次往后延。
-
-```bash
-npm run dist
-```
-
-打包：做出别人不用装 Node.js 就能直接用的版本，放在 `dist/` 里（大约要两三分钟）：
-`Pawmail-版本号-win-x64.zip` 是免安装版（解压后双击 `Pawmail.exe`），`Pawmail-Setup-版本号.exe` 是安装程序。
-配置在 `electron-builder.yml`，版本号在 `package.json` 里改。程序图标是用代码画的（`tools/icon-eval.js` → `build/icon.png`）。
-
-```bash
-npm run selftest:packaged
-```
-
-在打包好的程序上再跑一遍自检（用单独的测试存档）。注意：跑自检时最前面不能是全屏的程序（游戏、全屏视频），
-否则 Windows 不让窗口重新置顶，和"置顶"有关的两项会失败。
-
-### 代码结构
-
-```
-src/
-  main/            后台（Electron 主进程）：和 Windows 打交道的事都在这里
-    main.js          入口：启动、设置、存档、托盘、记录使用情况
-    overlay.js       那块透明的全屏窗口 + 鼠标穿透
-    mail.js          邮局：什么时候来信、保管信和礼物、信纸窗口
-    feed.js          喂它吃文件：检查能不能吃、放进回收站
-    wardrobe.js      衣柜：信里捎哪件衣服、衣柜里显示什么（纯计算）
-    letters.js       写信：按规则把句子拼成一封信（纯计算，可单独测试）
-    tray.js          托盘图标和菜单
-    store.js         存档（JSON 文件）
-    native.js        直接调用 Windows 的几个小功能
-    selftest.js      自检
-  preload/         后台和画面之间的安全通道（宠物窗口、信纸窗口各一个）
-  renderer/        画面。是普通的网页技术，不依赖 Electron
-    js/pet/          宠物：怎么画、动作、大脑、特效
-    js/mail/         信纸窗口：读信、信箱、图鉴、衣柜、风景、明信片
-    js/ui/           气泡、右键菜单、画活动范围
-  shared/
-    locales/       界面文字（zh.json / en.json）
-    letters/       信的内容：地点和礼物目录（catalog.js），以及中英文的全部句子
-    outfits/       衣服：目录（catalog.js：部位、一开始送的、在哪儿容易捡到），以及中英文的名字和信里的句子
-    festivals/     节日：节日组和日期规则（catalog.js）、官方农历日期表（dates.json）、节日来信（zh.json / en.json）
-tools/             开发工具：预览服务器、来信模拟器、大脑模拟器、截图工具、农历表生成
-```
-
-想加一个新地点：在 `src/shared/letters/catalog.js` 的 `PLACES` 里加一行，再到 `zh.json`、`en.json` 的 `places` 里各写一段，
-然后运行 `npm run letters` 检查。
-想加一种文化的节日（比如日本、韩国）：照着 `src/shared/festivals/catalog.js` 开头的说明做。
-想加一件新衣服：先在 `src/renderer/js/pet/outfits.js` 里画出来，再到 `src/shared/outfits/catalog.js` 登记一行、
-`zh.json`、`en.json` 里写上名字，然后运行 `npm run letters`（会核对三边的编号）和 `npm run artcheck`。
-想加一种新动物：在 `src/renderer/js/pet/species/` 里照着 `cat.js` 写一个，再到 `index.js` 登记。
-想加一个新动作：在 `activities.js` 里加一个函数，再到 `brain.js` 的 `scores()` 里给它一个权重。
-
-## 路线图
-
-- [x] 阶段 1：会动的宠物（透明窗口、猫和熊猫、动作、大脑、互动）
-- [x] 阶段 2：每日来信、礼物、信箱、图鉴、明信片、起名字、开机启动、月报、年度回顾、删信
-- [x] 节日：生日、四组节日、节日来信和限定礼物、节日装扮和动作（原本排在阶段 6，提前做了）
-- [x] 活动范围、爬墙
-- [x] 新造型（照设定图重画）
-- [x] 阶段 3：换装（第一批 16 件：帽子、眼镜、上衣、包包、手里拿的；随信寄来，所有动物通用）
-- [x] 阶段 4：把文件拖给它吃（其实是放进回收站，可以恢复）
-- [ ] 阶段 5：沙滩椅、遮阳伞、小音响、涂鸦
-- [ ] 阶段 6：彩蛋（节日、深夜催你睡觉、电量低它也没精神……）
-- [ ] 阶段 7：打包发布（安装程序、itch.io / Steam）
-
-## 已知情况
-
-- 用 Electron 制作，内存占用大约 450–520 MB。
-- 目前只在主显示器上活动。
-- 宠物是用代码照着设定图画的（所以能眨眼、转眼珠、做各种动作，放多大都清楚）。
-  礼物图标暂时用的是系统自带的 emoji，上 Steam 之前要换成原创图标。
+How to run it from source, the code layout and the test tools are in [DEVELOPMENT.md](DEVELOPMENT.md) (in Chinese).
