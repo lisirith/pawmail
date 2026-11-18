@@ -37,6 +37,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   outfit: O.EMPTY, // 现在穿着的衣服 { hat, glasses, top, bag, held }，每个部位是衣服编号或 null（见 shared/outfits/catalog.js）
   hideOnFullscreen: true, // 有全屏的程序在最前面（打游戏、全屏看视频）时，宠物先躲起来
   feedHints: 0, // 提醒过几次"不要的文件可以拖给我吃"（最多 3 次；喂过一次就不再提醒）
+  windowPerch: true, // 可以站到别的窗口顶上（只在"始终在最前面"模式下有用）
 });
 
 /** 活动范围：四个 0~1 之间的数字，方框不能超出窗口，也不能小得离谱 */
@@ -77,6 +78,7 @@ const VALID = {
   outfit: (v) => O.sanitizeOutfit(v) !== null,
   hideOnFullscreen: (v) => typeof v === 'boolean',
   feedHints: (v) => Number.isInteger(v) && v >= 0 && v <= 3,
+  windowPerch: (v) => typeof v === 'boolean',
 };
 
 function isValidSetting(key, value) {

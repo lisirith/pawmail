@@ -102,6 +102,12 @@ class PetTray {
           checked: settings.hideOnFullscreen !== false,
           click: (item) => this.onSet('hideOnFullscreen', item.checked),
         },
+        {
+          label: t('menu.windowPerchLong'),
+          type: 'checkbox',
+          checked: settings.windowPerch !== false,
+          click: (item) => this.onSet('windowPerch', item.checked),
+        },
         { type: 'separator' },
         { label: t('menu.comeBack'), click: () => this.onCommand('comeBack') },
         { label: t('menu.sleep'), click: () => this.onCommand('sleep') },

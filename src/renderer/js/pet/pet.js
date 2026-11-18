@@ -39,6 +39,13 @@ export class Pet {
     this.leapt = false; // 这次在空中是它自己跳下来的（从墙上跳）：稳稳落地，不会摔晕
     this.unbounded = false; // true 时允许走到活动范围外面（进场时用）
     this.onLand = null; // 落地时通知大脑
+    // 站在别的窗口顶上（窗口顶边 = 台子，见 app.js 的 world.ledges 和 src/main/ledges.js）
+    this.perch = null; // { id, x, y }：站在哪个窗口上；x、y 是上次看到时窗口的左边和顶边（窗口挪了，它跟着挪同样的距离）
+    this.perchSince = 0; // 什么时候站上去的（this.time）
+    this.skipPerch = null; // 刚从这个窗口上跳下来 / 掉下来：这一跳不再落回它上面
+    this.airT = 0; // 这一次在空中多久了
+    this.jolt = 0; // 窗口被拖着来回晃的那股劲（站在窗口上时）
+    this.onSlip = null; // 脚下的窗口没了 / 被挡住了 / 被晃得站不住：通知大脑
 
     this.squashSpring = new Spring(260, 14); // 落地时"压扁再弹回"
     this.fx = new Fx();
@@ -376,6 +383,8 @@ export class Pet {
     this.vy = 0;
     this.bounced = false;
     this.leapt = false;
+    this.perch = null;
+    this.skipPerch = null;
   }
 
   /** 松手。vx/vy 是松手瞬间鼠标的速度，所以可以把它"扔"出去。 */
@@ -388,7 +397,104 @@ export class Pet {
     this.vx = vx * k;
     this.vy = vy * k;
     this.mode = 'air';
+    this.airT = 0;
     this.bounced = false;
+  }
+
+  /** 正站在哪个窗口顶边上（world.ledges 里的那一项）；不在窗口上返回 null */
+  ledge() {
+    return this.perch ? (this.world.ledges || []).find((L) => L.id === this.perch.id) || null : null;
+  }
+
+  /**
+   * 现在能在左右多大的范围里走：站在地上就是活动范围（两边各让出 areaInset），
+   * 站在窗口上就是脚下露出来的那一段顶边（两头各让出 ledgeInset，免得一只脚踩空）。返回 [左, 右]
+   */
+  spanX(areaInset = 34, ledgeInset = 22) {
+    const S = this.world.scale;
+    const L = this.mode === 'ground' && this.ledge();
+    if (L) {
+      const seg = L.segs.find(([a, b]) => this.x >= a - 6 * S && this.x <= b + 6 * S);
+      if (seg) {
+        const lo = seg[0] + ledgeInset * S;
+        const hi = seg[1] - ledgeInset * S;
+        return lo <= hi ? [lo, hi] : [(seg[0] + seg[1]) / 2, (seg[0] + seg[1]) / 2];
+      }
+    }
+    const A = this.world.area;
+    const lo = A.left + areaInset * S;
+    return [lo, Math.max(lo, A.right - areaInset * S)];
+  }
+
+  /**
+   * 从窗口上掉下去（不是自己跳的）：窗口关了、最小化了、被别的窗口挡住了、被你晃得站不住了。
+   * dir：往哪边掉（-1 左 / 1 右 / 0 直着掉）
+   */
+  #slip(dir) {
+    this.skipPerch = this.perch ? this.perch.id : null; // 别马上又落回同一个窗口上
+    this.perch = null;
+    this.mode = 'air';
+    this.airT = 1; // 不是刚松手：路过别的窗口顶边时不"吸"上去
+    this.leapt = false;
+    this.bounced = false;
+    this.vx = dir * 70 * this.world.scale;
+    this.vy = -40 * this.world.scale; // 脚下一滑，先往上一窜
+    this.vrot += dir * 1.5;
+    if (this.onSlip) this.onSlip();
+  }
+
+  /**
+   * 站在窗口上：窗口挪了就跟着挪；窗口没了、脚下那一段被挡住了，就掉下去。
+   * 窗口被拖着来回晃（方向一变）会让它站不稳：身子往反方向歪，晃得太厉害就掉下去。
+   * 返回 false = 已经掉下去了（这一帧不用再按"站在地上"算了）
+   */
+  #followPerch(dt) {
+    const S = this.world.scale;
+    const L = this.ledge();
+    if (!L) {
+      this.#slip(0);
+      return false;
+    }
+    const P = this.perch;
+    const dx = L.x - P.x;
+    const dy = L.y - P.y;
+    this.jolt = Math.max(0, this.jolt - dt * 0.8);
+    if (dx || dy) {
+      P.x = L.x;
+      P.y = L.y;
+      this.x += dx;
+      // 被拖着走：身子像站在车上一样往后歪一下（ground 的回正弹簧会把它拉回来）
+      this.vrot += clamp((-dx / S) * 0.03, -1.6, 1.6);
+      // 来回晃：这一下和上一下方向相反、而且都挺快
+      if (Math.abs(dx) > 6 * S && P.lastDx && Math.sign(dx) !== Math.sign(P.lastDx)) this.jolt += 0.3;
+      if (Math.abs(dx) > 2 * S) P.lastDx = dx;
+      // 一下子挪得特别远（贴边、最大化、一甩）或者晃得太厉害：站不住了
+      if (Math.hypot(dx, dy) > 220 * S || this.jolt > 1) {
+        this.shake = Math.max(this.shake, this.jolt > 1 ? 1.2 : 0); // 被晃晕了，落地会晕
+        this.jolt = 0;
+        this.#slip(-Math.sign(dx));
+        return false;
+      }
+      // 窗口往下掉得比它快：它会离开窗口一小会儿（在空中），然后落回去
+      if (dy > 26 * S) {
+        this.perch = null;
+        this.mode = 'air';
+        this.airT = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.leapt = true; // 不算摔，落回去时不晕
+        return false;
+      }
+    }
+    // 脚下那一段还在吗（被别的窗口挡住、窗口改小了，就没了）
+    const onSeg = L.segs.some(([a, b]) => this.x >= a - 4 * S && this.x <= b + 4 * S);
+    if (!onSeg) {
+      const near = L.segs.reduce((best, s) => (Math.abs((s[0] + s[1]) / 2 - this.x) < Math.abs((best[0] + best[1]) / 2 - this.x) ? s : best), L.segs[0]);
+      this.#slip(near ? (this.x < near[0] ? -1 : 1) : 0);
+      return false;
+    }
+    this.y = L.y;
+    return true;
   }
 
   /** 头顶最高能到哪里（脚的位置）：活动范围的上沿再往下一个身高 */
@@ -437,6 +543,8 @@ export class Pet {
     }
 
     if (this.mode === 'air') {
+      const prevY = this.y;
+      this.airT += dt;
       this.vy += GRAVITY * S * dt;
       this.vx *= Math.pow(0.6, dt);
       this.x += this.vx * dt;
@@ -459,10 +567,24 @@ export class Pet {
         this.y = ceiling;
         this.vy = Math.abs(this.vy) * 0.3;
       }
+      // 往下掉的时候穿过了哪个窗口的顶边：落在它上面（先穿过的那个，也就是最高的那个）。
+      // 刚松手的一小会儿放宽一点：你把它放到标题栏上、脚稍微低了一点，也算放上去了
+      let floor = w.groundY;
+      let ledge = null;
+      if (this.vy > 0) {
+        const tol = (this.airT < 0.15 ? 18 : 1) * S;
+        for (const L of w.ledges || []) {
+          if (L.id === this.skipPerch || L.y >= floor || prevY > L.y + tol || this.y < L.y) continue;
+          if (L.segs.some(([a, b]) => this.x >= a && this.x <= b)) {
+            floor = L.y;
+            ledge = L;
+          }
+        }
+      }
       // 落地
-      if (this.y >= w.groundY) {
+      if (this.y >= floor) {
         const impact = this.vy;
-        this.y = w.groundY;
+        this.y = floor;
         if (impact > 950 * S && !this.bounced && !this.leapt) {
           // 摔得重：先弹起来一下
           this.bounced = true;
@@ -473,6 +595,10 @@ export class Pet {
           const leapt = this.leapt;
           this.mode = 'ground';
           this.vy = 0;
+          this.perch = ledge ? { id: ledge.id, x: ledge.x, y: ledge.y } : null;
+          if (ledge) this.perchSince = this.time;
+          this.skipPerch = null;
+          this.jolt = 0;
           // 自己跳下来的：膝盖一弯就站稳了，压扁得没那么厉害
           this.squashSpring.kick(leapt ? clamp(impact / (330 * S), 0.8, 4) : clamp(impact / (200 * S), 0.8, 9));
           if (impact > 500 * S) this.#dust();
@@ -495,7 +621,8 @@ export class Pet {
       return;
     }
 
-    // 在地上
+    // 在地上（或者站在窗口顶上）
+    if (this.perch && !this.#followPerch(dt)) return; // 脚下的窗口没了：掉下去了
     if (Math.abs(this.vx) > 1) {
       this.x += this.vx * dt; // 落地后滑一小段
       this.vx = damp(this.vx, 0, 0.07, dt);
@@ -505,6 +632,11 @@ export class Pet {
     this.vrot += (-140 * (this.rot - this.style.tilt) - 16 * this.vrot) * dt;
     this.rot += this.vrot * dt;
     this.shake = Math.max(0, this.shake - dt * 0.5);
+    if (this.perch) {
+      const [lo, hi] = this.spanX(34, 14); // 站在窗口上：别走出脚下那一段（两头留一点，免得一只脚踩空）
+      this.x = clamp(this.x, lo, hi);
+      return; // y 已经由 #followPerch 对齐到窗口顶边了
+    }
     if (!this.unbounded) this.x = clamp(this.x, minX, maxX);
     this.y = w.groundY;
   }

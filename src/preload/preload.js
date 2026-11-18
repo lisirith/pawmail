@@ -5,7 +5,7 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 // 后台 → 画面 允许的消息种类
-const INBOUND = new Set(['cursor', 'settings', 'command', 'system', 'save-now', 'mail', 'festival']);
+const INBOUND = new Set(['cursor', 'settings', 'command', 'system', 'save-now', 'mail', 'festival', 'ledges']);
 
 contextBridge.exposeInMainWorld('pawmail', {
   /** 启动时取一次：设置、存档、所有语言的文字 */
@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('pawmail', {
   openMail: (view) => ipcRenderer.send('pawmail:open-mail', view === 'wardrobe' ? 'wardrobe' : null),
   /** 记一次互动：'pet' 摸头 | 'poke' 戳 | 'throw' 扔 | 'dizzy' 弄晕 */
   stat: (kind) => ipcRenderer.send('pawmail:stat', String(kind)),
+  /** 宠物现在站在哪个窗口顶上（窗口编号，见 src/main/ledges.js）；null = 不在窗口上。后台会更勤快地盯着那个窗口 */
+  perch: (id) => ipcRenderer.send('pawmail:perch', id ? String(id) : null),
   quit: () => ipcRenderer.send('pawmail:quit'),
   log: (...args) => ipcRenderer.send('pawmail:log', args.map((a) => String(a)).join(' ')),
   on: (channel, callback) => {

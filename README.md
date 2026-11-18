@@ -38,6 +38,7 @@ Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drop
 
 - Birthdays and festivals: Lunar New Year, Mid-Autumn, Halloween, Christmas and more (you choose which ones you celebrate). On the day it dresses up, sends a festival letter with a festival-only gift, and greets you in its own way.
 - A monthly letter about your month together, and a year in review on New Year's Day.
+- Drop it on top of a window and it perches there: it strolls along the top, naps, peeks over the edge, and rides along when you drag the window. Close the window and down it goes.
 - Hides by itself while a game or video is full-screen, and comes back when you're done.
 - Draw a box to keep it in one part of the screen.
 - English and Chinese.
@@ -60,12 +61,13 @@ It's about 140 MB to download and uses around 175 MB of memory while running (wh
 | Do this | And |
 |---|---|
 | Click it while it's holding a letter | Open the letter |
-| Right-click it | Menu: mailbox, wardrobe, animal, display, size, language, start at login, play area, sleep, quit |
+| Right-click it | Menu: mailbox, wardrobe, animal, display, size, language, start at login, perch on windows, play area, sleep, quit |
 | Move the mouse back and forth over it | Pet it |
 | Click it | Poke it |
 | Double-click it | It hops happily |
 | Press and drag | Pick it up. Let go to drop it; let go while moving to throw it |
 | Drag files onto it | Feed them to it (they go to the Recycle Bin) |
+| Drop it on the top edge of a window | It stands up there; drag the window and it rides along |
 | Click it while it's climbing | It jumps down |
 | The tray icon (bottom-right of the screen) | The same menu, plus *Call it back*, *Whole screen*, *Hide during full-screen apps* and *Help & feedback* |
 
@@ -80,6 +82,7 @@ In the letter window: drag the top bar to move it, click the pet's name to chang
 - Your birthday (month and day only) and your festivals are stored in the same file.
 - Files you feed it go to the Recycle Bin. It only counts how many; it doesn't record names or look inside.
 - To hide during full-screen apps, it checks twice a second whether the frontmost window exactly covers the screen. It looks only at the window's size, never at which program it is, and records nothing.
+- To perch on windows, it checks twice a second where the windows on your screen are: their position, size and which one is in front. It never looks at window titles or which program a window belongs to, and records nothing. You can turn this off in the menu (*Perch on windows*).
 - It does **not** record your keystrokes, programs or websites.
 - Postcards are saved only when you click *Save as postcard* (into `Pictures\Pawmail`).
 - It keeps a small log of what the app itself did, such as errors and when it hid for a full-screen app, in `%APPDATA%\Pawmail\logs` (about 1 MB at most), so you can attach it to a bug report. Your Windows user name is replaced with `~`. The log is never sent anywhere.

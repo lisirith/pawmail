@@ -26,6 +26,7 @@ const F = require('../shared/festivals/catalog');
 const O = require('../shared/outfits/catalog');
 const native = require('./native');
 const { setupLog } = require('./log');
+const { LedgeWatch } = require('./ledges');
 
 // 托盘菜单「帮助与反馈」里打开的网页。只是用浏览器打开，程序自己不联网
 const LINKS = {
@@ -59,6 +60,7 @@ let tray = null;
 let mail = null;
 let feeder = null; // 喂它吃文件（见 feed.js）
 let logFiles = null; // 日志文件在哪儿（见 log.js）
+let ledgeWatch = null; // 看着屏幕上的窗口：宠物可以站到窗口顶上（见 ledges.js）
 let quitting = false;
 
 /**
@@ -122,6 +124,7 @@ function setSetting(key, value) {
   if (key === 'displayMode') overlay.setDisplayMode(value);
   if (key === 'autoStart') applyAutoStart(value);
   if (key === 'hideOnFullscreen' && !value) showAfterFullscreen(); // 关掉"全屏时躲起来"：正躲着的话马上出来
+  if ((key === 'windowPerch' || key === 'displayMode') && ledgeWatch) ledgeWatch.refresh(); // 能不能站到窗口上变了
   overlay.send('settings', effectiveSettings());
   if (tray) tray.refresh();
   if (mail && ['language', 'species', 'catCoat', 'petName', 'birthday', 'cultures', 'profileAsked', 'outfit'].includes(key)) mail.refresh();
@@ -409,6 +412,11 @@ function registerIpc() {
     if (fromOverlay(event)) quit();
   });
 
+  ipcMain.on('pawmail:perch', (event, id) => {
+    if (!fromOverlay(event) || !ledgeWatch) return;
+    ledgeWatch.setPerch(typeof id === 'string' && /^\d{1,20}$/.test(id) ? id : null);
+  });
+
   ipcMain.on('pawmail:log', (event, message) => {
     if (fromOverlay(event)) console.log('[画面]', String(message).slice(0, 2000));
   });
@@ -480,10 +488,11 @@ function start() {
   };
   overlay.onReady = () => {
     logDiagnostics(); // 每次画面准备好都记一笔：版本、屏幕大小、缩放……排查问题时最先要看的
+    if (ledgeWatch) ledgeWatch.refresh(); // 画面（重新）启动了：把窗口顶边再告诉它一遍
     if (args.includes('--devtools')) overlay.win.webContents.openDevTools({ mode: 'detach', activate: false });
     if (SELFTEST_DIR) {
       require('./selftest')
-        .run({ overlay, mail, store, feeder, outDir: path.resolve(SELFTEST_DIR), setSetting })
+        .run({ overlay, mail, store, feeder, outDir: path.resolve(SELFTEST_DIR), setSetting, ledgeWatch })
         .catch((err) => console.error('[selftest] 出错：', err))
         .finally(quit);
     }
@@ -509,6 +518,24 @@ function start() {
     onQuit: quit,
   });
   tray.create();
+
+  // 窗口顶边：宠物可以站上去（见 ledges.js）。只在"始终在最前面"模式、宠物露着的时候看
+  ledgeWatch = new LedgeWatch({
+    native,
+    toLocal: (r) => {
+      // Windows 给的是物理像素；画面用的是缩放后的坐标（125% 缩放时 1.25 个物理像素 = 1），而且从工作区的左上角算起
+      const d = screen.screenToDipRect(null, { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top });
+      const b = overlay.bounds;
+      return { left: d.x - b.x, top: d.y - b.y, right: d.x + d.width - b.x, bottom: d.y + d.height - b.y };
+    },
+    view: () => ({ width: overlay.bounds.width, height: overlay.bounds.height }),
+    send: (ledges) => overlay.send('ledges', ledges),
+    allowed: () => overlay.displayMode === 'top' && store.data.settings.windowPerch !== false,
+    active: () => overlay.alive && overlay.ready && overlay.polling && !overlay.hidden,
+    skip: () => new Set(overlay.alive ? [String(native.handleOf(overlay.win))] : []),
+    log: (message) => console.log(message),
+  });
+  ledgeWatch.start();
 
   startSystemWatch();
 }

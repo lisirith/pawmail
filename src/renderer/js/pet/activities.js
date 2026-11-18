@@ -68,9 +68,11 @@ function locomote(b, st, dt, tx, gait, speedMul = 1) {
   const pet = b.pet;
   const T = pet.target;
   const S = b.world.scale;
-  const A = b.world.area;
-  // 目的地在活动范围外面（比如你刚把范围改小了）：走到边上就算到了，免得一直顶着边走
-  if (!pet.unbounded) tx = clamp(tx, A.left + 34 * S, Math.max(A.left + 34 * S, A.right - 34 * S));
+  // 目的地在活动范围外面（比如你刚把范围改小了）、或者超出了脚下窗口顶边的那一段：走到边上就算到了，免得一直顶着边走
+  if (!pet.unbounded) {
+    const [lo, hi] = pet.spanX(34, 14);
+    tx = clamp(tx, lo, hi);
+  }
   const dx = tx - pet.x;
   const dir = dx >= 0 ? 1 : -1;
   T.facing = dir;
@@ -100,14 +102,12 @@ function locomote(b, st, dt, tx, gait, speedMul = 1) {
   return Math.abs(tx - pet.x) < 0.75;
 }
 
-/** 挑一个要走去的地方：离现在 minDist ~ maxDist，且不出活动范围 */
+/** 挑一个要走去的地方：离现在 minDist ~ maxDist，且不出活动范围（站在窗口上时，不出脚下那一段顶边） */
 function pickWalkTarget(b, minDist, maxDist) {
   const pet = b.pet;
-  const A = b.world.area;
   const S = b.world.scale;
-  const lo = A.left + 56 * S;
-  const hi = A.right - 56 * S;
-  const mid = (A.left + A.right) / 2;
+  const [lo, hi] = pet.spanX(56, 24);
+  const mid = (lo + hi) / 2;
   if (hi <= lo) return mid;
   // 活动范围很窄的话，"走远一点"也走不了那么远
   const span = hi - lo;
@@ -1232,6 +1232,91 @@ export const ACTIVITIES = {
     };
   },
 
+  // ------------------------------------------------------------ 站在窗口顶上
+
+  /** 站在窗口上，从边上探头往下看看：好高呀 */
+  peekDown: () => ({
+    dur: rand(2.2, 3.4),
+    dir: chance(0.5) ? 1 : -1,
+    update(b, dt, t) {
+      const pet = b.pet;
+      const T = pet.target;
+      if (!pet.perch) return true; // 已经不在窗口上了
+      pet.style.gaze = 'none';
+      const u = easeInOut(clamp(t / 0.6, 0, 1)) * (1 - easeInOut(clamp((t - this.dur + 0.5) / 0.5, 0, 1)));
+      T.facing = this.dir * 0.3 * u;
+      T.lookX = this.dir * 0.3 * u;
+      T.lookY = 0.95 * u;
+      T.headTilt += this.dir * 0.12 * u;
+      T.crouch = 0.3 * u;
+      T.earDroop = -0.2 * u;
+      if (t > this.dur * 0.45) {
+        T.mouth = 'o';
+        T.mouthOpen = 0.35 * u;
+      }
+      return t >= this.dur;
+    },
+  }),
+
+  /**
+   * 从窗口上跳下去：先低头看看下面、蹲下蓄力，然后往屋子中间那边跳。
+   * 是往"你这边"（窗口前面）跳的，所以不会又落回同一个窗口上（见 pet.skipPerch）；落地是得意的笑脸
+   */
+  jumpDown: (b, p) => {
+    const A = b.world.area;
+    const dir = p.dir ?? (b.pet.x < (A.left + A.right) / 2 ? 1 : -1);
+    return {
+      phase: 'ready',
+      pt: 0,
+      jumped: false,
+      update(b, dt, t) {
+        const pet = b.pet;
+        const T = pet.target;
+        const s = pet.style;
+        const S = b.world.scale;
+        this.pt += dt;
+        s.fps = 60;
+        s.gaze = 'none';
+        if (this.phase === 'ready') {
+          if (pet.mode !== 'ground' || !pet.perch) return true; // 已经不在窗口上了（比如窗口刚好被关掉）
+          const u = clamp((this.pt - 0.55) / 0.35, 0, 1);
+          T.facing = dir * 0.6;
+          T.lookX = dir * 0.35;
+          T.lookY = 0.85 * (1 - u * 0.6);
+          T.crouch = 0.45 * u; // 蹲下蓄力
+          T.armL = T.armR = 0.35 * u;
+          T.earDroop = -0.2;
+          T.tailCurl = 1;
+          if (this.pt >= 0.9) {
+            this.phase = 'jump';
+            this.pt = 0;
+          }
+          return false;
+        }
+        if (!this.jumped) {
+          this.jumped = true;
+          pet.skipPerch = pet.perch ? pet.perch.id : null;
+          pet.perch = null;
+          pet.mode = 'air';
+          pet.airT = 1;
+          pet.leapt = true; // 自己跳的：稳稳落地，不晕
+          pet.vx = dir * rand(110, 170) * S;
+          pet.vy = -rand(170, 240) * S;
+          pet.vrot = dir * 0.8;
+        }
+        s.tailSide = -dir; // 尾巴别在半空中换边（换边那一下是侧着的，像一根细棍）
+        T.facing = dir * 0.5;
+        T.armL = T.armR = 1.5;
+        T.eyes = 'happy';
+        T.mouth = 'smile';
+        T.mouthOpen = 0.6;
+        T.tailCurl = 1;
+        T.footLY = T.footRY = 3;
+        return this.pt > 6; // 落地时大脑会换成"落地"动作；万一 6 秒还没落地，就不管了
+      },
+    };
+  },
+
   // ------------------------------------------------------------ 被拎起来、掉下去
 
   /**
@@ -1463,6 +1548,6 @@ export const ACTIVITIES = {
 };
 
 // 哪些动作可以被"更想做的事"打断（比如发呆时看到鼠标晃动，就去追）
-export const INTERRUPTIBLE = new Set(['idle', 'lookAround', 'sit', 'nap', 'groom', 'walk']);
+export const INTERRUPTIBLE = new Set(['idle', 'lookAround', 'sit', 'nap', 'groom', 'walk', 'peekDown']);
 // 这些是对你的操作做出的反应，进行中不会被摸头、戳一下打断
 export const REACTIVE = new Set(['held', 'falling', 'landed', 'dizzy', 'annoyed', 'arrive', 'hungry', 'eat']);

@@ -28,6 +28,7 @@ function createMockBridge() {
     firstRunDone: params.get('first') !== '1',
     petName: null,
     autoStart: false,
+    windowPerch: true,
     // 预览时加 ?area=0.3,0.4,0.4,0.6 可以直接看"活动范围"的样子（x,y,宽,高，都是占窗口的比例）
     area: (() => {
       const v = (params.get('area') || '').split(',').map(Number);
@@ -59,6 +60,7 @@ function createMockBridge() {
       if (view !== 'wardrobe') emit('mail', { unread: 0, total: 1 });
     },
     stat() {},
+    perch() {},
     setSetting(key, value) {
       settings = { ...settings, [key]: value };
       emit('settings', { ...settings });

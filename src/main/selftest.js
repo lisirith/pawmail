@@ -18,7 +18,7 @@ const native = require('./native');
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function run({ overlay, mail, store, outDir, setSetting }) {
+async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
   fs.mkdirSync(outDir, { recursive: true });
   const wc = overlay.win.webContents;
   const js = (code) => wc.executeJavaScript(`(() => { ${code} })()`, true);
@@ -29,6 +29,8 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
   };
 
   overlay.pollEnabled = false; // 不用真实鼠标，改用下面模拟的位置
+  // 先不让它站到窗口上：别的检查会打开信纸窗口、让宠物往下掉，不能让它落到信纸窗口顶上。testLedges 里再打开
+  setSetting('windowPerch', false);
   await wait(1500);
 
   // 1. 画面启动了吗？把时间快进到宠物跑进屏幕站好。
@@ -142,8 +144,102 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
   await testFestivals();
   await testFullscreen();
   await testHints();
+  await testLedges();
   await testLog();
   return finish();
+
+  // ---------------------------------------------------------------- 站到窗口顶上
+
+  async function testLedges() {
+    const { BrowserWindow } = require('electron');
+    const b = overlay.bounds;
+    // 开一个普通的窗口（不抢焦点），看画面认不认得出它的顶边。
+    // 设成"总在最前面"：跑自检时你可能开着一个最大化的窗口，普通窗口会被它整个挡住（那样本来就不该站上去）
+    const box = { x: b.x + Math.round(b.width * 0.25), y: b.y + Math.round(b.height * 0.45), width: 560, height: 260 };
+    const win = new BrowserWindow({ ...box, show: false, title: 'Pawmail selftest', skipTaskbar: true, alwaysOnTop: true });
+    win.loadURL('data:text/html,<body style="background:%23dfe7f1"></body>');
+    win.showInactive();
+    win.moveTop();
+    const id = String(native.handleOf(win));
+    setSetting('windowPerch', true);
+    await wait(900);
+    const ledgeOf = async () => js(`return window.__pawmail.world.ledges.find((L) => L.id === ${JSON.stringify(id)}) || null;`);
+    const L = await ledgeOf();
+    check('认出了普通窗口的顶边（位置对得上）', !!L && Math.abs(L.y - (box.y - b.y)) <= 3 && L.segs.length >= 1, { ledge: L, expectTop: box.y - b.y });
+
+    // 把它放到窗口顶上：松手后掉下去，落在顶边上
+    const dropOn = (x) => js(`
+      const P = window.__pawmail;
+      const L = P.world.ledges.find((l) => l.id === ${JSON.stringify(id)});
+      if (!L) return null;
+      P.brain.queue.length = 0;
+      P.brain.start('idle');
+      P.pet.grab(0, -60);
+      P.brain.onGrab();
+      P.pet.x = ${x === undefined ? '(L.segs[0][0] + L.segs[0][1]) / 2' : x};
+      P.pet.y = L.y - 90;
+      P.pet.release(0, 0);
+      P.brain.onRelease();
+      P.run(1.6);
+      return { perch: P.pet.perch && P.pet.perch.id, mode: P.pet.mode, x: P.pet.x, y: P.pet.y, ledgeY: L.y, activity: P.brain.name };
+    `);
+    const on = await dropOn();
+    await wait(200);
+    check('放到窗口顶上，它就站在顶边上；后台知道它站在哪个窗口上', !!on && on.perch === id && on.mode === 'ground' && Math.abs(on.y - on.ledgeY) < 0.6 && ledgeWatch.perchId === id, {
+      ...on,
+      watching: ledgeWatch.perchId,
+    });
+
+    // 拖动窗口：它跟着走（先让它坐好，免得它自己正好在窗口上走几步，量出来的距离就不准了）
+    const seated = await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('sit'); P.run(0.05); return { x: P.pet.x, y: P.pet.y };`);
+    if (on) Object.assign(on, seated);
+    win.setPosition(box.x + 120, box.y - 60);
+    await wait(500);
+    const moved = await js(`
+      const P = window.__pawmail;
+      P.run(0.3);
+      const L = P.world.ledges.find((l) => l.id === ${JSON.stringify(id)});
+      return { perch: P.pet.perch && P.pet.perch.id, x: P.pet.x, y: P.pet.y, ledgeY: L && L.y };
+    `);
+    check('窗口被拖走，它跟着一起走', !!on && moved.perch === id && Math.abs(moved.x - on.x - 120) < 3 && Math.abs(moved.y - moved.ledgeY) < 0.6 && Math.abs(moved.ledgeY - (on.ledgeY - 60)) <= 3, {
+      before: on && { x: on.x, y: on.y },
+      after: moved,
+    });
+
+    // 另一个窗口盖住了它脚下那一段：掉下去（落到地上）
+    const P0 = await js(`const P = window.__pawmail; return { x: P.pet.x, y: P.pet.y };`);
+    const cover = new BrowserWindow({ x: b.x + Math.round(P0.x) - 120, y: b.y + Math.round(P0.y) - 80, width: 240, height: 200, show: false, skipTaskbar: true, alwaysOnTop: true });
+    cover.loadURL('data:text/html,<body style="background:%23f1dfe0"></body>');
+    cover.showInactive();
+    cover.moveTop();
+    await wait(900);
+    const covered = await js(`
+      const P = window.__pawmail;
+      P.run(2.5);
+      return { perch: P.pet.perch && P.pet.perch.id, mode: P.pet.mode, y: P.pet.y, ground: P.world.groundY, activity: P.brain.name };
+    `);
+    check('脚下那一段被别的窗口挡住：它掉下去，落到地上', moved.perch === id && covered.perch !== id && covered.mode === 'ground' && Math.abs(covered.y - covered.ground) < 0.6, covered);
+    cover.destroy();
+
+    // 再放上去，然后把窗口关掉：掉下去
+    await wait(800);
+    const again = await dropOn();
+    win.destroy();
+    await wait(900);
+    const closed = await js(`
+      const P = window.__pawmail;
+      P.run(2.5);
+      return { perch: P.pet.perch && P.pet.perch.id, mode: P.pet.mode, y: P.pet.y, ground: P.world.groundY, ledges: P.world.ledges.length };
+    `);
+    check('站着的窗口被关掉：它掉下去，落到地上', !!again && again.perch === id && !closed.perch && closed.mode === 'ground' && Math.abs(closed.y - closed.ground) < 0.6, { again, closed });
+
+    // 关掉"站到窗口上"：后台不再发窗口顶边
+    setSetting('windowPerch', false);
+    await wait(700);
+    const off = await js(`return window.__pawmail.world.ledges.length;`);
+    check('关掉"站到窗口上"以后，没有可以站的窗口了', off === 0, { ledges: off });
+    await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.3); return true;`);
+  }
 
   // ---------------------------------------------------------------- 日志文件
 

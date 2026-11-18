@@ -5,6 +5,7 @@
 //   volumeOf      一个文件在哪个盘上、是不是本机的硬盘（喂它吃文件之前要查，见 feed.js）。
 //   dragImage…    拖着文件到宠物身上时，不让 Windows 画那个挡住它脸的大文件图标（见下面的说明）。
 //   foregroundFullscreen  最前面的窗口是不是铺满了整个主屏幕（有人在全屏打游戏、看视频时，宠物先躲起来）。
+//   visibleWindows / windowFrame  屏幕上看得见的窗口在哪儿（宠物可以站到窗口顶上，见 ledges.js）。
 // 如果 koffi 加载失败，程序照样能运行，只是"只待在桌面上"模式的效果会差一点，也不能喂它吃文件了。
 
 let koffi = null;
@@ -26,6 +27,13 @@ let GetClassNameW = null;
 let MonitorFromWindow = null;
 let GetMonitorInfoW = null;
 let IsZoomed = null;
+let GetTopWindow = null;
+let GetWindow = null;
+let IsWindowVisibleH = null;
+let IsIconic = null;
+let GetWindowLongPtrW = null;
+let DwmGetRect = null;
+let DwmGetInt = null;
 
 if (process.platform === 'win32') {
   try {
@@ -60,6 +68,15 @@ if (process.platform === 'win32') {
     MonitorFromWindow = user32.func('intptr_t __stdcall MonitorFromWindow(intptr_t hWnd, uint32_t flags)');
     GetMonitorInfoW = user32.func('int __stdcall GetMonitorInfoW(intptr_t hMonitor, _Inout_ PAWMAIL_MONITORINFO *info)');
     IsZoomed = user32.func('int __stdcall IsZoomed(intptr_t hWnd)');
+    // 列出屏幕上的窗口要用的几个（宠物站到窗口顶上，见 visibleWindows）
+    GetTopWindow = user32.func('intptr_t __stdcall GetTopWindow(intptr_t hWnd)');
+    GetWindow = user32.func('intptr_t __stdcall GetWindow(intptr_t hWnd, uint32_t uCmd)');
+    IsWindowVisibleH = user32.func('int __stdcall IsWindowVisible(intptr_t hWnd)');
+    IsIconic = user32.func('int __stdcall IsIconic(intptr_t hWnd)');
+    GetWindowLongPtrW = user32.func('intptr_t __stdcall GetWindowLongPtrW(intptr_t hWnd, int nIndex)');
+    const dwmapi = koffi.load('dwmapi.dll');
+    DwmGetRect = dwmapi.func('long __stdcall DwmGetWindowAttribute(intptr_t hwnd, uint32_t attr, _Out_ PAWMAIL_RECT *value, uint32_t size)');
+    DwmGetInt = dwmapi.func('long __stdcall DwmGetWindowAttribute(intptr_t hwnd, uint32_t attr, _Out_ uint32_t *value, uint32_t size)');
   } catch (err) {
     console.warn('[native] koffi 不可用，"只待在桌面上"模式会降级：', err.message);
   }
@@ -191,6 +208,94 @@ function foregroundFullscreen() {
   }
 }
 
+// ---------------------------------------------------------------- 屏幕上的窗口在哪儿
+//
+// 宠物可以站到别的窗口顶上（见 ledges.js）。为此要知道：屏幕上看得见哪些窗口、各在哪儿、谁压着谁。
+// 和"全屏时躲起来"一样，只看窗口的位置、大小和前后顺序，不看标题、不看是哪个程序。
+
+const GW_HWNDNEXT = 2;
+const GW_OWNER = 4;
+const GWL_STYLE = -16;
+const GWL_EXSTYLE = -20;
+const WS_CAPTION = 0x00c00000; // 有标题栏
+const WS_POPUP = 0x80000000;
+const WS_EX_TOPMOST = 0x8;
+const WS_EX_TRANSPARENT = 0x20; // 鼠标能穿过去的透明窗口（比如我们自己这种桌宠）
+const WS_EX_TOOLWINDOW = 0x80; // 工具窗口：浮动的小面板、提示框、透明的桌宠窗口
+const WS_EX_APPWINDOW = 0x40000;
+const WS_EX_LAYERED = 0x80000; // 分层（可以半透明）的窗口
+const WS_EX_NOACTIVATE = 0x08000000; // 点了也不会变成"当前窗口"的：音量提示、通知之类
+const DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+const DWMWA_CLOAKED = 14;
+
+/** Windows 给的窗口样式是 32 位的数，64 位程序里可能被当成负数读出来：统一换成正的 */
+const u32 = (v) => Number(BigInt.asUintN(32, BigInt(v)));
+
+/**
+ * 窗口在屏幕上真正看得见的那个框（物理像素）。
+ * Windows 10/11 的窗口四周有一圈看不见的"拉伸边框"，GetWindowRect 会把它算进去，所以优先问 DWM 要实际画出来的框。
+ */
+function frameOf(hwnd) {
+  const rect = {};
+  if (DwmGetRect && DwmGetRect(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, rect, 16) === 0) return rect;
+  const r = {};
+  return GetWindowRect(hwnd, r) ? r : null;
+}
+
+/** 被"隐藏"起来的窗口：别的虚拟桌面上的、挂起的商店应用。它们算"可见"，其实看不见 */
+function cloaked(hwnd) {
+  if (!DwmGetInt) return false;
+  const v = [0];
+  return DwmGetInt(hwnd, DWMWA_CLOAKED, v, 4) === 0 && v[0] !== 0;
+}
+
+/**
+ * 屏幕上看得见的窗口，从最前面往后排。每个：{ id, rect（物理像素）, perch, topmost }
+ *   perch   能不能站上去：普通的程序窗口和对话框可以；最大化的（顶上没地方）、弹出菜单这类不行
+ *   topmost 是不是"总在最前面"的窗口
+ * 不算的：最小化的、隐藏的、透明可穿透的（别的桌宠）、浮动小面板、Windows 自己的桌面和任务栏、skip 里的（我们自己的）。
+ */
+function visibleWindows(skip = new Set()) {
+  if (!GetTopWindow) return [];
+  const out = [];
+  try {
+    let h = GetTopWindow(0);
+    for (let n = 0; h && n < 2000; n++, h = GetWindow(h, GW_HWNDNEXT)) {
+      if (skip.has(String(h))) continue;
+      if (!IsWindowVisibleH(h) || IsIconic(h) || cloaked(h)) continue;
+      const ex = u32(GetWindowLongPtrW(h, GWL_EXSTYLE));
+      if (ex & (WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)) continue;
+      // 总在最前面的半透明大窗口：多半是别的桌宠、屏幕特效。它们平时鼠标能穿过去（上面那条就跳过了），
+      // 但鼠标停在它们的宠物身上时会暂时"接住"鼠标、不再透明——不能因此把它当成挡住窗口的东西，害我们的宠物掉下来
+      if ((ex & WS_EX_LAYERED) && (ex & WS_EX_TOPMOST)) continue;
+      const rect = frameOf(h);
+      if (!rect || rect.right - rect.left < 2 || rect.bottom - rect.top < 2) continue;
+      const buf = Buffer.alloc(2 * 128);
+      const cls = GetClassNameW(h, buf, 128) ? wideString(buf) : '';
+      if (SHELL_CLASSES.has(cls) || OVERLAY_CLASSES.has(cls)) continue;
+      const style = u32(GetWindowLongPtrW(h, GWL_STYLE));
+      const owned = !!GetWindow(h, GW_OWNER);
+      const normal = (style & WS_CAPTION) === WS_CAPTION || (ex & WS_EX_APPWINDOW) || (!owned && !(style & WS_POPUP));
+      out.push({ id: String(h), rect, perch: !!normal && !IsZoomed(h), topmost: !!(ex & WS_EX_TOPMOST) });
+    }
+  } catch (err) {
+    console.warn('[native] 列不出窗口：', err.message);
+  }
+  return out;
+}
+
+/** 某一个窗口现在在哪儿（物理像素）。已经关掉、最小化、藏起来了返回 null */
+function windowFrame(id) {
+  if (!GetTopWindow) return null;
+  try {
+    const h = Number(id);
+    if (!h || !IsWindowVisibleH(h) || IsIconic(h) || cloaked(h)) return null;
+    return frameOf(h);
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------- 拖文件时的那个大图标
 //
 // 从文件管理器拖文件时，鼠标下面那个半透明的大图标是 Windows 的"拖动图标管家"画的：
@@ -268,5 +373,7 @@ module.exports = {
   setDragImageWindowVisible,
   coversPrimaryScreen,
   foregroundFullscreen,
+  visibleWindows,
+  windowFrame,
   available: !!SetWindowPos,
 };

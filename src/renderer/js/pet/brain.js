@@ -29,6 +29,8 @@ const COOLDOWN = {
   showMail: 150, // 手里有信没拆时，大约每两三分钟举起来提醒一次
   festiveGreet: 600, // 过节时，大约每十分钟再打一次节日招呼
   peekSheet: 25, // 万圣节披着白布时，时不时撩起来看你一眼
+  peekDown: 40, // 站在窗口上，探头往下看
+  jumpDown: 20,
 };
 
 /** 现在有多"深夜"：白天是 0，晚上 11 点开始升高，凌晨 0~6 点是 1，早上 8 点回到 0 */
@@ -70,7 +72,13 @@ export class Brain {
     this.lastSayAt = -Infinity;
 
     if (saved) this.restore(saved);
-    pet.onLand = (impact, dizzy) => this.onLand(impact, dizzy);
+    pet.onLand = (impact, dizzy, leapt) => this.onLand(impact, dizzy, leapt);
+    pet.onSlip = () => this.onSlip();
+  }
+
+  /** 是不是正站在别的窗口顶上 */
+  get perched() {
+    return !!this.pet.perch && this.pet.mode === 'ground';
   }
 
   // ------------------------------------------------------------ 存档
@@ -132,6 +140,7 @@ export class Brain {
     if (name === 'hop') this.reward({ boredom: -0.2, energy: -0.01 });
     if (name === 'chase') this.reward({ energy: -0.015 });
     if (name === 'climb') this.reward({ boredom: -0.35, energy: -0.02 });
+    if (name === 'jumpDown') this.reward({ boredom: -0.15 });
   }
 
   // ------------------------------------------------------------ 每帧
@@ -268,7 +277,7 @@ export class Brain {
     const p = w.pointer;
     const S = w.scale;
     const A = w.area;
-    if (!p.inside || this.needs.energy < 0.25) return false;
+    if (!p.inside || this.needs.energy < 0.25 || this.perched) return false; // 站在窗口上不追（会冲出窗口去）
     if (w.time - p.lastMoveAt > 2.5) return false;
     if (p.x < A.left || p.x > A.right || p.y > A.bottom) return false; // 鼠标在活动范围外面：够不着，不追
     const dx = Math.abs(p.x - pet.x);
@@ -282,7 +291,7 @@ export class Brain {
     const pet = this.pet;
     const w = this.world;
     const S = w.scale;
-    if (this.needs.energy < 0.35 || this.userAway || this.hasMail) return false;
+    if (this.needs.energy < 0.35 || this.userAway || this.hasMail || this.perched) return false;
     if (pet.look && (pet.look.held || pet.look.cover)) return false; // 拿着灯笼、披着白布，不方便爬
     if (w.groundY - pet.ceilingY() < 150 * S) return false;
     return this.#wallNear() > 0;
@@ -328,7 +337,20 @@ export class Brain {
       climb: this.#canClimb() ? (0.25 + 0.9 * bo) * e * (0.6 + 0.6 * this.mood) * (1 - 0.6 * night) * (0.25 + 0.75 * this.#wallNear()) : 0,
       festiveGreet: this.festival ? 0.12 : 0,
       peekSheet: this.pet.look && this.pet.look.cover ? 0.8 : 0,
+      peekDown: 0,
+      jumpDown: 0,
     };
+    if (this.perched) {
+      // 站在窗口顶上：只在上面走几步、坐坐、睡一觉、探头往下看；待得越久、越无聊，越想跳下去
+      const up = this.pet.time - this.pet.perchSince; // 在这个窗口上待了多少秒
+      s.run = 0;
+      s.chase = 0;
+      s.seekUser = 0;
+      s.climb = 0;
+      s.walk *= 0.5;
+      s.peekDown = 0.6;
+      s.jumpDown = (0.03 + up / 240 + 0.35 * bo) * (this.userAway ? 0.2 : 1);
+    }
     for (const name of Object.keys(s)) {
       s[name] *= this.#cooldown(name);
       if (name === this.name) s[name] *= name === 'idle' ? 0.5 : 0.15; // 尽量别连着做同一件事
@@ -390,7 +412,7 @@ export class Brain {
     if (this.name === 'sleep' && !this.current.forced) this.start('wake'); // 换了新衣服，醒来看看（哄睡的不叫醒）
   }
 
-  /** 落地了。leapt：是它自己（从墙上）跳下来的 */
+  /** 落地了。leapt：是它自己（从墙上、窗口上）跳下来的 */
   onLand(impact, dizzy, leapt) {
     if (dizzy) {
       this.stat('dizzy');
@@ -398,7 +420,15 @@ export class Brain {
       this.start('dizzy');
     } else {
       this.start('landed', { happy: !!leapt });
+      // 被你放到了窗口顶上：说一句"这里视野真好"（别说得太勤）
+      if (this.pet.perch && !leapt && this.world.time - this.lastSayAt > 20 && chance(0.6)) this.say('perch', 2.4);
     }
+  }
+
+  /** 脚下的窗口没了（关掉、最小化、被挡住），或者被你晃得站不住：吓一跳，掉下去 */
+  onSlip() {
+    this.start('falling');
+    if (this.world.time - this.lastSayAt > 8 && chance(0.5)) this.say('slip', 1.8);
   }
 
   /**
@@ -485,6 +515,14 @@ export class Brain {
       return;
     }
     if (pet.mode !== 'ground') return;
+    if (type === 'comeBack' && this.perched) {
+      // 站在窗口上：先跳下来，再跑回活动范围中间
+      pet.unbounded = false;
+      this.queue.length = 0;
+      this.queue.push(['walk', { tx: (A.left + A.right) / 2, gait: 'run' }], ['greet', {}]);
+      this.start('jumpDown', { dir: pet.x < (A.left + A.right) / 2 ? 1 : -1 });
+      return;
+    }
     if (type === 'sleep' && this.name !== 'sleep') {
       this.start('sleep', { forced: true, minDur: 240 });
     } else if (type === 'wake' && this.name === 'sleep') {

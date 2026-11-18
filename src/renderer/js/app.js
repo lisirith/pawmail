@@ -81,7 +81,10 @@ async function main() {
       lastMoveAt: -Infinity,
     },
     system: { idle: 0 }, // 后台告诉我们：你已经多少秒没碰电脑了
+    // 别的窗口的顶边，宠物可以站上去：[{ id, x, y, segs: [[左, 右], ...] }]（只留活动范围里站得下的，见 layoutLedges）
+    ledges: [],
   };
+  let rawLedges = []; // 后台发来的原样（整个屏幕的）；活动范围、宠物大小变了要重新筛
 
   // ------------------------------------------------------------ 活动范围
   //
@@ -130,6 +133,34 @@ async function main() {
     arena.style.width = `${width}px`;
     arena.style.height = `${height}px`;
     world.clip = { left: arenaX, top: arenaY, right: arenaX + width, bottom: arenaY + height };
+    layoutLedges();
+  }
+
+  /**
+   * 从后台发来的窗口顶边里，挑出宠物站得上去的：在活动范围里、头顶有地方（不会顶出范围）、
+   * 离地面不太近（那和站在地上差不多）、露出来的一段够它站。
+   */
+  function layoutLedges() {
+    const A = world.area;
+    const S = world.scale;
+    const lo = A.left + 34 * S;
+    const hi = A.right - 34 * S;
+    const top = A.top + 130 * S;
+    const bottom = world.groundY - 60 * S;
+    world.ledges = rawLedges
+      .filter((L) => L.y >= top && L.y <= bottom)
+      .map((L) => ({ ...L, segs: L.segs.map(([a, b]) => [Math.max(a, lo), Math.min(b, hi)]).filter(([a, b]) => b - a >= 70 * S) }))
+      .filter((L) => L.segs.length);
+  }
+
+  /** 后台发来的窗口顶边：先检查一下样子（画面不信任任何外来数据） */
+  function setLedges(list) {
+    const num = (v) => typeof v === 'number' && Number.isFinite(v);
+    rawLedges = (Array.isArray(list) ? list : [])
+      .slice(0, 200)
+      .filter((L) => L && typeof L.id === 'string' && num(L.x) && num(L.y) && Array.isArray(L.segs))
+      .map((L) => ({ id: L.id, x: L.x, y: L.y, segs: L.segs.filter((s) => Array.isArray(s) && num(s[0]) && num(s[1]) && s[1] > s[0]).slice(0, 20) }));
+    layoutLedges();
   }
   layoutArea();
 
@@ -159,6 +190,10 @@ async function main() {
     bridge.setTrayIcon(makeTrayIcon(pet.sp, pet.look, pet.outfit));
   }
   bridge.on('festival', (next) => applyFestival(next));
+
+  // 窗口顶边（宠物可以站上去）：后台看到窗口挪了、开了、关了，就发一份新的
+  bridge.on('ledges', setLedges);
+  let perchSent = null; // 上次告诉后台的"站在哪个窗口上"
 
   // ------------------------------------------------------------ 画布
 
@@ -270,6 +305,7 @@ async function main() {
     if (same || pet.unbounded || pet.mode === 'held') return; // 正在进场、正被你拎着：之后物理会自己把它放进范围里
     const S = world.scale;
     if (pet.mode === 'wall') brain.start('falling'); // 正扒在墙上：先松手（爬墙动作一结束就会让它掉下来）
+    // 站在窗口上：不用管。那个窗口不在新的范围里的话，layoutLedges 已经把它筛掉了，宠物下一帧自己会掉下去
     const lo = A.left + 40 * S;
     const hi = Math.max(lo, A.right - 40 * S);
     const insideX = pet.x >= lo && pet.x <= hi;
@@ -279,10 +315,11 @@ async function main() {
       pet.x = clamp(pet.x, A.left + 70 * S, Math.max(A.left + 70 * S, A.right - 70 * S));
       pet.y = world.groundY;
       pet.mode = 'ground';
+      pet.perch = null;
       pet.vx = pet.vy = pet.rot = pet.vrot = 0;
       pet.leapt = pet.bounced = false;
       poof();
-    } else if (pet.mode === 'ground' && pet.y < world.groundY - 2) {
+    } else if (pet.mode === 'ground' && !pet.perch && pet.y < world.groundY - 2) {
       // 还在范围里，但新的地面更低：从原来的高度轻轻跳下去
       pet.mode = 'air';
       pet.vx = pet.vy = 0;
@@ -666,6 +703,16 @@ async function main() {
           { value: false, label: t('menu.off') },
         ],
       },
+      {
+        type: 'choice',
+        key: 'windowPerch',
+        label: t('menu.windowPerch'),
+        value: settings.windowPerch !== false,
+        options: [
+          { value: true, label: t('menu.on'), title: t('menu.windowPerchLong') },
+          { value: false, label: t('menu.off') },
+        ],
+      },
       { type: 'separator' },
       { type: 'action', id: 'area', label: `🔲 ${t('menu.areaEdit')}` },
       { type: 'action', id: 'toggleSleep', label: brain.asleep ? `☀️ ${t('menu.wake')}` : `🌙 ${t('menu.sleep')}` },
@@ -764,6 +811,12 @@ async function main() {
     pet.begin(dt);
     brain.update(dt);
     pet.finish(dt);
+    // 站上 / 离开了某个窗口：告诉后台（站在窗口上时，后台会更勤快地盯着那个窗口，你拖窗口时它才跟得上）
+    const perchId = pet.perch ? pet.perch.id : null;
+    if (perchId !== perchSent) {
+      perchSent = perchId;
+      bridge.perch(perchId);
+    }
     updateCapture();
     render(performance.now());
   }
@@ -869,6 +922,8 @@ async function main() {
       areaEditor,
       openAreaEditor,
       settings: () => settings,
+      /** 测试用：假装后台发来了一份窗口顶边（[{ id, x, y, segs: [[左, 右]] }]，画面坐标） */
+      setLedges,
       /** 测试用：马上试着提醒一次"文件可以拖给我吃"（跳过"开了十分钟"这一条，别的条件照旧） */
       hintFeed: () => maybeHintFeed(true),
       setPointer,
