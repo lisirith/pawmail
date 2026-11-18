@@ -1,8 +1,8 @@
 # 打包配置：把程序做成别人能直接用的版本（工具叫 electron-builder）。
 # 运行：npm run dist      （第一次会从网上下载几个小组件）
 # 产出在 dist/ 里：
-#   Pawmail-0.1.0-win-x64.zip    免安装版：解压后双击 Pawmail.exe
-#   Pawmail-Setup-0.1.0.exe      安装程序：装到"开始"菜单，带卸载
+#   Pawmail-<版本号>-win-x64.zip    免安装版：解压后双击 Pawmail.exe
+#   Pawmail-Setup-<版本号>.exe      安装程序：装到"开始"菜单，带卸载
 #   win-unpacked/                没压缩的程序文件夹（自己测试用）
 # 版本号在 package.json 的 "version" 里改。
 

@@ -104,6 +104,9 @@ class LedgeWatch {
     this.sent = '[]';
     this.scanAt = 0;
     this.slowest = 0;
+    // 自检用：只把这些窗口（编号的 Set）的顶边发给画面，免得宠物落到你自己开着的窗口上、检查结果跟着你桌面的样子变。
+    // 别的窗口照样算"挡住"。平时是 null（全都发）
+    this.only = null;
   }
 
   start() {
@@ -162,7 +165,9 @@ class LedgeWatch {
     const t0 = process.hrtime.bigint();
     const wins = this.native.visibleWindows(this.skip());
     const local = wins.map((w) => ({ ...w, rect: this.toLocal(w.rect) }));
-    this.#publish(computeLedges(local, this.view()));
+    let ledges = computeLedges(local, this.view());
+    if (this.only) ledges = ledges.filter((L) => this.only.has(L.id));
+    this.#publish(ledges);
     const ms = Number(process.hrtime.bigint() - t0) / 1e6;
     if (ms > this.slowest * 1.5 && ms > 2) {
       this.slowest = ms;

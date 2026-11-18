@@ -161,6 +161,8 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
     win.showInactive();
     win.moveTop();
     const id = String(native.handleOf(win));
+    // 只认自检自己开的窗口：你桌面上开着的普通窗口如果正好在附近，宠物会落到它上面（那是对的），检查就乱了
+    ledgeWatch.only = new Set([id]);
     setSetting('windowPerch', true);
     await wait(900);
     const ledgeOf = async () => js(`return window.__pawmail.world.ledges.find((L) => L.id === ${JSON.stringify(id)}) || null;`);
@@ -268,6 +270,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
     const lowBox = { x: b.x + Math.round(geo.w * 0.55), y: b.y + Math.round(geo.g - 95 * geo.S), width: 380, height: 200 };
     const low = openWin(lowBox, 'e3efe0');
     const lowId = String(native.handleOf(low));
+    ledgeWatch.only.add(lowId);
     await wait(900);
     const hop = await getUp(lowId, 'hopUp', `L.x - 150 * P.world.scale`);
     check('自己跳上一个矮窗口', hop.found && hop.planned && hop.perch === lowId && Math.abs(hop.y - hop.ledgeY) < 0.6, hop);
@@ -279,6 +282,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
     const tallBox = { x: b.x + Math.round(geo.w * 0.4), y: b.y + tallTop, width: 420, height: Math.round(b.height - tallTop + 60) };
     const tall = openWin(tallBox, 'e0e6f1');
     const tallId = String(native.handleOf(tall));
+    ledgeWatch.only.add(tallId);
     await wait(900);
     const climbed = await getUp(tallId, 'climbUp', `L.x - 200 * P.world.scale`);
     check('自己顺着伸到地面的窗口侧边爬上去', climbed.found && climbed.planned && climbed.perch === tallId && Math.abs(climbed.y - climbed.ledgeY) < 0.6, climbed);
@@ -291,6 +295,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
     await wait(700);
     const off = await js(`return window.__pawmail.world.ledges.length;`);
     check('关掉"站到窗口上"以后，没有可以站的窗口了', off === 0, { ledges: off });
+    ledgeWatch.only = null;
     await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.3); return true;`);
   }
 
