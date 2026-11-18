@@ -257,6 +257,7 @@ function watchFullscreen() {
     return;
   }
   const full = native.foregroundFullscreen();
+  if (full === null) return; // Windows 的截图遮罩之类盖在最前面：保持原样，不躲也不出来（见 native.js 的 OVERLAY_CLASSES）
   fullscreenStreak = full ? Math.max(1, fullscreenStreak + 1) : Math.min(-1, fullscreenStreak - 1);
   if (fullscreenStreak >= 2 && !overlay.hidden) {
     overlay.setHidden(true);

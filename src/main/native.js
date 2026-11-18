@@ -141,6 +141,10 @@ const MONITOR_DEFAULTTONEAREST = 2;
 const MONITORINFOF_PRIMARY = 1;
 // Windows 自己的界面：桌面（点一下桌面，最前面的窗口就是它，它也铺满屏幕）、切换窗口时的那一层。这些不算全屏程序
 const SHELL_CLASSES = new Set(['Progman', 'WorkerW', 'Shell_TrayWnd', 'MultitaskingViewFrame', 'XamlExplorerHostIslandWindow', 'TaskSwitcherWnd', 'TaskSwitcherOverlayWnd', 'ForegroundStaging']);
+// Windows 临时盖上来的一整层：比如 Win+Shift+S 截图时的遮罩（2026-11-17 实测类名是 XamlWindow）。
+// 它会铺满屏幕，但不是"有人在全屏打游戏"：宠物原来露着就接着露着（不然截图时它会躲起来、截完过两秒才回来），
+// 原来躲着就接着躲着（打全屏游戏时叫出系统浮层，它也不该冒出来）。
+const OVERLAY_CLASSES = new Set(['XamlWindow']);
 
 /**
  * 这个窗口（句柄）是不是铺满了整个主屏幕。查不了返回 false。
@@ -170,11 +174,18 @@ function coversPrimaryScreen(hwnd) {
   }
 }
 
-/** 现在最前面的窗口是不是全屏的（铺满了整个主屏幕）。查不了返回 false（宁可不躲） */
+/**
+ * 现在最前面的窗口是不是全屏的（铺满了整个主屏幕）。查不了返回 false（宁可不躲）。
+ * 返回 null：最前面是 Windows 临时盖上来的一层（截图遮罩之类，见 OVERLAY_CLASSES），宠物保持原样，不躲也不出来。
+ */
 function foregroundFullscreen() {
   if (!GetForegroundWindow) return false;
   try {
-    return coversPrimaryScreen(GetForegroundWindow());
+    const hwnd = GetForegroundWindow();
+    if (!coversPrimaryScreen(hwnd)) return false;
+    const buf = Buffer.alloc(2 * 128);
+    const cls = GetClassNameW && GetClassNameW(hwnd, buf, 128) ? wideString(buf) : '';
+    return OVERLAY_CLASSES.has(cls) ? null : true;
   } catch {
     return false;
   }
