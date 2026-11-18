@@ -6,8 +6,10 @@
 //   npm run sim -- 3 panda 23           熊猫，从晚上 11 点开始，模拟 3 小时
 //   npm run sim -- 6 cat 10 mouse       同上，但模拟你的鼠标时不时在它附近晃动
 //   npm run sim -- 6 cat 10 small       把活动范围设成屏幕中间一小块（720×420）
-//   npm run sim -- 6 cat 10 windows     屏幕上有两个窗口：每 4 分钟你把它放到一个窗口顶上，
+//   npm run sim -- 6 cat 10 windows     屏幕上有三个窗口：一个伸到地面（能顺着侧边爬上去）、一个矮的（能跳上去）、
+//                                       一个高一截（能从第一个上面跳上去）。每 4 分钟你把它放到一个窗口顶上，
 //                                       窗口时不时被拖动、被关掉一会儿（检查它在窗口上会不会悬空、跑出范围）
+//   npm run sim -- 6 cat 10 windows nodrop   同上，但你不去放它：只看它自己上去
 //
 // 调整了 brain.js 里的权重、冷却时间之后，跑一下这个，就能马上看到效果。
 
@@ -15,6 +17,7 @@ import { Pet } from '../src/renderer/js/pet/pet.js';
 import { Brain } from '../src/renderer/js/pet/brain.js';
 import { getSpecies } from '../src/renderer/js/pet/species/index.js';
 import { setRng, makeRng } from '../src/renderer/js/util/math.js';
+import ledgeMath from '../src/main/ledges.js';
 
 const hours = Number(process.argv[2]) || 6;
 const speciesId = process.argv[3] || 'cat';
@@ -23,6 +26,7 @@ const extras = process.argv.slice(5);
 const withMouse = extras.includes('mouse');
 const smallArea = extras.includes('small');
 const withWindows = extras.includes('windows');
+const noDrop = extras.includes('nodrop');
 
 setRng(makeRng(20261110)); // 固定的随机种子：每次运行结果一样，方便前后对比
 
@@ -40,21 +44,34 @@ const world = {
 };
 let escaped = 0; // 宠物跑出活动范围的帧数（应该一直是 0）
 
-// 假窗口（只有顶边，和画面里 world.ledges 的样子一样）：都在活动范围里、头顶有地方、离地面不太近
+// 假窗口，从最前面往后排。用后台真正的 computeLedges 算顶边和侧边哪些地方露在外面，
+// 再按画面 layoutLedges 的规则筛一遍（头顶留 130、离地面至少 60、一段至少 70 宽）
 const areaW = area.right - area.left;
 const areaH = area.bottom - area.top;
+const midY = Math.round(area.top + areaH * 0.5);
 const windows = [
-  { id: '101', left: area.left + areaW * 0.1, width: areaW * 0.45, y: Math.round(area.top + areaH * 0.55), open: true },
-  { id: '102', left: area.left + areaW * 0.5, width: areaW * 0.4, y: Math.round(area.top + areaH * 0.4), open: true },
+  // 悬在半空、比 101 高一截，挡住了 101 的右边一截：从 101 上面能跳上去
+  { id: '102', left: area.left + areaW * 0.42, width: areaW * 0.3, top: midY - 120, bottom: midY + 150, open: true },
+  // 矮的小窗口：从地面就能跳上去
+  { id: '103', left: area.left + areaW * 0.76, width: areaW * 0.2, top: area.bottom - 3 - 105, bottom: area.bottom - 20, open: true },
+  // 伸到地面的大窗口：能顺着左边爬上去
+  { id: '101', left: area.left + areaW * 0.1, width: areaW * 0.38, top: midY, bottom: area.bottom + 40, open: true },
 ];
 function publishWindows() {
-  world.ledges = windows
+  const wins = windows
     .filter((w) => w.open)
-    .map((w) => ({ id: w.id, x: w.left, y: w.y, segs: [[Math.max(w.left + 10, area.left + 34), Math.min(w.left + w.width - 10, area.right - 34)]] }));
+    .map((w) => ({ id: w.id, perch: true, rect: { left: w.left, top: w.top, right: w.left + w.width, bottom: w.bottom } }));
+  const lo = area.left + 34;
+  const hi = area.right - 34;
+  world.ledges = ledgeMath
+    .computeLedges(wins, { width: world.width, height: world.height })
+    .filter((L) => L.y >= area.top + 130 && L.y <= world.groundY - 60)
+    .map((L) => ({ ...L, segs: L.segs.map(([a, b]) => [Math.max(a, lo), Math.min(b, hi)]).filter(([a, b]) => b - a >= 70) }))
+    .filter((L) => L.segs.length);
 }
 if (withWindows) publishWindows();
 let floating = 0; // 站着（在地上或窗口上）却没踩在地面 / 窗口顶边上的帧数（应该一直是 0）
-const perch = { drops: 0, landedOn: 0, time: 0, slips: 0, jumps: 0 };
+const perch = { drops: 0, landedOn: 0, selfUp: 0, time: 0, slips: 0, jumps: 0, byId: {} };
 let wasPerched = false;
 
 let clockMs = new Date(2026, 0, 5, startHour, 0, 0).getTime();
@@ -93,7 +110,7 @@ for (let t = 0; t < hours * 3600; t += dt) {
 
   if (withWindows) {
     // 每 4 分钟：你把它拎起来，放到一个窗口顶上（它在地上、没在忙别的事时）
-    if (t % 240 < dt && pet.mode === 'ground' && !pet.perch && !['arrive', 'eat', 'hungry'].includes(brain.name)) {
+    if (!noDrop && t % 240 < dt && pet.mode === 'ground' && !pet.perch && !['arrive', 'eat', 'hungry', 'hopUp', 'climbUp'].includes(brain.name)) {
       const L = world.ledges[Math.floor(t / 240) % world.ledges.length];
       if (L) {
         perch.drops += 1;
@@ -105,16 +122,16 @@ for (let t = 0; t < hours * 3600; t += dt) {
         brain.onRelease();
       }
     }
-    // 每 90 秒把第一个窗口往左或往右拖 60 像素（宠物站在上面的话要跟着走）
+    // 每 90 秒把伸到地面的那个窗口往左或往右拖 60 像素（宠物站在上面、扒在它侧边的话要跟着走）
     if (t % 90 < dt) {
-      const w = windows[0];
+      const w = windows[2];
       w.left = Math.min(Math.max(area.left, w.left + (Math.floor(t / 90) % 2 ? -60 : 60)), area.right - w.width);
       publishWindows();
     }
-    // 每 7 分钟把第二个窗口关掉 30 秒（站在上面的话会掉下去）
+    // 每 7 分钟把高一截的那个窗口关掉 30 秒（站在上面的话会掉下去）
     const closed = t % 420 > 390;
-    if (windows[1].open === closed) {
-      windows[1].open = !closed;
+    if (windows[0].open === closed) {
+      windows[0].open = !closed;
       publishWindows();
     }
   }
@@ -130,7 +147,11 @@ for (let t = 0; t < hours * 3600; t += dt) {
   }
   const perchedNow = !!pet.perch && pet.mode === 'ground';
   if (perchedNow) perch.time += dt;
-  if (perchedNow && !wasPerched) perch.landedOn += 1;
+  if (perchedNow && !wasPerched) {
+    perch.landedOn += 1;
+    perch.byId[pet.perch.id] = (perch.byId[pet.perch.id] || 0) + 1;
+    if (brain.lastName === 'hopUp' || brain.lastName === 'climbUp') perch.selfUp += 1;
+  }
   if (!perchedNow && wasPerched && pet.mode === 'air') {
     if (brain.name === 'jumpDown') perch.jumps += 1;
     else perch.slips += 1;
@@ -176,6 +197,7 @@ if (withWindows) {
     `窗口：放上去 ${perch.drops} 次，站上去 ${perch.landedOn} 次，一共待了 ${(perch.time / 60).toFixed(1)} 分钟` +
       `（平均每次 ${(perch.time / Math.max(1, perch.landedOn)).toFixed(0)} 秒）；自己跳下来 ${perch.jumps} 次，掉下来 ${perch.slips} 次`
   );
+  console.log(`自己上去 ${perch.selfUp} 次；站上各个窗口的次数：${JSON.stringify(perch.byId)}`);
 }
 console.log(`睡了 ${sleeps.length} 觉，每觉（分钟）：${sleeps.map((m) => m.toFixed(1)).join('、') || '—'}`);
 console.log(`结束时：精力 ${brain.needs.energy.toFixed(2)}  无聊 ${brain.needs.boredom.toFixed(2)}  想被关注 ${brain.needs.social.toFixed(2)}  心情 ${brain.mood.toFixed(2)}`);

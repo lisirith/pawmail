@@ -61,6 +61,7 @@
     "mail": ["You've got pawmail! Click me~", "A letter for you! Click me~", "Look, mail for you!"],
     "climb": ["So high~", "Look how high I got!", "Hup!"],
     "perch": ["Nice view up here~", "Look, I'm on a window!", "I can see everything from here~"],
+    "perchUp": ["Made it!", "Hup — I'm up top~", "Got up here all by myself!"],
     "slip": ["Whoa—!", "Hey, where did my floor go?!", "Oops!"],
     "area": ["Nice spot~", "My new turf!", "I'll live here then"],
     "outfit": ["Do I look good?", "How do I look?", "Hehe, new clothes!", "Does it suit me?"],

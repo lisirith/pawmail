@@ -38,7 +38,7 @@ Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drop
 
 - Birthdays and festivals: Lunar New Year, Mid-Autumn, Halloween, Christmas and more (you choose which ones you celebrate). On the day it dresses up, sends a festival letter with a festival-only gift, and greets you in its own way.
 - A monthly letter about your month together, and a year in review on New Year's Day.
-- Drop it on top of a window and it perches there: it strolls along the top, naps, peeks over the edge, and rides along when you drag the window. Close the window and down it goes.
+- Drop it on top of a window and it perches there: it strolls along the top, naps, peeks over the edge, and rides along when you drag the window. Close the window and down it goes. Sometimes it gets up there by itself, hopping onto a low window or climbing the side of one that reaches down to the taskbar.
 - Hides by itself while a game or video is full-screen, and comes back when you're done.
 - Draw a box to keep it in one part of the screen.
 - English and Chinese.

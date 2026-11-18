@@ -10,7 +10,7 @@
 // 再按分数"加权随机"抽一个。刚做过的动作有冷却时间，所以不会来回重复同样几个。
 
 import { clamp, damp, pickWeighted, chance } from '../util/math.js';
-import { ACTIVITIES, INTERRUPTIBLE, REACTIVE, wallDistances } from './activities.js';
+import { ACTIVITIES, INTERRUPTIBLE, REACTIVE, wallDistances, planHop, planClimb } from './activities.js';
 
 // 每个动作做完之后，过多少秒才会恢复到正常的出现概率
 const COOLDOWN = {
@@ -31,7 +31,14 @@ const COOLDOWN = {
   peekSheet: 25, // 万圣节披着白布时，时不时撩起来看你一眼
   peekDown: 40, // 站在窗口上，探头往下看
   jumpDown: 20,
+  hopUp: 360, // 自己跳上窗口：最多六分钟一次
+  climbUp: 420, // 自己顺着窗口侧边爬上去（和爬屏幕边的 climb 互相也算冷却，见 scores）
 };
+
+// 刚从窗口上下来（自己跳的、掉下来的）：过这么多秒才想再上去
+const UP_AGAIN_AFTER = 180;
+// 活动的、费劲的动作：精力掉得快
+const ENERGETIC = new Set(['walk', 'run', 'chase', 'hop', 'climb', 'hopUp', 'climbUp']);
 
 /** 现在有多"深夜"：白天是 0，晚上 11 点开始升高，凌晨 0~6 点是 1，早上 8 点回到 0 */
 export function nightFactor(date = new Date()) {
@@ -70,6 +77,7 @@ export class Brain {
     this.clicks = [];
     this.checkIn = 0;
     this.lastSayAt = -Infinity;
+    this.leftPerchAt = -Infinity; // 上次从窗口上下来是什么时候（world.time）
 
     if (saved) this.restore(saved);
     pet.onLand = (impact, dizzy, leapt) => this.onLand(impact, dizzy, leapt);
@@ -139,8 +147,12 @@ export class Brain {
     if (name === 'walk' || name === 'run') this.reward({ boredom: -0.22 });
     if (name === 'hop') this.reward({ boredom: -0.2, energy: -0.01 });
     if (name === 'chase') this.reward({ energy: -0.015 });
-    if (name === 'climb') this.reward({ boredom: -0.35, energy: -0.02 });
-    if (name === 'jumpDown') this.reward({ boredom: -0.15 });
+    if (name === 'climb' || name === 'climbUp') this.reward({ boredom: -0.35, energy: -0.02 });
+    if (name === 'hopUp') this.reward({ boredom: -0.25, energy: -0.01 });
+    if (name === 'jumpDown') {
+      this.reward({ boredom: -0.15 });
+      this.leftPerchAt = this.world.time;
+    }
   }
 
   // ------------------------------------------------------------ 每帧
@@ -180,11 +192,11 @@ export class Brain {
     } else {
       let drain = 1 / 9000; // 白天大约能精神 1~1.5 小时
       drain *= 1 + night * 1.5; // 深夜困得快：大约半小时就想睡
-      if (name === 'walk' || name === 'run' || name === 'chase' || name === 'hop' || name === 'climb') drain *= 3;
+      if (ENERGETIC.has(name)) drain *= 3;
       n.energy -= dt * drain;
     }
     if (name === 'idle' || name === 'sit' || name === 'lookAround') n.boredom += dt / 300;
-    else if (name === 'walk' || name === 'run' || name === 'chase' || name === 'climb') n.boredom -= dt / 30;
+    else if (name === 'walk' || name === 'run' || name === 'chase' || name === 'climb' || name === 'climbUp') n.boredom -= dt / 30;
     n.social += dt / 2700;
     if (this.petting) {
       n.social -= dt * 0.1;
@@ -297,6 +309,14 @@ export class Brain {
     return this.#wallNear() > 0;
   }
 
+  /** 想不想自己上窗口：有精神、你在、手里没有信、没拿着灯笼 / 披着白布；刚从窗口上下来的话，先在地上待一会儿 */
+  #canGoUp() {
+    const pet = this.pet;
+    if (pet.mode !== 'ground' || this.needs.energy < 0.35 || this.userAway || this.hasMail) return false;
+    if (pet.look && (pet.look.held || pet.look.cover)) return false;
+    return this.world.time - this.leftPerchAt >= UP_AGAIN_AFTER;
+  }
+
   /** 离最近的墙有多近：贴着墙是 1，300 像素开外是 0 */
   #wallNear() {
     const d = wallDistances(this);
@@ -320,6 +340,13 @@ export class Brain {
     const night = nightFactor(this.clock());
     const away = this.userAway ? 1 : 0;
     const tired = clamp((0.5 - e) / 0.5, 0, 1); // 精力 > 0.5 时是 0，耗尽时是 1
+    // 自己上窗口：附近有跳得上去的窗口（hop），或者有伸到地面、侧边能扒着爬的窗口（wall）。
+    // 劲头和爬墙差不多（无聊、有精神、心情好就想；深夜没那么想），离得越近越想
+    const goUp = this.#canGoUp();
+    const hop = goUp ? planHop(this) : null;
+    const wall = goUp ? planClimb(this) : null;
+    const keen = (0.08 + 0.5 * bo) * e * (0.6 + 0.6 * this.mood) * (1 - 0.6 * night);
+    const near = (plan) => clamp(1 - plan.cost / (900 * this.world.scale), 0.25, 1);
     const s = {
       idle: 1.0,
       lookAround: 0.5,
@@ -333,12 +360,14 @@ export class Brain {
       hop: (0.03 + 1.2 * Math.max(0, this.mood - 0.7)) * e,
       chase: this.#canChase() ? (0.3 + 2.4 * this.curiosity) * e * (0.6 + bo) : 0,
       seekUser: n.social > 0.75 && this.world.pointer.inside ? (n.social - 0.75) * 4 : 0,
-      // 离墙越近越想爬；深夜没那么想爬
-      climb: this.#canClimb() ? (0.25 + 0.9 * bo) * e * (0.6 + 0.6 * this.mood) * (1 - 0.6 * night) * (0.25 + 0.75 * this.#wallNear()) : 0,
+      // 离墙越近越想爬；深夜没那么想爬。刚爬过窗口的侧边，也先不爬屏幕边
+      climb: this.#canClimb() ? (0.25 + 0.9 * bo) * e * (0.6 + 0.6 * this.mood) * (1 - 0.6 * night) * (0.25 + 0.75 * this.#wallNear()) * this.#cooldown('climbUp') : 0,
       festiveGreet: this.festival ? 0.12 : 0,
       peekSheet: this.pet.look && this.pet.look.cover ? 0.8 : 0,
       peekDown: 0,
       jumpDown: 0,
+      hopUp: hop ? keen * near(hop) : 0,
+      climbUp: wall ? keen * near(wall) * this.#cooldown('climb') : 0,
     };
     if (this.perched) {
       // 站在窗口顶上：只在上面走几步、坐坐、睡一觉、探头往下看；待得越久、越无聊，越想跳下去
@@ -348,6 +377,7 @@ export class Brain {
       s.seekUser = 0;
       s.climb = 0;
       s.walk *= 0.5;
+      s.hopUp *= 0.5; // 从这个窗口跳上更高的一个：偶尔
       s.peekDown = 0.6;
       s.jumpDown = (0.03 + up / 240 + 0.35 * bo) * (this.userAway ? 0.2 : 1);
     }
@@ -419,14 +449,18 @@ export class Brain {
       this.reward({ mood: -0.05 });
       this.start('dizzy');
     } else {
+      const cameUp = this.name === 'hopUp' || this.name === 'climbUp'; // 自己跳上来、爬上来的
       this.start('landed', { happy: !!leapt });
-      // 被你放到了窗口顶上：说一句"这里视野真好"（别说得太勤）
-      if (this.pet.perch && !leapt && this.world.time - this.lastSayAt > 20 && chance(0.6)) this.say('perch', 2.4);
+      const quiet = this.world.time - this.lastSayAt > 20; // 别说得太勤
+      // 被你放到了窗口顶上："这里视野真好"；自己上来的："上来啦！"
+      if (this.pet.perch && !leapt && quiet && chance(0.6)) this.say('perch', 2.4);
+      else if (this.pet.perch && cameUp && quiet && chance(0.4)) this.say('perchUp', 2.2);
     }
   }
 
-  /** 脚下的窗口没了（关掉、最小化、被挡住），或者被你晃得站不住：吓一跳，掉下去 */
+  /** 脚下的窗口没了（关掉、最小化、被挡住），或者被你晃得站不住；或者正扒着窗口边往上爬，窗口没了：吓一跳，掉下去 */
   onSlip() {
+    this.leftPerchAt = this.world.time;
     this.start('falling');
     if (this.world.time - this.lastSayAt > 8 && chance(0.5)) this.say('slip', 1.8);
   }

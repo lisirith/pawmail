@@ -233,6 +233,59 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
     `);
     check('站着的窗口被关掉：它掉下去，落到地上', !!again && again.perch === id && !closed.perch && closed.mode === 'ground' && Math.abs(closed.y - closed.ground) < 0.6, { again, closed });
 
+    // 自己上去：开一个窗口，让它做 hopUp / climbUp（only = 只认这个窗口），一直推进到它站在这个窗口顶上
+    const openWin = (box, color) => {
+      const w = new BrowserWindow({ ...box, show: false, skipTaskbar: true, alwaysOnTop: true });
+      w.loadURL(`data:text/html,<body style="background:%23${color}"></body>`);
+      w.showInactive();
+      w.moveTop();
+      return w;
+    };
+    const getUp = (winId, activity, startX) => js(`
+      const P = window.__pawmail;
+      const id = ${JSON.stringify(winId)};
+      const L = P.world.ledges.find((l) => l.id === id);
+      if (!L) return { found: false, ledges: P.world.ledges.map((l) => l.id) };
+      P.brain.queue.length = 0;
+      P.brain.start('idle');
+      P.pet.x = ${startX};
+      P.run(0.3);
+      P.brain.start(${JSON.stringify(activity)}, { only: id });
+      const planned = !!P.brain.current.plan;
+      const seen = [];
+      let n = 0;
+      while (!(P.pet.perch && P.pet.perch.id === id && P.pet.mode === 'ground') && n++ < 200) {
+        P.run(0.25);
+        const tag = P.brain.name + '/' + (P.brain.current.phase || '');
+        if (seen[seen.length - 1] !== tag) seen.push(tag);
+      }
+      return { found: true, planned, perch: P.pet.perch && P.pet.perch.id, mode: P.pet.mode, y: P.pet.y, ledgeY: L.y,
+        bottom: L.bottom, sideL: L.sideL, ground: P.world.groundY, seconds: n / 4, seen: seen.slice(0, 12) };
+    `);
+    const geo = await js(`const P = window.__pawmail; return { S: P.world.scale, g: P.world.groundY, w: P.world.width };`);
+    // 矮窗口：顶边比地面高 95（按宠物大小算），宠物在它左边，跳上去
+    await wait(800);
+    const lowBox = { x: b.x + Math.round(geo.w * 0.55), y: b.y + Math.round(geo.g - 95 * geo.S), width: 380, height: 200 };
+    const low = openWin(lowBox, 'e3efe0');
+    const lowId = String(native.handleOf(low));
+    await wait(900);
+    const hop = await getUp(lowId, 'hopUp', `L.x - 150 * P.world.scale`);
+    check('自己跳上一个矮窗口', hop.found && hop.planned && hop.perch === lowId && Math.abs(hop.y - hop.ledgeY) < 0.6, hop);
+    low.destroy();
+    // 伸到地面的高窗口：顶边比地面高 300，宠物在它左边，顺着窗口的左边爬上去
+    await wait(800);
+    await js(`window.__pawmail.run(3); return true;`); // 脚下的窗口关掉了：先落回地面
+    const tallTop = Math.round(geo.g - 300 * geo.S);
+    const tallBox = { x: b.x + Math.round(geo.w * 0.4), y: b.y + tallTop, width: 420, height: Math.round(b.height - tallTop + 60) };
+    const tall = openWin(tallBox, 'e0e6f1');
+    const tallId = String(native.handleOf(tall));
+    await wait(900);
+    const climbed = await getUp(tallId, 'climbUp', `L.x - 200 * P.world.scale`);
+    check('自己顺着伸到地面的窗口侧边爬上去', climbed.found && climbed.planned && climbed.perch === tallId && Math.abs(climbed.y - climbed.ledgeY) < 0.6, climbed);
+    tall.destroy();
+    await wait(800);
+    await js(`window.__pawmail.run(3); return true;`);
+
     // 关掉"站到窗口上"：后台不再发窗口顶边
     setSetting('windowPerch', false);
     await wait(700);

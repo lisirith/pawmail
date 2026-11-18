@@ -13,6 +13,9 @@ const INSET = 10; // 窗口四角是圆的：顶边两头各让出一点
 const BAND_UP = 8; // 前面的窗口盖住了顶边往上这么多（或者往下 BAND_DOWN）的地方，这一段就算被挡住
 const BAND_DOWN = 2;
 const MIN_SEG = 40; // 太短的一小段不算（站不下）
+// 窗口左右两条竖边（宠物可以扒着往上爬）：前面的窗口盖住了边外面 SIDE_OUT 像素（或者边里面 SIDE_IN）以内的地方，这一截就算被挡住
+const SIDE_OUT = 8;
+const SIDE_IN = 2;
 
 /** 从一段段区间 segs 里挖掉 [a, b] */
 function subtract(segs, a, b) {
@@ -29,10 +32,27 @@ function subtract(segs, a, b) {
 }
 
 /**
+ * 窗口的一条竖边（左边或右边），从顶到底哪几截露在外面（没被前面的窗口挡住）。
+ * x：这条边在哪；out：边的外面在哪一侧（-1 左 / 1 右）；covers：前面的窗口。返回 [[上, 下], ...]
+ */
+function sideSpans(r, x, out, covers, view) {
+  let spans = [[Math.max(r.top, 0), Math.min(r.bottom, view.height)]];
+  const lo = out < 0 ? x - SIDE_OUT : x - SIDE_IN;
+  const hi = out < 0 ? x + SIDE_IN : x + SIDE_OUT;
+  for (const c of covers) {
+    if (c.left < hi && c.right > lo) spans = subtract(spans, c.top, c.bottom);
+    if (!spans.length) break;
+  }
+  return spans.filter(([a, b]) => b - a >= MIN_SEG).map(([a, b]) => [Math.round(a), Math.round(b)]);
+}
+
+/**
  * 算出每个窗口顶边露在外面的几段。
  * wins：从最前面往后排的窗口 [{ id, rect: { left, top, right, bottom }（画面坐标）, perch, topmost }]
  * view：画面多大 { width, height }
- * 返回 [{ id, x, y, segs: [[左, 右], ...] }]：x 是窗口的左边（窗口被拖动时，宠物跟着挪同样的距离），y 是顶边
+ * 返回 [{ id, x, y, right, bottom, segs: [[左, 右], ...], sideL, sideR }]：
+ *   x 是窗口的左边（窗口被拖动时，宠物跟着挪同样的距离），y 是顶边，right、bottom 是右边和底边；
+ *   sideL / sideR 是左边、右边那条竖边露在外面的几截 [[上, 下], ...]（宠物顺着它爬上去，见画面的 activities.js 的 climbUp）
  */
 function computeLedges(wins, view) {
   const covers = []; // 已经看过的（更靠前的）窗口
@@ -47,7 +67,18 @@ function computeLedges(wins, view) {
         if (!segs.length) break;
       }
       segs = segs.filter(([a, b]) => b - a >= MIN_SEG).map(([a, b]) => [Math.round(a), Math.round(b)]);
-      if (segs.length) out.push({ id: w.id, x: Math.round(r.left), y: Math.round(y), segs });
+      if (segs.length) {
+        out.push({
+          id: w.id,
+          x: Math.round(r.left),
+          y: Math.round(y),
+          right: Math.round(r.right),
+          bottom: Math.round(r.bottom),
+          segs,
+          sideL: sideSpans(r, r.left, -1, covers, view),
+          sideR: sideSpans(r, r.right, 1, covers, view),
+        });
+      }
     }
     covers.push(r);
   }

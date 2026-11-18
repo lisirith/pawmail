@@ -81,7 +81,8 @@ async function main() {
       lastMoveAt: -Infinity,
     },
     system: { idle: 0 }, // 后台告诉我们：你已经多少秒没碰电脑了
-    // 别的窗口的顶边，宠物可以站上去：[{ id, x, y, segs: [[左, 右], ...] }]（只留活动范围里站得下的，见 layoutLedges）
+    // 别的窗口的顶边，宠物可以站上去：[{ id, x, y, right, bottom, segs: [[左, 右], ...], sideL, sideR }]
+    // （只留活动范围里站得下的，见 layoutLedges；各项的意思见 setLedges）
     ledges: [],
   };
   let rawLedges = []; // 后台发来的原样（整个屏幕的）；活动范围、宠物大小变了要重新筛
@@ -153,13 +154,26 @@ async function main() {
       .filter((L) => L.segs.length);
   }
 
-  /** 后台发来的窗口顶边：先检查一下样子（画面不信任任何外来数据） */
+  /**
+   * 后台发来的窗口顶边：先检查一下样子（画面不信任任何外来数据）。
+   * right、bottom 是窗口的右边和底边，sideL / sideR 是左右两条竖边露在外面的几截（宠物顺着它爬上去，见 activities.js 的 climbUp）
+   */
   function setLedges(list) {
     const num = (v) => typeof v === 'number' && Number.isFinite(v);
+    const spans = (v) => (Array.isArray(v) ? v.filter((s) => Array.isArray(s) && num(s[0]) && num(s[1]) && s[1] > s[0]).slice(0, 20) : []);
     rawLedges = (Array.isArray(list) ? list : [])
       .slice(0, 200)
       .filter((L) => L && typeof L.id === 'string' && num(L.x) && num(L.y) && Array.isArray(L.segs))
-      .map((L) => ({ id: L.id, x: L.x, y: L.y, segs: L.segs.filter((s) => Array.isArray(s) && num(s[0]) && num(s[1]) && s[1] > s[0]).slice(0, 20) }));
+      .map((L) => ({
+        id: L.id,
+        x: L.x,
+        y: L.y,
+        right: num(L.right) ? L.right : L.x,
+        bottom: num(L.bottom) ? L.bottom : L.y,
+        segs: spans(L.segs),
+        sideL: spans(L.sideL),
+        sideR: spans(L.sideR),
+      }));
     layoutLedges();
   }
   layoutArea();

@@ -13,7 +13,7 @@ import { drawPet, hitTest, getGeometry, holdAmount, RIG } from './draw.js';
 import { Fx, CONFETTI_COLORS } from './fx.js';
 import { OUTFITS, OUTFIT_SLOTS } from './outfits.js';
 
-const GRAVITY = 2400; // 像素/秒²（按宠物大小缩放）
+export const GRAVITY = 2400; // 像素/秒²（按宠物大小缩放）。activities.js 算"跳多快才能跳上窗口"时也用它
 
 export class Pet {
   constructor(species, world) {
