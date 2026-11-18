@@ -67,7 +67,7 @@ It's about 140 MB to download and uses around 175 MB of memory while running (wh
 | Press and drag | Pick it up. Let go to drop it; let go while moving to throw it |
 | Drag files onto it | Feed them to it (they go to the Recycle Bin) |
 | Click it while it's climbing | It jumps down |
-| The tray icon (bottom-right of the screen) | The same menu, plus *Call it back*, *Whole screen* and *Hide during full-screen apps* |
+| The tray icon (bottom-right of the screen) | The same menu, plus *Call it back*, *Whole screen*, *Hide during full-screen apps* and *Help & feedback* |
 
 Can't find the tray icon? Windows 11 tucks new icons behind the `^` arrow on the taskbar.
 
@@ -82,20 +82,21 @@ In the letter window: drag the top bar to move it, click the pet's name to chang
 - To hide during full-screen apps, it checks twice a second whether the frontmost window exactly covers the screen. It looks only at the window's size, never at which program it is, and records nothing.
 - It does **not** record your keystrokes, programs or websites.
 - Postcards are saved only when you click *Save as postcard* (into `Pictures\Pawmail`).
+- It keeps a small log of what the app itself did, such as errors and when it hid for a full-screen app, in `%APPDATA%\Pawmail\logs` (about 1 MB at most), so you can attach it to a bug report. Your Windows user name is replaced with `~`. The log is never sent anywhere.
 
 ## Uninstall
 
 - Installed with the installer: *Settings → Apps → Installed apps → Pawmail → Uninstall*.
-- The zip version: quit Pawmail (right-click → *Quit Pawmail*) and delete its folder.
+- The zip version: if you turned on *Start at login*, turn it off first (right-click → *Start at login → Off*). Then quit Pawmail (right-click → *Quit Pawmail*) and delete its folder.
 
 Uninstalling keeps your letters and gifts, so they're still there if you reinstall. To remove them too, delete the folder `%APPDATA%\Pawmail`.
 
 ## Good to know
 
-- This is a beta. There's no automatic update yet: to update, download the new version and install or unzip it over the old one. Your letters carry over.
+- This is a beta. There's no automatic update yet. To see if there's a newer version, use the tray icon → *Help & feedback → Check for updates…* (it opens the download page in your browser). To update, install or unzip the new version over the old one. Your letters carry over.
 - It lives on your main monitor only.
 - The gift icons are emoji for now; original icons are coming.
-- Found a bug, or have an idea? Please open an [issue](../../issues).
+- Found a bug, or have an idea? Please open an [issue](../../issues). For a bug, attaching the log helps a lot: tray icon → *Help & feedback → Open log folder*, then add `pawmail.log`.
 
 ## License
 

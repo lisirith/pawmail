@@ -228,7 +228,9 @@ class Feeder {
         }
       } catch (err) {
         it.reason = failReason(err);
-        this.log(`[feed] 放不进回收站（${it.reason}）：${err && err.message}`);
+        // 这句会写进日志文件。Windows 的报错里可能带着文件的完整位置（会露出文件名），所以先把路径换成 <文件>
+        const message = String(err && err.message).replace(/(?:\\\\\?\\)?[A-Za-z]:\\[^\r\n"']*/g, '<文件>');
+        this.log(`[feed] 放不进回收站（${it.reason}，${it.kind}）：${message}`);
       }
     }
     // 跟着文件夹一起吃掉的东西：文件夹吃下了，它们也就吃下了

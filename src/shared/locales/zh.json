@@ -32,6 +32,11 @@
     "areaEdit": "画一个活动范围…",
     "areaFull": "整个屏幕",
     "areaCustom": "自己画的方框",
+    "help": "帮助与反馈",
+    "version": "当前版本 {v}",
+    "checkUpdate": "检查新版本…",
+    "feedback": "反馈问题…",
+    "openLogs": "打开日志文件夹",
     "quit": "退出爪爪来信"
   },
   "area": {

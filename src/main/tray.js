@@ -28,13 +28,15 @@ class PetTray {
    * @param getModel   () => { t, settings }   t 是取文字的函数，settings 是当前设置
    * @param onSet      (key, value) => void    改设置
    * @param onCommand  (type) => void          给宠物下指令
+   * @param onHelp     (what) => void          「帮助与反馈」：'releases' 看新版本、'issues' 反馈问题、'logs' 打开日志文件夹
    * @param onQuit     () => void
    */
-  constructor({ getModel, onSet, onCommand, onOpenMail, onQuit }) {
+  constructor({ getModel, onSet, onCommand, onOpenMail, onHelp, onQuit }) {
     this.getModel = getModel;
     this.onSet = onSet;
     this.onCommand = onCommand;
     this.onOpenMail = onOpenMail;
+    this.onHelp = onHelp;
     this.onQuit = onQuit;
     this.tray = null;
   }
@@ -55,7 +57,7 @@ class PetTray {
   /** 设置或语言变了之后，重新生成菜单 */
   refresh() {
     if (!this.tray || this.tray.isDestroyed()) return;
-    const { t, settings, mail } = this.getModel();
+    const { t, settings, mail, version } = this.getModel();
     const radio = (key, value, label) => ({
       label,
       type: 'radio',
@@ -105,6 +107,16 @@ class PetTray {
         { label: t('menu.sleep'), click: () => this.onCommand('sleep') },
         { label: t('menu.wake'), click: () => this.onCommand('wake') },
         { type: 'separator' },
+        {
+          // 第一行灰色的版本号：反馈问题时告诉我们用的是哪一版；和发布页上的版本号一比，就知道有没有新版
+          label: t('menu.help'),
+          submenu: [
+            { label: t('menu.version', { v: version }), enabled: false },
+            { label: t('menu.checkUpdate'), click: () => this.onHelp('releases') },
+            { label: t('menu.feedback'), click: () => this.onHelp('issues') },
+            { label: t('menu.openLogs'), click: () => this.onHelp('logs') },
+          ],
+        },
         { label: t('menu.quit'), click: () => this.onQuit() },
       ])
     );

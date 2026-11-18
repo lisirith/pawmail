@@ -32,6 +32,11 @@
     "areaEdit": "Draw a play area…",
     "areaFull": "Whole screen",
     "areaCustom": "My box",
+    "help": "Help & feedback",
+    "version": "Version {v}",
+    "checkUpdate": "Check for updates…",
+    "feedback": "Report a problem…",
+    "openLogs": "Open log folder",
     "quit": "Quit Pawmail"
   },
   "area": {

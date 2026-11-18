@@ -25,6 +25,13 @@ const { logicalDay, festivalToday } = require('./letters');
 const F = require('../shared/festivals/catalog');
 const O = require('../shared/outfits/catalog');
 const native = require('./native');
+const { setupLog } = require('./log');
+
+// 托盘菜单「帮助与反馈」里打开的网页。只是用浏览器打开，程序自己不联网
+const LINKS = {
+  releases: 'https://github.com/lisirith/pawmail/releases', // 检查新版本：看看有没有比菜单里写的版本号更新的
+  issues: 'https://github.com/lisirith/pawmail/issues', // 反馈问题
+};
 
 const args = process.argv.slice(1);
 const flag = (name) => {
@@ -51,6 +58,7 @@ let overlay = null;
 let tray = null;
 let mail = null;
 let feeder = null; // 喂它吃文件（见 feed.js）
+let logFiles = null; // 日志文件在哪儿（见 log.js）
 let quitting = false;
 
 /**
@@ -237,7 +245,7 @@ function showAfterFullscreen() {
   fullscreenStreak = 0;
   if (overlay && overlay.hidden) {
     overlay.setHidden(false);
-    if (DEV) console.log('[全屏] 回来了');
+    console.log('[全屏] 回来了'); // 写进日志：有人说"宠物不见了"时，看日志就知道是不是躲起来了
   }
 }
 
@@ -252,7 +260,7 @@ function watchFullscreen() {
   fullscreenStreak = full ? Math.max(1, fullscreenStreak + 1) : Math.min(-1, fullscreenStreak - 1);
   if (fullscreenStreak >= 2 && !overlay.hidden) {
     overlay.setHidden(true);
-    if (DEV) console.log('[全屏] 最前面是全屏的程序，先躲起来');
+    console.log('[全屏] 最前面是全屏的程序，先躲起来');
   } else if (fullscreenStreak <= -4) {
     showAfterFullscreen();
   }
@@ -470,7 +478,7 @@ function start() {
     }, 1000);
   };
   overlay.onReady = () => {
-    if (DEV) logDiagnostics();
+    logDiagnostics(); // 每次画面准备好都记一笔：版本、屏幕大小、缩放……排查问题时最先要看的
     if (args.includes('--devtools')) overlay.win.webContents.openDevTools({ mode: 'detach', activate: false });
     if (SELFTEST_DIR) {
       require('./selftest')
@@ -485,14 +493,18 @@ function start() {
   if (!SELFTEST_DIR && store.data.settings.hideOnFullscreen && native.foregroundFullscreen()) {
     fullscreenStreak = 2;
     overlay.setHidden(true);
-    if (DEV) console.log('[全屏] 启动时最前面就是全屏的程序，先不露面');
+    console.log('[全屏] 启动时最前面就是全屏的程序，先不露面');
   }
 
   tray = new PetTray({
-    getModel: () => ({ t, settings: effectiveSettings(), mail: mail.summary() }),
+    getModel: () => ({ t, settings: effectiveSettings(), mail: mail.summary(), version: app.getVersion() }),
     onSet: setSetting,
     onCommand: (type) => overlay.send('command', { type }),
     onOpenMail: (view) => mail.open(view ? { view } : undefined),
+    onHelp: (what) => {
+      if (what === 'releases' || what === 'issues') shell.openExternal(LINKS[what]);
+      else if (what === 'logs' && logFiles) shell.openPath(logFiles.dir);
+    },
     onQuit: quit,
   });
   tray.create();
@@ -505,6 +517,8 @@ function logDiagnostics() {
   console.log(
     '[diag]',
     JSON.stringify({
+      version: app.getVersion(),
+      windows: process.getSystemVersion(),
       electron: process.versions.electron,
       chrome: process.versions.chrome,
       display: { bounds: display.bounds, workArea: display.workArea, scaleFactor: display.scaleFactor },
@@ -524,6 +538,14 @@ if (!app.requestSingleInstanceLock()) {
   // 已经有一只在运行了，不再开第二只
   app.quit();
 } else {
+  // 拿到了"只许开一只"的锁才开始写日志（被挡回去的第二只什么都不用记）
+  logFiles = setupLog(path.join(app.getPath('userData'), 'logs'));
+  // 后台出了没人接住的错：记进日志，宠物照常运行（不弹出吓人的报错框）
+  process.on('uncaughtException', (err) => console.error('[出错]', err && err.stack ? err.stack : err));
+  process.on('unhandledRejection', (err) => console.error('[出错]', err && err.stack ? err.stack : err));
+  app.on('child-process-gone', (_event, details) => {
+    if (details.reason !== 'clean-exit') console.error('[子进程] 退出了：', details.type, details.reason);
+  });
   app.on('second-instance', () => {
     if (overlay) overlay.send('command', { type: 'comeBack' }); // 再次双击启动：把宠物叫回屏幕中间
   });

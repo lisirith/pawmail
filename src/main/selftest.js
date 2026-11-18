@@ -142,7 +142,34 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
   await testFestivals();
   await testFullscreen();
   await testHints();
+  await testLog();
   return finish();
+
+  // ---------------------------------------------------------------- 日志文件
+
+  async function testLog() {
+    const { app } = require('electron');
+    const os = require('node:os');
+    const file = path.join(app.getPath('userData'), 'logs', 'pawmail.log');
+    console.log('[selftest] 写一行带用户文件夹的日志：', path.join(os.homedir(), 'pawmail-selftest.txt'));
+    await wait(500); // 日志是排队写的，等它落到硬盘上
+    let text = '';
+    try {
+      text = fs.readFileSync(file, 'utf8');
+    } catch {
+      // 没有文件：下面的检查会失败
+    }
+    const home = os.homedir().toLowerCase();
+    // 测试存档反复用，日志里还有以前几次的；只看这一次写的（从最后一行诊断信息开始，它是这次启动时写的）
+    const lower = text.slice(Math.max(0, text.lastIndexOf('[diag]'))).toLowerCase();
+    // 普通写法、JSON 里的写法（诊断信息那一行）、正斜杠写法，哪种都不能留下
+    const leaks = [home, home.replace(/\\/g, '\\\\'), home.replace(/\\/g, '/')].filter((form) => lower.includes(form));
+    check('日志写进了存档文件夹里的 logs\\pawmail.log（有版本号等诊断信息）', /\[diag\].*"version"/.test(text), { file, bytes: text.length });
+    check('日志里的用户文件夹换成了 ~（不会露出 Windows 用户名）', text.includes('~\\pawmail-selftest.txt') && leaks.length === 0, {
+      scrubbed: text.includes('~\\pawmail-selftest.txt'),
+      leaks: leaks.length,
+    });
+  }
 
   // ---------------------------------------------------------------- 全屏时躲起来
 
@@ -578,12 +605,14 @@ async function run({ overlay, mail, store, outDir, setSetting }) {
     const sneaky = await mjs(`return window.pawmailMail.setOutfit({ hat: null, glasses: null, top: null, bag: null, held: null, ${JSON.stringify(O.OUTFITS[locked].slot)}: ${JSON.stringify(locked)} });`);
     check('信纸窗口要穿没收到的衣服：后台拒绝', sneaky && sneaky.ok === false && store.data.settings.outfit[O.OUTFITS[locked].slot] !== locked, sneaky);
 
-    // 再穿一件一开始送的（帽子），拍张照片
+    // 再穿一件一开始送的（帽子），拍张照片。
+    // 信里捎来的那件本身就是帽子的话（哪天会捎来什么是按日期定的），就戴着它拍，不换
+    const hat = slot === 'hat' ? gotten : 'capRed';
     if (slot !== 'hat') await mjs(`[...document.querySelectorAll('button.wardrobe-item')].find((b) => b.title === __mail.state.data.wardrobe.items.find((i) => i.id === 'capRed').name).click(); return true;`);
     await wait(500);
     fs.writeFileSync(path.join(outDir, 'wardrobe.png'), (await win.webContents.capturePage()).toPNG());
     const tray = await js(`const P = window.__pawmail; P.run(0.1); return !!P.pet.outfit && P.pet.outfit.hat;`);
-    check('戴上帽子', store.data.settings.outfit.hat === 'capRed' && tray === 'capRed', { hat: store.data.settings.outfit.hat });
+    check('戴上帽子', store.data.settings.outfit.hat === hat && tray === hat, { hat: store.data.settings.outfit.hat, expected: hat });
 
     store.saveNow();
     const reread = JSON.parse(fs.readFileSync(store.file, 'utf8'));
