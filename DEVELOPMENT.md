@@ -81,7 +81,7 @@ npm run snap -- "/src/renderer/gallery.html?looks=1" tools/shots/looks.png 800 1
 npm run artcheck
 ```
 
-角色美术检查（先开 `npm run preview`）：检查熊猫、橘猫的姿势过渡、抱信、节日装扮、每件衣服、被拎起来和爬墙，
+角色美术检查（先开 `npm run preview`）：检查熊猫、橘猫、卡皮巴拉的姿势过渡、抱信、节日装扮、每件衣服、被拎起来和爬墙，
 查 NaN 坐标、画出画布边缘等问题，输出动作预览到 `tools/shots/art-review/`。不会启动桌宠后台或改动存档。
 
 ```bash
@@ -175,4 +175,5 @@ docs/images/       说明页里的图（由 npm run promo 生成）
 - [ ] 打包发布：测试版放到 GitHub 和 itch.io（进行中），之后 Steam
 - [ ] 沙滩椅、遮阳伞、小音响、涂鸦
 - [ ] 彩蛋：深夜催你睡觉、电量低它也没精神……
-- [ ] 卡皮巴拉、狗、小熊猫；原创的礼物图标；多显示器
+- [x] 卡皮巴拉（初稿，等设定图细调）
+- [ ] 狗、小熊猫；原创的礼物图标；多显示器

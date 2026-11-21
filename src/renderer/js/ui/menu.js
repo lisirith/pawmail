@@ -1,7 +1,7 @@
 // 右键点宠物弹出的菜单。
 //
 // 菜单内容由一个简单的列表（model）描述，三种行：
-//   { type: 'choice', key, label, value, options: [{ value, label }] }   几选一
+//   { type: 'choice', key, label, value, options: [{ value, label, icon }] }   几选一（icon：可选的小图片，图片网址）
 //   { type: 'action', id, label, danger }                                点一下执行
 //   { type: 'separator' }                                                分隔线
 
@@ -69,7 +69,14 @@ export class PetMenu {
       line.append(el('span', 'menu-label', row.label));
       const seg = el('div', 'seg');
       for (const option of row.options) {
-        const button = el('button', option.value === row.value ? 'seg-btn active' : 'seg-btn', option.label);
+        const button = el('button', option.value === row.value ? 'seg-btn active' : 'seg-btn');
+        if (option.icon) {
+          const img = el('img', 'seg-icon');
+          img.src = option.icon;
+          img.alt = '';
+          button.append(img);
+        }
+        button.append(option.label);
         button.type = 'button';
         if (option.title) button.title = option.title;
         button.addEventListener('click', () => this.onChoice(row.key, option.value));

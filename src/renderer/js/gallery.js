@@ -66,7 +66,8 @@ function cell(row, name, sp, pose, opts) {
 }
 
 // ?compare=1：和设定图（img resource 里 ChatGPT 画的图）对照。每种动物一行：设定图 | 代码画的 | 两张叠在一起
-// head：设定图里头的中心和半宽（原图像素），用来把两张图对齐到同样大小
+// head：设定图里头的中心和半宽（原图像素），用来把两张图对齐到同样大小。
+// 不在 ba8d7185 那张图里的动物（卡皮巴拉以后），在自己那一项里写 src
 const REFERENCE = {
   src: '/img resource/ba8d7185-40d5-456b-ab17-12ce9a388f21.png',
   cat: { head: [1252, 370], rx: 282, pose: { crouch: 1, headTilt: -0.06, lookY: -0.15, tailCurl: 0.75, tailSide: 1 } },
@@ -74,9 +75,16 @@ const REFERENCE = {
 };
 
 async function drawCompare() {
-  const img = new Image();
-  img.src = REFERENCE.src;
-  await img.decode();
+  const images = new Map();
+  const load = async (src) => {
+    if (!images.has(src)) {
+      const im = new Image();
+      im.src = src;
+      await im.decode();
+      images.set(src, im);
+    }
+    return images.get(src);
+  };
   const CW = 330;
   const CH = 380;
   const headAt = [CW / 2, CH * 0.4];
@@ -85,6 +93,7 @@ async function drawCompare() {
     if (only && sp.id !== only) continue;
     const ref = REFERENCE[sp.id];
     if (!ref) continue;
+    const img = await load(ref.src || REFERENCE.src);
     const row = document.createElement('div');
     row.className = 'row bg-light';
     const P = makePose(ref.pose);
@@ -151,6 +160,7 @@ if (showOutfits) {
     const row = document.createElement('div');
     row.className = 'row bg-light';
     for (const sp of appearances) {
+      if (only && sp.id !== only) continue; // &species=capybara 只看一种动物
       for (const [label, pose] of OUTFIT_POSES) {
         // 手里拿着东西时两只手抱在胸前；欢呼、爬墙时两只手都忙着，东西会收起来（见 draw.js 的 holdAmount）
         const busy = pose.loaf || pose.wallArm || pose.armL > 1;

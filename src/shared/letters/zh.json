@@ -1,5 +1,5 @@
 {
-  "snack": { "cat": "小鱼干", "panda": "竹子" },
+  "snack": { "cat": "小鱼干", "panda": "竹子", "capybara": "西瓜" },
 
   "openers": [
     "昨天你关电脑以后，我溜去了{place}。",

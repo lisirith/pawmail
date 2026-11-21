@@ -148,6 +148,12 @@ body.dragging {
   border-radius: 8px;
   white-space: nowrap;
 }
+/* 选项前面的小头像（动物那一行） */
+.seg-icon {
+  width: 20px;
+  height: 20px;
+  margin: -3px 3px -5px -3px;
+}
 .seg-btn:hover {
   background: rgba(255, 255, 255, 0.65);
 }

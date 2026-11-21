@@ -81,7 +81,8 @@ function locomote(b, st, dt, tx, gait, speedMul = 1) {
   pet.style.fps = 60;
   // 先转过身，再迈步
   if (pet.pose.facing * dir > 0.35) {
-    const moved = Math.min(Math.abs(dx), gait.speed * speedMul * S * dt);
+    // sp.pace：这种动物走得快慢（卡皮巴拉慢悠悠的，见 species/）
+    const moved = Math.min(Math.abs(dx), gait.speed * speedMul * (pet.sp.pace || 1) * S * dt);
     pet.x += dir * moved;
     // 走了多远，腿就摆了多少（记在 walkPhase 里；别和动作自己的 phase 混在一起）
     st.walkPhase = (st.walkPhase || 0) + (moved / (gait.stride * S)) * Math.PI;
@@ -275,8 +276,8 @@ function wallLeap(st, pet, side, S) {
 
 // ------------------------------------------------------------ 自己上窗口（brain.js 的 hopUp / climbUp）
 
-// 一跳最高能跳多高（按宠物原始大小算的像素）：猫轻巧，熊猫沉
-const HOP_REACH = { cat: 190, panda: 120 };
+// 一跳最高能跳多高（按宠物原始大小算的像素）：猫轻巧，熊猫沉，卡皮巴拉懒得使劲
+const HOP_REACH = { cat: 190, panda: 120, capybara: 110 };
 const hopReach = (sp) => HOP_REACH[sp.id] ?? 150;
 // 顺着窗口侧边爬到顶时：爪子扒住了顶边，脚还在顶边下面这么多，然后一翻身上去
 const HANG = 72;
@@ -558,6 +559,86 @@ export const ACTIVITIES = {
       T.headY += droop * 5;
       T.headTilt += droop * 0.12;
       return t >= this.dur;
+    },
+  }),
+
+  /**
+   * 卡皮巴拉的招牌小动作（动物文件里 headProp = 'orange' 才有）：坐下眯着眼发呆，
+   * 一个橘子从天上掉下来，正好落在头顶上——它一点都不在意，接着发呆。
+   * 过一会儿歪一下头，橘子骨碌碌从头顶滚下去。中途被戳、被拎起来，橘子就掉下去（见 exit）
+   */
+  orangeNap: () => ({
+    dur: rand(14, 26), // 顶着橘子发呆多久
+    side: chance(0.5) ? 1 : -1, // 最后往哪边歪头、橘子往哪边滚
+    landed: false,
+    done: false,
+    update(b, dt, t) {
+      const pet = b.pet;
+      const T = pet.target;
+      const s = pet.style;
+      const DROP = 1.2; // 坐好以后过多久橘子掉下来
+      const FALL = 0.45; // 掉下来要多久
+      s.gaze = 'none';
+      s.breathPeriod = 4.6;
+      s.breathDepth = 1.4;
+      s.tailAmp = 0.1;
+      T.crouch = 1;
+      T.eyeL = T.eyeR = 0.45; // 眯眯眼：一脸淡定
+      T.blush = 0.6;
+      T.earDroop = 0.15;
+      if (t < DROP) {
+        s.fps = 20;
+        return false;
+      }
+      const u = t - DROP;
+      s.fps = 60;
+      T.prop = 1;
+      if (u < FALL) {
+        // 从头顶上方 90 像素掉下来，越掉越快
+        const k = u / FALL;
+        T.propY = 90 * (1 - k * k);
+        return false;
+      }
+      if (!this.landed) {
+        this.landed = true;
+        pet.squashSpring.kick(1.2); // 咚：身子轻轻一压，脸上没有任何表情
+      }
+      const rest = u - FALL;
+      if (rest < this.dur) {
+        T.propY = rest < 0.35 ? Math.sin((rest / 0.35) * Math.PI) * 6 : 0; // 落下来弹一下
+        if (rest > 0.4) s.fps = 20; // 之后就是静静地发呆，不用那么勤快地画
+        return false;
+      }
+      // 歪一下头，橘子从这一边滚下去，越滚越快，掉出头顶以后就看不见了
+      const v = clamp((rest - this.dur) / 1.1, 0, 1);
+      T.headTilt += this.side * 0.2 * Math.min(1, v * 4);
+      const roll = Math.max(0, v - 0.15) / 0.85;
+      T.propX = this.side * 62 * roll * roll;
+      T.propY = -18 * roll ** 4 - (roll > 0.6 ? 140 * (roll - 0.6) ** 2 : 0);
+      T.prop = clamp((1 - roll) / 0.25, 0, 1);
+      if (v >= 1) this.done = true;
+      return v >= 1;
+    },
+    exit(b) {
+      // 橘子还顶在头上就被打断了（你戳它、拎起它、它要去打招呼……）：橘子掉下去
+      const pet = b.pet;
+      if (this.done || pet.pose.prop < 0.3) {
+        // 已经滚下去了（或者还没掉下来）：直接拿掉。不然下一个动作把位置拉回头顶正中时，
+        // 还没完全淡掉的橘子会在头顶闪一下
+        pet.pose.prop = 0;
+        return;
+      }
+      const g = getGeometry(pet.sp, pet.pose);
+      pet.fx.spawn('orange', {
+        x: g.headCx - 3 + pet.pose.propX,
+        y: g.headCy - pet.sp.head.ry - 8.5 - pet.pose.propY - pet.pose.lift,
+        vx: rand(-45, 45),
+        vy: -rand(70, 110),
+        ay: 560,
+        vrot: rand(-6, 6),
+        life: 1.1,
+      });
+      pet.pose.prop = 0; // 头上那个马上拿掉，免得同时看到两个橘子
     },
   }),
 
@@ -1883,7 +1964,7 @@ export const ACTIVITIES = {
   /** 摔晕了 / 被晃晕了 */
   dizzy: (b, p) => ({
     dur: p.dur ?? rand(2.2, 3.2),
-    sit: b.pet.sp.id === 'panda' ? 1 : 0, // 熊猫是一屁股坐在地上
+    sit: b.pet.sp.id === 'cat' ? 0 : 1, // 熊猫、卡皮巴拉沉，是一屁股坐在地上
     started: false,
     update(b, dt, t) {
       const pet = b.pet;
@@ -1940,6 +2021,6 @@ export const ACTIVITIES = {
 };
 
 // 哪些动作可以被"更想做的事"打断（比如发呆时看到鼠标晃动，就去追）
-export const INTERRUPTIBLE = new Set(['idle', 'lookAround', 'sit', 'nap', 'groom', 'walk', 'peekDown']);
+export const INTERRUPTIBLE = new Set(['idle', 'lookAround', 'sit', 'nap', 'groom', 'walk', 'peekDown', 'orangeNap']);
 // 这些是对你的操作做出的反应，进行中不会被摸头、戳一下打断
 export const REACTIVE = new Set(['held', 'falling', 'landed', 'dizzy', 'annoyed', 'arrive', 'hungry', 'eat']);

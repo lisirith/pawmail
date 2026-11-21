@@ -10,6 +10,7 @@
     "tabby": "Orange tabby",
     "luckyCat": "Lucky cat",
     "panda": "Panda",
+    "capybara": "Capybara",
     "display": "Show",
     "top": "On top",
     "desktop": "Desktop only",
@@ -110,6 +111,10 @@
     "panda": {
       "hello": ["Hi!", "I'm here~", "Mm-hm~"],
       "held": ["I'm heavy, you know…", "Where are we going?", "Swing, swing…"]
+    },
+    "capybara": {
+      "hello": ["Hi~", "I'm here~", "Mm… hello"],
+      "held": ["No rush, no rush…", "Where are we going?", "Okay… whatever you say"]
     }
   },
   "mail": {

@@ -106,9 +106,13 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
   setSetting('species', info.species === 'cat' ? 'panda' : 'cat');
   await wait(250);
   const swapped = await js(`return window.__pawmail.pet.sp.id;`);
+  setSetting('species', 'capybara');
+  await wait(250);
+  const capy = await js(`const P = window.__pawmail; P.run(0.2); return { id: P.pet.sp.id };`);
+  const savedCapy = store.data.settings.species;
   setSetting('species', info.species);
   await wait(250);
-  check('从后台切换动物，画面会跟着变', swapped !== info.species, { swapped });
+  check('从后台切换动物，画面会跟着变（猫、熊猫、卡皮巴拉）', swapped !== info.species && capy.id === 'capybara' && savedCapy === 'capybara', { swapped, capybara: capy.id, savedCapy });
 
   const previousCoat = store.data.settings.catCoat;
   setSetting('species', 'cat'); setSetting('catCoat', 'lucky');

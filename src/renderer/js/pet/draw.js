@@ -9,6 +9,7 @@
 import { TAU, clamp } from '../util/math.js';
 import { drawLookHead, drawLookNeck, drawHeldItem, drawLookCover } from './looks.js';
 import { resolveOutfit } from './outfits.js';
+import { drawOrange } from './props.js';
 
 export const RIG = Object.freeze({
   // 宠物所在的小画布的大小，以及"脚底中心"在这块画布里的位置
@@ -562,6 +563,18 @@ function drawHead(ctx, sp, P, g, time, look, outfit = null) {
   if (outfit && outfit.glasses) outfit.glasses.glasses(ctx, info); // 换装：眼镜
   drawLookHead(ctx, look, sp, P, lx, time); // 节日的帽子、兔耳朵……
   if (hat) hat.hat(ctx, info); // 换装：帽子（过节那天节日戴了帽子，这里就是空的）
+  // 头顶的小东西（卡皮巴拉的橘子）。戴着帽子、节日头饰时不画（大脑也不会在这时候安排它）
+  if (sp.headProp && P.prop > 0.02 && !hat && !(look && look.head)) drawHeadProp(ctx, sp, P, lx);
+  ctx.restore();
+}
+
+/** 头顶的橘子：平时在头顶正中稍微偏左一点；propX / propY 是正在掉下来、滚下去时偏了多少 */
+function drawHeadProp(ctx, sp, P, lx) {
+  ctx.save();
+  ctx.globalAlpha *= clamp(P.prop, 0, 1);
+  ctx.translate(-3 + lx * 3 + P.propX, -sp.head.ry - 8.5 - P.propY);
+  ctx.rotate(-0.12 + P.propX * 0.07); // 往一边滚的时候跟着转
+  drawOrange(ctx, 10);
   ctx.restore();
 }
 

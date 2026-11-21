@@ -44,6 +44,13 @@ async function inspectArt(poses, guideUrl) {
     // 换边换到一半（刚扒上墙、刚跳下来的那一下）
     cases.push({ name: `wall-switch-${side}`, pose: { armL: 0.3, armR: 0.3, wallArm: side * 0.5, facing: side * 0.85 }, opts: {} });
   }
+  // 头顶的橘子（只有卡皮巴拉画，别的动物这几项照样画一遍，确认没影响）：落在头顶、正掉下来、从一边滚下去
+  for (const [name, pose] of [
+    ['orange-on', { crouch: 1, prop: 1 }],
+    ['orange-drop', { crouch: 1, prop: 1, propY: 90 }],
+    ['orange-roll', { crouch: 1, prop: 0.6, propX: 50, propY: -20, headTilt: 0.2 }],
+    ['orange-roll-left', { crouch: 1, prop: 0.6, propX: -50, propY: -20, headTilt: -0.2 }],
+  ]) cases.push({ name, pose, opts: {} });
   // 衣柜里的衣服：每件单独穿，在站、坐、趴、走、举手、被拎起、扒墙歪着这些姿势下都画一遍；再加两套全身搭配
   const { OUTFITS } = await import('/src/renderer/js/pet/outfits.js');
   const outfitPoses = [
@@ -143,15 +150,15 @@ async function inspectArt(poses, guideUrl) {
     stats[variantId] = { cases: cases.length, minPixels, minMargin, averageDrawMs: +( (performance.now() - start) / 240).toFixed(3) };
   }
   const sheet = document.createElement('canvas');
-  sheet.width = 1680; sheet.height = 1225;
+  sheet.width = 1680; sheet.height = 1590;
   const s = sheet.getContext('2d');
   s.fillStyle = '#f7f0e5'; s.fillRect(0, 0, sheet.width, sheet.height);
   s.fillStyle = '#614839'; s.font = '600 30px "Microsoft YaHei", sans-serif';
-  s.fillText('Pawmail · 熊猫、橘猫与招财猫 / 动作预览', 36, 50);
+  s.fillText('Pawmail · 熊猫、橘猫、招财猫与卡皮巴拉 / 动作预览', 36, 50);
   s.font = '17px "Microsoft YaHei", sans-serif'; s.fillStyle = '#856e5e';
   s.fillText('游戏实际绘制 · 放大检查轮廓、表情与部件衔接', 36, 82);
   const featured = [poses[0], poses[5], poses[3], poses[6], poses[7], ['抱信', { armL: -0.75, armR: -0.75 }], poses[8]];
-  for (const [row, sp] of [SPECIES.panda, SPECIES.cat, luckyCat].entries()) {
+  for (const [row, sp] of [SPECIES.panda, SPECIES.cat, luckyCat, SPECIES.capybara].entries()) {
     const top = 110 + row * 365;
     s.fillStyle = row ? '#e9e0d2' : '#fffaf3'; s.fillRect(20, top, sheet.width - 40, 348);
     for (const [col, [name, pose]] of featured.entries()) {
@@ -163,8 +170,8 @@ async function inspectArt(poses, guideUrl) {
   }
   const dark = document.createElement('canvas'); dark.width = 960; dark.height = 430;
   const d = dark.getContext('2d'); d.fillStyle = '#252a34'; d.fillRect(0, 0, 960, 430);
-  for (const [i, id] of ['panda', 'cat'].entries()) {
-    d.save(); d.translate(240 + i * 480, 365); d.scale(2.3, 2.3);
+  for (const [i, id] of ['panda', 'cat', 'capybara'].entries()) {
+    d.save(); d.translate(160 + i * 320, 365); d.scale(2.3, 2.3);
     drawPet(d, SPECIES[id], makePose({ crouch: 1 }), { time: 0.3 }); d.restore();
   }
   const images = { 'poses.png': sheet.toDataURL(), 'dark.png': dark.toDataURL() };

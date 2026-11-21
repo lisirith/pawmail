@@ -33,6 +33,7 @@ const COOLDOWN = {
   jumpDown: 20,
   hopUp: 360, // 自己跳上窗口：最多六分钟一次
   climbUp: 420, // 自己顺着窗口侧边爬上去（和爬屏幕边的 climb 互相也算冷却，见 scores）
+  orangeNap: 900, // 卡皮巴拉头顶橘子发呆：一小时两三次，多了就不稀奇了
 };
 
 // 刚从窗口上下来（自己跳的、掉下来的）：过这么多秒才想再上去
@@ -195,7 +196,7 @@ export class Brain {
       if (ENERGETIC.has(name)) drain *= 3;
       n.energy -= dt * drain;
     }
-    if (name === 'idle' || name === 'sit' || name === 'lookAround') n.boredom += dt / 300;
+    if (name === 'idle' || name === 'sit' || name === 'lookAround' || name === 'orangeNap') n.boredom += dt / 300;
     else if (name === 'walk' || name === 'run' || name === 'chase' || name === 'climb' || name === 'climbUp') n.boredom -= dt / 30;
     n.social += dt / 2700;
     if (this.petting) {
@@ -270,7 +271,7 @@ export class Brain {
       this.start('showMail', { say: chance(0.3) }); // 信还没拆：再举起来提醒一下
       return;
     }
-    if (this.curiosity > 0.5 && this.#canChase() && chance(0.3)) {
+    if (this.curiosity > 0.5 && this.#canChase() && chance(0.3 * (1 - 0.6 * (this.pet.sp.calm || 0)))) {
       this.start('chase');
     }
   }
@@ -315,6 +316,13 @@ export class Brain {
     if (pet.mode !== 'ground' || this.needs.energy < 0.35 || this.userAway || this.hasMail) return false;
     if (pet.look && (pet.look.held || pet.look.cover)) return false;
     return this.world.time - this.leftPerchAt >= UP_AGAIN_AFTER;
+  }
+
+  /** 能不能顶着橘子发呆：这种动物有这个小动作（卡皮巴拉）、你在、头上没戴帽子或节日头饰 */
+  #canOrange() {
+    const pet = this.pet;
+    if (pet.sp.headProp !== 'orange' || pet.mode !== 'ground' || this.userAway) return false;
+    return !(pet.outfit && pet.outfit.hat) && !(pet.look && pet.look.head);
   }
 
   /** 离最近的墙有多近：贴着墙是 1，300 像素开外是 0 */
@@ -368,7 +376,22 @@ export class Brain {
       jumpDown: 0,
       hopUp: hop ? keen * near(hop) : 0,
       climbUp: wall ? keen * near(wall) * this.#cooldown('climb') : 0,
+      // 卡皮巴拉：坐着发呆，头顶落下一个橘子。戴着帽子、节日头饰时不做（橘子没地方放）
+      orangeNap: this.#canOrange() ? 0.08 + 0.15 * tired : 0,
     };
+    // 性格（动物文件里的 calm：0 平常，1 佛系）：佛系的少跑、少追、少蹦，多坐、多打盹
+    const calm = this.pet.sp.calm || 0;
+    if (calm) {
+      s.run *= 1 - 0.75 * calm;
+      s.chase *= 1 - 0.6 * calm;
+      s.hop *= 1 - 0.5 * calm;
+      s.walk *= 1 - 0.25 * calm;
+      s.climb *= 1 - 0.4 * calm;
+      s.hopUp *= 1 - 0.3 * calm;
+      s.climbUp *= 1 - 0.3 * calm;
+      s.sit *= 1 + 0.4 * calm;
+      s.nap *= 1 + 0.6 * calm;
+    }
     if (this.perched) {
       // 站在窗口顶上：只在上面走几步、坐坐、睡一觉、探头往下看；待得越久、越无聊，越想跳下去
       const up = this.pet.time - this.pet.perchSince; // 在这个窗口上待了多少秒

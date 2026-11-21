@@ -3,6 +3,7 @@
 
 import { TAU, clamp, easeOutBack } from '../util/math.js';
 import { drawFood } from './food.js';
+import { drawOrange } from './props.js';
 
 const MAX_ITEMS = 48;
 const FONT = '"Segoe UI", "Microsoft YaHei UI", sans-serif';
@@ -156,6 +157,12 @@ const DRAW = {
     ctx.translate(it.x, it.y);
     ctx.rotate(it.rot);
     drawFood(ctx, it.food, { size: it.size * (1 - u * (it.shrink || 0)) });
+  },
+  /** 卡皮巴拉头顶的橘子被碰掉了（你戳它、拎它的时候）：骨碌碌掉下去 */
+  orange(ctx, it) {
+    ctx.translate(it.x, it.y);
+    ctx.rotate(it.rot);
+    drawOrange(ctx, 10 * it.size);
   },
   /** 嚼的时候掉下来的渣 */
   crumb(ctx, it) {

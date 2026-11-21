@@ -49,6 +49,11 @@ export const POSE_DEFAULTS = Object.freeze({
   tailCurl: 1, // 0 下垂 … 1 翘起
   tailSide: 1, // 尾巴在身体哪一侧：-1 左 … 1 右
   tailHang: 0, // 0 平常 … 1 整条往下垂（被拎起来时）：粗细不变，只是转下来、稍微短一点
+
+  // —— 头顶的小东西 ——（卡皮巴拉的橘子，见 props.js；动物文件里 headProp 写了才画）
+  prop: 0, // 0 没有 … 1 看得清清楚楚
+  propX: 0, // 离它平时待的位置（头顶正中）往右偏多少（像素，跟着头一起歪）
+  propY: 0, // 往上多高（像素）：正数在头顶上方（正往下掉），负数是从头顶滚下去了
 });
 
 // 表情不是数字，直接切换
@@ -84,6 +89,9 @@ export const HALF_LIFE = Object.freeze({
   tailSide: 0.2,
   tailHang: 0.12,
   wallArm: 0.035, // 离墙远的那只手换边要快：换的那一下是半透明的，越短越看不出来
+  prop: 0.05,
+  propX: 0.015, // 橘子掉下来、滚下去的位置由动作一帧帧算好，这里几乎不用再平滑
+  propY: 0.015,
 });
 
 export const POSE_KEYS = Object.freeze(Object.keys(POSE_DEFAULTS));
@@ -120,6 +128,9 @@ const POSE_PIXELS = Object.freeze({
   tailCurl: 60,
   tailSide: 45,
   tailHang: 50,
+  prop: 20,
+  propX: 1,
+  propY: 1,
 });
 
 /** 两个姿势在画面上最多差了多少像素（按宠物原始大小算） */

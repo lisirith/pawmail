@@ -652,6 +652,24 @@ async function main() {
     areaEditor.open(rect, stage.clientWidth, stage.clientHeight, min.w, min.h);
   }
 
+  // 菜单里每种动物前面的小头像：用代码画的（和托盘图标同一套画法），比 emoji 统一，卡皮巴拉也没有现成的 emoji。
+  // 每种只画一次就记住，菜单开开关关不用重画
+  const headIcons = new Map();
+  function headIcon(id, coat = 'tabby') {
+    const key = `${id}|${coat}`;
+    if (!headIcons.has(key)) {
+      const c = document.createElement('canvas');
+      c.width = 40;
+      c.height = 40;
+      const ctx = c.getContext('2d');
+      ctx.translate(20, 22);
+      ctx.scale(0.36, 0.36);
+      drawHeadOnly(ctx, getSpecies(id, coat), makePose());
+      headIcons.set(key, c.toDataURL());
+    }
+    return headIcons.get(key);
+  }
+
   function buildMenu() {
     const t = i18n.t;
     const mailLabel = mail.unread > 0 ? t('menu.mailboxUnread').replace('{n}', mail.unread) : t('menu.mailbox');
@@ -665,8 +683,9 @@ async function main() {
         label: t('menu.animal'),
         value: settings.species,
         options: [
-          { value: 'cat', label: `🐱 ${t('menu.cat')}` },
-          { value: 'panda', label: `🐼 ${t('menu.panda')}` },
+          { value: 'cat', label: t('menu.cat'), icon: headIcon('cat', settings.catCoat || 'tabby') },
+          { value: 'panda', label: t('menu.panda'), icon: headIcon('panda') },
+          { value: 'capybara', label: t('menu.capybara'), icon: headIcon('capybara') },
         ],
       },
       ...(settings.species === 'cat' ? [{

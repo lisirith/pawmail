@@ -10,7 +10,7 @@ A tiny pet that lives on your Windows desktop. It wanders, naps and chases your 
 
 ## What it does
 
-**It lives on your desktop.** An orange cat or a panda walks along your taskbar. It breathes, blinks, twitches its ears, follows your cursor with its eyes, and decides for itself what to do next: nap, groom, wander, climb, or come say hi. Your clicks go straight through it to the windows behind, unless you're pointing at the pet itself.
+**It lives on your desktop.** An orange cat, a panda or a capybara walks along your taskbar. It breathes, blinks, twitches its ears, follows your cursor with its eyes, and decides for itself what to do next: nap, groom, wander, climb, or come say hi. Your clicks go straight through it to the windows behind, unless you're pointing at the pet itself.
 
 Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drops back down.
 
@@ -36,6 +36,7 @@ Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drop
 
 **And also:**
 
+- Each animal has its own temper: the cat is the liveliest, the panda is a big softie, and the capybara takes things slowly. Sit it down long enough and an orange may land on its head.
 - Birthdays and festivals: Lunar New Year, Mid-Autumn, Halloween, Christmas and more (you choose which ones you celebrate). On the day it dresses up, sends a festival letter with a festival-only gift, and greets you in its own way.
 - A monthly letter about your month together, and a year in review on New Year's Day.
 - Drop it on top of a window and it perches there: it strolls along the top, naps, peeks over the edge, and rides along when you drag the window. Close the window and down it goes. Sometimes it gets up there by itself, hopping onto a low window or climbing the side of one that reaches down to the taskbar.
