@@ -67,11 +67,18 @@ function cell(row, name, sp, pose, opts) {
 
 // ?compare=1：和设定图（img resource 里 ChatGPT 画的图）对照。每种动物一行：设定图 | 代码画的 | 两张叠在一起
 // head：设定图里头的中心和半宽（原图像素），用来把两张图对齐到同样大小。
-// 不在 ba8d7185 那张图里的动物（卡皮巴拉以后），在自己那一项里写 src
+// 不在 ba8d7185 那张图里的动物（卡皮巴拉以后），在自己那一项里写 src；一种动物可以对照好几处（写成数组，每处一行）
+const CAPY_SHEET = '/img resource/暖萌水豚桌宠素材表.png';
 const REFERENCE = {
   src: '/img resource/ba8d7185-40d5-456b-ab17-12ce9a388f21.png',
   cat: { head: [1252, 370], rx: 282, pose: { crouch: 1, headTilt: -0.06, lookY: -0.15, tailCurl: 0.75, tailSide: 1 } },
   panda: { head: [475, 340], rx: 300, pose: { crouch: 1, headTilt: -0.12, armL: -1.0, armR: -1.0, mouth: 'smile', mouthOpen: 0.9, lookX: 0.35, blush: 1 } },
+  capybara: [
+    // 最下面一排第一个：正脸（只有头）
+    { src: CAPY_SHEET, head: [118, 840], rx: 81.5, pose: { crouch: 1 } },
+    // 左边的大图：坐着、脸朝右边、张嘴笑
+    { src: CAPY_SHEET, head: [271, 292], rx: 190, pose: { crouch: 1, lookX: 0.7, mouth: 'smile', mouthOpen: 1, blush: 1 } },
+  ],
 };
 
 async function drawCompare() {
@@ -89,10 +96,12 @@ async function drawCompare() {
   const CH = 380;
   const headAt = [CW / 2, CH * 0.4];
   const headW = 200; // 头在格子里画多宽（像素）
+  const pairs = [];
   for (const sp of appearances) {
     if (only && sp.id !== only) continue;
-    const ref = REFERENCE[sp.id];
-    if (!ref) continue;
+    for (const ref of [].concat(REFERENCE[sp.id] || [])) pairs.push([sp, ref]);
+  }
+  for (const [sp, ref] of pairs) {
     const img = await load(ref.src || REFERENCE.src);
     const row = document.createElement('div');
     row.className = 'row bg-light';
