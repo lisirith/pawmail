@@ -9,7 +9,7 @@ Those files are part of this list, even though they are JavaScript.
 
 **Characters and artwork**
 
-- The look of the pets (the cat, including the lucky-cat coat, the panda, the capybara and the Shiba Inu)
+- The look of the pets (the cat, including the lucky-cat coat, the panda, the capybara, the Shiba Inu and the red panda)
   and the things that turn up on them (the capybara's orange):
   `src/renderer/js/pet/species/`, `src/renderer/js/pet/props.js`
 - The clothing: `src/renderer/js/pet/outfits.js`
@@ -52,7 +52,7 @@ an issue on GitHub.
 所有权利归 The Pawmail Authors 所有。它们是让爪爪来信长成现在这个样子、读起来是这个味道的东西。
 
 爪爪来信的美术是用代码画的，所以有一部分美术在代码文件里。上面列出的这些文件虽然是 JavaScript，也属于美术，
-不按 MIT 授权：宠物的造型（猫，包括招财猫花色，熊猫，柴犬，以及卡皮巴拉和它头顶的橘子）、衣服、节日装扮、纸团、信里的风景和明信片设计、
+不按 MIT 授权：宠物的造型（猫，包括招财猫花色，熊猫，柴犬，小熊猫，以及卡皮巴拉和它头顶的橘子）、衣服、节日装扮、纸团、信里的风景和明信片设计、
 程序图标和 `build/`、`docs/` 里的所有图片；所有信件、地点、小事、礼物名字和节日来信，衣服的名字和句子，
 宠物说的话和界面文字；以及"Pawmail""爪爪来信"这两个名字。
 

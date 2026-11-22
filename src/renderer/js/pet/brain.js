@@ -35,7 +35,11 @@ const COOLDOWN = {
   climbUp: 420, // 自己顺着窗口侧边爬上去（和爬屏幕边的 climb 互相也算冷却，见 scores）
   orangeNap: 900, // 卡皮巴拉头顶橘子发呆：一小时两三次，多了就不稀奇了
   stubborn: 900, // 柴犬赖着不走：模拟器里一小时四次左右，多了就不好笑了
+  bluff: 20, // 小熊猫举手吓唬你：刚吓唬完，再戳它就只是普通地吓一跳
 };
+
+// 小熊猫被鼠标猛地冲过来吓到、举手吓唬你：至少隔这么多秒（你在电脑上忙的时候，鼠标常常飞快地划过任务栏）
+const RUSH_BLUFF_AFTER = 90;
 
 // 刚从窗口上下来（自己跳的、掉下来的）：过这么多秒才想再上去
 const UP_AGAIN_AFTER = 180;
@@ -80,6 +84,9 @@ export class Brain {
     this.checkIn = 0;
     this.lastSayAt = -Infinity;
     this.leftPerchAt = -Infinity; // 上次从窗口上下来是什么时候（world.time）
+    this.lastNear = Infinity; // 上一帧鼠标离它多远（小熊猫看鼠标是不是正朝它冲过来）
+    this.rushArmed = true; // 鼠标离开远一点以后才算"新的一次冲过来"
+    this.lastRushBluff = -Infinity;
 
     if (saved) this.restore(saved);
     pet.onLand = (impact, dizzy, leapt) => this.onLand(impact, dizzy, leapt);
@@ -230,6 +237,7 @@ export class Brain {
       stimulus = clamp(p.speed / 900, 0, 1) * clamp(1 - d / (600 * S), 0, 1);
     }
     this.curiosity = damp(this.curiosity, stimulus, stimulus > this.curiosity ? 0.25 : 2.5, dt);
+    if (pet.sp.quirk === 'bluff') this.#watchRush(p, S);
 
     // 摸头：鼠标停在它身上来回移动（不按键）
     const over = p.inside && !p.down && pet.mode === 'ground' && !!pet.hit(p.x, p.y);
@@ -253,6 +261,27 @@ export class Brain {
       this.awayFor = 0;
     }
     this.userAway = away;
+  }
+
+  /**
+   * 小熊猫：鼠标飞快地冲到它跟前，有时吓一跳，站起来举手"吓唬"你。
+   * 每冲过来一次只掷一次骰子（鼠标离开远一点才算下一次），而且至少隔 RUSH_BLUFF_AFTER 秒
+   */
+  #watchRush(p, S) {
+    const pet = this.pet;
+    const near = p.inside ? Math.hypot(p.x - pet.x, p.y - (pet.y - 45 * S)) : Infinity;
+    const rushing = p.speed > 1300 * S && near < 130 * S && near < this.lastNear;
+    this.lastNear = near;
+    if (!rushing) {
+      if (near > 220 * S) this.rushArmed = true;
+      return;
+    }
+    if (!this.rushArmed) return;
+    this.rushArmed = false;
+    if (pet.mode !== 'ground' || !INTERRUPTIBLE.has(this.name)) return; // 睡着、被拎着、正忙别的：不管
+    if (this.world.time - this.lastRushBluff < RUSH_BLUFF_AFTER || !chance(0.5)) return;
+    this.lastRushBluff = this.world.time;
+    this.start('bluff');
   }
 
   /** 发呆、坐着的时候，每隔一小会儿看看有没有更想做的事 */
@@ -401,9 +430,6 @@ export class Brain {
       s.sit *= 1 + 0.4 * calm;
       s.nap *= 1 + 0.6 * calm;
     }
-    // 各自的喜好（动物文件里的 likes：某个动作的分数乘多少）。比如柴犬不太黏人、爱自己溜达
-    const likes = this.pet.sp.likes;
-    if (likes) for (const [name, k] of Object.entries(likes)) if (name in s) s[name] *= k;
     if (this.perched) {
       // 站在窗口顶上：只在上面走几步、坐坐、睡一觉、探头往下看；待得越久、越无聊，越想跳下去
       const up = this.pet.time - this.pet.perchSince; // 在这个窗口上待了多少秒
@@ -416,6 +442,10 @@ export class Brain {
       s.peekDown = 0.6;
       s.jumpDown = (0.03 + up / 240 + 0.35 * bo) * (this.userAway ? 0.2 : 1);
     }
+    // 各自的喜好（动物文件里的 likes：某个动作的分数乘多少）。比如柴犬不太黏人、爱自己溜达，
+    // 小熊猫爱爬高、在窗口上待得久（jumpDown 小一点）。放在"站在窗口上"那段后面，那里会重新算 jumpDown
+    const likes = this.pet.sp.likes;
+    if (likes) for (const [name, k] of Object.entries(likes)) if (name in s) s[name] *= k;
     for (const name of Object.keys(s)) {
       s[name] *= this.#cooldown(name);
       if (name === this.name) s[name] *= name === 'idle' ? 0.5 : 0.15; // 尽量别连着做同一件事
@@ -568,6 +598,11 @@ export class Brain {
       return;
     }
     pet.fx.spawn('bang', { x: chance(0.5) ? 28 : -28, y: pet.headTop() + 4, life: 0.7 });
+    // 小熊猫：被戳了，有一半时候站起来举手"吓唬"你（刚吓唬过就只是普通地吓一跳）
+    if (pet.sp.quirk === 'bluff' && this.#cooldown('bluff') >= 1 && chance(0.5)) {
+      this.start('bluff');
+      return;
+    }
     this.start('poked');
   }
 

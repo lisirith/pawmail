@@ -12,6 +12,7 @@
     "panda": "Panda",
     "capybara": "Capybara",
     "shiba": "Shiba Inu",
+    "redpanda": "Red Panda",
     "display": "Show",
     "top": "On top",
     "desktop": "Desktop only",
@@ -121,6 +122,11 @@
       "hello": ["Woof!", "Hi!", "I'm here~"],
       "held": ["AAAAH put me down!!", "I can walk by myself!", "Nonononono—"],
       "stubborn": ["Not moving!", "Nope. Not going.", "Hmph, don't feel like it…"]
+    },
+    "redpanda": {
+      "hello": ["Hi!", "I'm here~", "(peeks) Hello"],
+      "held": ["P-put me down!", "I'm very fierce, you know!", "Eep… so high"],
+      "bluff": ["I'm VERY fierce!", "Rawr!", "Stay back! I bite!"]
     }
   },
   "mail": {

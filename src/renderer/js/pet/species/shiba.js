@@ -106,13 +106,14 @@ function drawHeadMarkings(ctx, P, lx, ly, head) {
   const { rx, ry } = head;
   const mx = lx * 6;
   const my = ly * 3;
+  // 两颊的白毛在脸的两边往上鼓（快到耳朵下面），到眼睛下面低一点，再往鼻梁收：不是一条横平的分界线
   ctx.beginPath();
-  ctx.moveTo(-rx - 5, -7);
-  ctx.bezierCurveTo(-36 + mx, -2 + my, -27 + mx, 4.5 + my, -17 + mx, 4.5 + my); // 左眼下面
-  ctx.bezierCurveTo(-10 + mx, 4.5 + my, -6.5 + mx, 3 + my, -5 + mx, 6.5 + my); // 往鼻梁收
+  ctx.moveTo(-rx - 5, -17);
+  ctx.bezierCurveTo(-38 + mx, -7 + my, -28 + mx, 5 + my, -17 + mx, 5 + my); // 左眼下面
+  ctx.bezierCurveTo(-10 + mx, 5 + my, -6.5 + mx, 3 + my, -5 + mx, 6.5 + my); // 往鼻梁收
   ctx.bezierCurveTo(-3.5 + mx, 9 + my, 3.5 + mx, 9 + my, 5 + mx, 6.5 + my); // 绕过鼻头上面
-  ctx.bezierCurveTo(6.5 + mx, 3 + my, 10 + mx, 4.5 + my, 17 + mx, 4.5 + my);
-  ctx.bezierCurveTo(27 + mx, 4.5 + my, 36 + mx, -2 + my, rx + 5, -7);
+  ctx.bezierCurveTo(6.5 + mx, 3 + my, 10 + mx, 5 + my, 17 + mx, 5 + my);
+  ctx.bezierCurveTo(28 + mx, 5 + my, 38 + mx, -7 + my, rx + 5, -17);
   ctx.lineTo(rx + 5, ry + 5);
   ctx.lineTo(-rx - 5, ry + 5);
   ctx.closePath();

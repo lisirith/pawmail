@@ -688,6 +688,7 @@ async function main() {
           { value: 'panda', label: t('menu.panda'), icon: headIcon('panda') },
           { value: 'capybara', label: t('menu.capybara'), icon: headIcon('capybara') },
           { value: 'shiba', label: t('menu.shiba'), icon: headIcon('shiba') },
+          { value: 'redpanda', label: t('menu.redpanda'), icon: headIcon('redpanda') },
         ],
       },
       ...(settings.species === 'cat' ? [{

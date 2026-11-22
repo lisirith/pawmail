@@ -277,7 +277,7 @@ function wallLeap(st, pet, side, S) {
 // ------------------------------------------------------------ 自己上窗口（brain.js 的 hopUp / climbUp）
 
 // 一跳最高能跳多高（按宠物原始大小算的像素）：猫轻巧，熊猫沉，卡皮巴拉懒得使劲
-const HOP_REACH = { cat: 190, panda: 120, capybara: 110, shiba: 170 };
+const HOP_REACH = { cat: 190, panda: 120, capybara: 110, shiba: 170, redpanda: 180 };
 const hopReach = (sp) => HOP_REACH[sp.id] ?? 150;
 // 顺着窗口侧边爬到顶时：爪子扒住了顶边，脚还在顶边下面这么多，然后一翻身上去
 const HANG = 72;
@@ -690,6 +690,52 @@ export const ACTIVITIES = {
       },
     };
   },
+
+  /**
+   * 小熊猫的招牌小动作（动物文件里 quirk = 'bluff' 才有）：受惊了就"嗖"地站直、把两只前爪高高举起，
+   * 踮着脚晃来晃去"吓唬"你（真的小熊猫就是这样让自己看起来大一点）。举一会儿放下，有点不好意思。
+   * 被戳的时候有时会这样（brain.onClick），鼠标猛地冲到它跟前时也会（brain 的 #watchRush）。
+   * 两只手都举起来，手里的信、奶茶会先收起来（见 draw.js 的 holdAmount）
+   */
+  bluff: () => ({
+    hold: rand(1.3, 1.9), // 举着手吓唬多久
+    side: chance(0.5) ? 1 : -1,
+    said: false,
+    update(b, dt, t) {
+      const pet = b.pet;
+      const T = pet.target;
+      const s = pet.style;
+      s.fps = 60;
+      const UP = 0.16; // 举手只要零点一几秒：吓一跳是很快的
+      const DOWN = 0.5;
+      const rise = clamp(t / UP, 0, 1);
+      const fall = clamp((t - UP - this.hold) / DOWN, 0, 1);
+      const k = easeInOut(rise) * (1 - easeInOut(fall)); // 0 平常 … 1 手举到最高
+      const shake = Math.sin(t * 28) * 0.04 * (1 - fall); // 爪子微微发抖
+      T.crouch = 0;
+      // 举到 2.0：再高（超过 2.1）爪子就藏到大脑袋后面去了（见 CLAUDE.md）
+      T.armL = (2.0 + shake) * k;
+      T.armR = (2.0 - shake) * k;
+      T.squash = -0.07 * k; // 站得直直的、伸长一点
+      T.lift += 3 * k; // 踮着脚
+      T.lean += Math.sin(t * 5.5) * 0.04 * k; // 左右晃
+      T.earDroop = -0.3 * k; // 耳朵竖起来
+      T.tailCurl = 1;
+      if (fall < 0.4) {
+        T.eyes = 'wide';
+        T.mouth = 'o';
+      } else {
+        // 放下手：有点不好意思，脸红，眼睛眯起来
+        T.eyes = 'happy';
+        T.blush = 1;
+      }
+      if (!this.said && t > 0.15) {
+        this.said = true;
+        if (chance(0.8)) b.say('bluff', 1.8);
+      }
+      return fall >= 1 && t > UP + this.hold + DOWN + 0.25;
+    },
+  }),
 
   /** 趴成一团睡觉 */
   sleep: (b, p) => ({
