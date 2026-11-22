@@ -69,6 +69,9 @@ function cell(row, name, sp, pose, opts) {
 // head：设定图里头的中心和半宽（原图像素），用来把两张图对齐到同样大小。
 // 不在 ba8d7185 那张图里的动物（卡皮巴拉以后），在自己那一项里写 src；一种动物可以对照好几处（写成数组，每处一行）
 const CAPY_SHEET = '/img resource/暖萌水豚桌宠素材表.png';
+// 柴犬、小熊猫：用户把我们代码画的草图交给 ChatGPT 改出来的设定图（2026-11-22）
+const SHIBA_SHEET = '/img resource/ChatGPT 图像 2026年11月22日 13_18_18.png';
+const REDPANDA_SHEET = '/img resource/ChatGPT 图像 2026年11月22日 13_18_51.png';
 const REFERENCE = {
   src: '/img resource/ba8d7185-40d5-456b-ab17-12ce9a388f21.png',
   cat: { head: [1252, 370], rx: 282, pose: { crouch: 1, headTilt: -0.06, lookY: -0.15, tailCurl: 0.75, tailSide: 1 } },
@@ -78,6 +81,23 @@ const REFERENCE = {
     { src: CAPY_SHEET, head: [118, 840], rx: 81.5, pose: { crouch: 1 } },
     // 左边的大图：坐着、脸朝右边、张嘴笑
     { src: CAPY_SHEET, head: [271, 292], rx: 190, pose: { crouch: 1, lookX: 0.7, mouth: 'smile', mouthOpen: 1, blush: 1 } },
+  ],
+  shiba: [
+    // 最下面一排第一个、第二个：正脸（只有头），平常 / 张嘴笑
+    { src: SHIBA_SHEET, head: [134.25, 810], rx: 89.75, pose: {} },
+    { src: SHIBA_SHEET, head: [320, 810.6], rx: 86.25, pose: { mouth: 'smile', mouthOpen: 1 } },
+    // 第二排第四个：正面坐着、眯眼笑
+    { src: SHIBA_SHEET, head: [1253, 488], rx: 79.25, pose: { crouch: 1, eyes: 'happy', mouth: 'smile', mouthOpen: 1, blush: 1 } },
+    // 左边的大图：坐着、脸朝右边、张嘴笑，尾巴在左边
+    { src: SHIBA_SHEET, head: [293.75, 316], rx: 219.25, pose: { crouch: 1, lookX: 0.75, mouth: 'smile', mouthOpen: 1, blush: 1, tailSide: -1, tailCurl: 0.35 } },
+  ],
+  redpanda: [
+    // 第三排第二个：正脸（只有头）
+    { src: REDPANDA_SHEET, head: [280.5, 732.5], rx: 81, pose: {} },
+    // 第一排第一个：正面坐着、张嘴笑，尾巴在左边
+    { src: REDPANDA_SHEET, head: [143.25, 147], rx: 101.75, pose: { crouch: 1, mouth: 'smile', mouthOpen: 1, blush: 1, tailSide: -1, tailCurl: 0.35 } },
+    // 第一排第五个：站着举起双手（就是招牌的"吓唬人"）
+    { src: REDPANDA_SHEET, head: [1088, 131], rx: 89.25, pose: { armL: 2.0, armR: 2.0, mouth: 'smile', mouthOpen: 1, blush: 1 } },
   ],
 };
 
@@ -97,9 +117,12 @@ async function drawCompare() {
   const headAt = [CW / 2, CH * 0.4];
   const headW = 200; // 头在格子里画多宽（像素）
   const pairs = [];
+  const pick = params.get('ref') ? params.get('ref').split(',').map(Number) : null; // &ref=0,2 只看第几处
   for (const sp of appearances) {
     if (only && sp.id !== only) continue;
-    for (const ref of [].concat(REFERENCE[sp.id] || [])) pairs.push([sp, ref]);
+    [].concat(REFERENCE[sp.id] || []).forEach((ref, i) => {
+      if (!pick || pick.includes(i)) pairs.push([sp, ref]);
+    });
   }
   for (const [sp, ref] of pairs) {
     const img = await load(ref.src || REFERENCE.src);

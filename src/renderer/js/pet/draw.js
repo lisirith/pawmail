@@ -29,11 +29,13 @@ const LW = 1.45; // 按设定图的线宽比例描边，放大后仍保留轻柔
 //   torso 身体宽窄 · arm 手臂粗细 · armLen 手臂长短 · foot 脚的大小 · sitSpread 坐下时两只后脚往外分开多少
 //   frontLegs 坐下时手变成"前腿"，直直地撑在两脚中间（猫是这样坐的）
 //   frontLegInset 前腿收进胸前的距离；restArm / foldInset 是熊猫坐下抱爪时的角度和内收量
+//   restInFront: false 坐下时搭在肚子上的手画在头后面（小熊猫；熊猫的爪子要压住下巴，画在前面）
 const DEFAULT_BUILD = Object.freeze({ torso: 1, arm: 1, armLen: 1, foot: 1, sitSpread: 0, frontLegs: false });
 
 // 五官的位置和大小（头的坐标：原点在头的中心）。每种动物在自己的文件里覆盖需要改的几项。
 //   eyeX/eyeY 眼睛中心 · eyeRx/eyeRy 睁眼时的大小 · shine 眼睛里要不要画白色高光
 //   noseY 鼻子（没有鼻子的话就是嘴的上沿） · mouthDy 嘴离鼻子多远 · mouthW 嘴的半宽
+//   mouthDepth ω 嘴往下弯多深（1 = 猫那样浅浅的；柴犬的嘴是很深的 ω）
 //   blushX/blushY 腮红
 const DEFAULT_FACE = Object.freeze({
   eyeX: 15.5,
@@ -359,6 +361,7 @@ function drawMouth(ctx, sp, P) {
   const F = faceOf(sp);
   const y0 = F.mouthDy; // 嘴的上沿离鼻子多远
   const w = F.mouthW;
+  const depth = F.mouthDepth || 1;
   ctx.strokeStyle = pal.mouthLine;
   ctx.lineWidth = 1.55;
 
@@ -366,15 +369,15 @@ function drawMouth(ctx, sp, P) {
   const omega = () => {
     ctx.beginPath();
     ctx.moveTo(-w, y0 + 2.2);
-    ctx.quadraticCurveTo(-w * 0.5, y0 + 6.2, 0, y0 + 2.2);
-    ctx.quadraticCurveTo(w * 0.5, y0 + 6.2, w, y0 + 2.2);
+    ctx.quadraticCurveTo(-w * 0.5, y0 + 2.2 + 4 * depth, 0, y0 + 2.2);
+    ctx.quadraticCurveTo(w * 0.5, y0 + 2.2 + 4 * depth, w, y0 + 2.2);
     ctx.stroke();
   };
 
   if (m === 'smile') {
-    // 张嘴笑
+    // 张嘴笑（ω 弯得深的话，张开的嘴也往下挪一点，挂在 ω 下面）
     const k = 0.45 + 0.55 * clamp(P.mouthOpen, 0, 1);
-    const top = y0 + 3.4;
+    const top = y0 + 3.4 + (depth - 1) * 2;
     const bottom = top + 8.5 * k;
     const shape = () => {
       ctx.beginPath();
@@ -780,7 +783,7 @@ export function drawPet(ctx, sp, P, opts = {}) {
   // 熊猫坐着把爪子抱在胸前时，爪子压住下巴边缘，才有原图中抱成一团的姿态。
   const smooth = (v) => { const k = clamp(v, 0, 1); return k * k * (3 - 2 * k); };
   // 坐下、站起和抬爪过程中逐渐露出下巴前的部分，避免切换图层时爪子突然跳出。
-  const restingInFront = (a) => g.build.restArm
+  const restingInFront = (a) => g.build.restArm && g.build.restInFront !== false
     ? smooth((g.sit - 0.25) / 0.5) * smooth((0.65 - g.loaf) / 0.35) * smooth((0.4 - a) / 0.35)
     : 0;
   const frontL = P.armL < -1.25 ? 1 : restingInFront(P.armL);
