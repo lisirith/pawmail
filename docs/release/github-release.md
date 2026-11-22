@@ -14,6 +14,7 @@ Pawmail 0.2.0 beta · 爪爪来信 0.2.0 测试版
 
 **What's new**
 
+- **Three new pets: a capybara, a Shiba Inu and a red panda.** Each has its own temper. The capybara takes things slowly (sit it down long enough and an orange may land on its head). The Shiba has a mind of its own: now and then it flops down mid-walk and refuses to budge. The red panda is a bit timid but loves heights; startle it and it stands up tall with its arms raised to look fierce. Pick one from the right-click menu (*Animal*).
 - **It can perch on your windows.** Drop the pet on top of a window and it stands there: it strolls along the top, naps, peeks over the edge, and rides along when you drag the window. Close, minimize or cover the window and down it goes. Sometimes it gets up there by itself, hopping onto a low window or climbing the side of one that reaches down to the taskbar.
   Works in *On top* (*Always on top*) mode. You can turn it off in the menu (*Perch on windows*). It only looks at where your windows are, never at their titles or which program they belong to.
 - **Help & feedback** in the tray menu: check for a new version (opens this page in your browser), report a problem, open the log folder.
@@ -36,6 +37,7 @@ Found a bug? Please [open an issue](../../issues) and attach `pawmail.log` (tray
 
 **新内容**
 
+- **三只新动物：卡皮巴拉、柴犬、小熊猫。** 各有各的脾气：卡皮巴拉慢悠悠的，坐着发呆时头顶偶尔会落下一个橘子；柴犬很有主见，散步散到一半会突然趴下，赖着不走；小熊猫胆子小、最爱爬高，被吓到会站起来举起双手"吓唬"你。在右键菜单的"动物"里换。
 - **它会站到窗口上了。** 把它放到某个窗口的顶上，它就站在那儿：在上面溜达、打盹、探头往下看；你拖动那个窗口，它跟着一起走。窗口关掉、最小化或者被挡住，它就掉下来。它有时也会自己上去：跳上不太高的窗口，或者顺着一直伸到任务栏的窗口侧边爬上去。
   显示方式是"最前面"（始终在最前面）时才有。不想要的话，可以在菜单里关掉（*站到窗口上*）。它只看窗口在哪儿，不看窗口标题，也不看是哪个程序的窗口。
 - 托盘菜单里多了 **帮助与反馈**：检查新版本（用浏览器打开这个页面）、反馈问题、打开日志文件夹。

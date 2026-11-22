@@ -12,6 +12,8 @@ A tiny pet that lives on your Windows desktop. It wanders, naps and chases your 
 
 **It lives on your desktop.** An orange cat, a panda, a capybara, a Shiba Inu or a red panda walks along your taskbar. It breathes, blinks, twitches its ears, follows your cursor with its eyes, and decides for itself what to do next: nap, groom, wander, climb, or come say hi. Your clicks go straight through it to the windows behind, unless you're pointing at the pet itself.
 
+<p align="center"><img src="docs/images/lineup.png" width="640" alt="The five pets in a row: a capybara with an orange on its head, a panda, an orange cat holding a letter, a Shiba Inu and a red panda"></p>
+
 Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drops back down.
 
 <p align="center"><img src="docs/images/pickup.gif" width="480" alt="The cat being picked up with the mouse, swinging, and dropped"></p>

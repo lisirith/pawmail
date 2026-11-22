@@ -33,7 +33,8 @@ for (const lang of ['zh', 'en']) {
 SHOTS.push(
   { name: 'pickup', gif: { cols: 10, fps: 20 }, page: '/src/renderer/index.html?preview=1&box=480x300&species=cat&fps=20&cols=10', w: 480, h: 300, script: 'pickup.js' },
   { name: 'climb', gif: { cols: 12, fps: 15 }, page: '/src/renderer/index.html?preview=1&box=420x380&area=0,0,0.66,1&species=panda&fps=15&cols=12', w: 420, h: 380, script: 'climb.js' },
-  { name: 'cover', page: '/src/renderer/gallery.html?bg=none', w: 640, h: 520, script: 'cover.js' }
+  { name: 'cover', page: '/src/renderer/gallery.html?bg=none', w: 640, h: 520, script: 'cover.js' },
+  { name: 'lineup', page: '/src/renderer/gallery.html?bg=none', w: 980, h: 360, script: 'lineup.js' }
 );
 
 function snap(shot, file) {
