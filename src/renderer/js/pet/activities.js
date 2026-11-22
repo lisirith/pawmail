@@ -713,7 +713,7 @@ export const ACTIVITIES = {
       const k = easeInOut(rise) * (1 - easeInOut(fall)); // 0 平常 … 1 手举到最高
       const shake = Math.sin(t * 28) * 0.04 * (1 - fall); // 爪子微微发抖
       T.crouch = 0;
-      // 举到 2.0：再高（超过 2.1）爪子就藏到大脑袋后面去了（见 CLAUDE.md）
+      // 举到 2.0：再高（超过 2.1）爪子就藏到大脑袋后面，看不见了
       T.armL = (2.0 + shake) * k;
       T.armR = (2.0 - shake) * k;
       T.squash = -0.07 * k; // 站得直直的、伸长一点

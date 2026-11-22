@@ -1,5 +1,7 @@
-// 所有动物的登记处。以后再加动物，在这里加一行；
-// 再到 src/main/store.js 的 SPECIES、托盘菜单、右键菜单、语言文件里各加一处（见 CLAUDE.md "加一种新动物"）。
+// 所有动物的登记处。以后再加动物，在这里加一行；再到这些地方各加一处：
+// src/main/store.js 的 SPECIES、托盘菜单（tray.js）、右键菜单（app.js，带小头像）、语言文件的 menu.<编号> 和 say.<编号>、
+// 信里的零食（shared/letters/*.json 的 snack）、activities.js 的 HOP_REACH、开发工具（dev-server、sim-letters、check-art、
+// gallery 的 REFERENCE）、自检里切换动物的那一项，以及 README 和 ASSETS-LICENSE.md。
 
 import { cat, luckyCat } from './cat.js';
 import { panda } from './panda.js';
