@@ -11,6 +11,7 @@
     "luckyCat": "Lucky cat",
     "panda": "Panda",
     "capybara": "Capybara",
+    "shiba": "Shiba Inu",
     "display": "Show",
     "top": "On top",
     "desktop": "Desktop only",
@@ -115,6 +116,11 @@
     "capybara": {
       "hello": ["Hi~", "I'm here~", "Mm… hello"],
       "held": ["No rush, no rush…", "Where are we going?", "Okay… whatever you say"]
+    },
+    "shiba": {
+      "hello": ["Woof!", "Hi!", "I'm here~"],
+      "held": ["AAAAH put me down!!", "I can walk by myself!", "Nonononono—"],
+      "stubborn": ["Not moving!", "Nope. Not going.", "Hmph, don't feel like it…"]
     }
   },
   "mail": {

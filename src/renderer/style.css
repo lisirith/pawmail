@@ -154,6 +154,13 @@ body.dragging {
   height: 20px;
   margin: -3px 3px -5px -3px;
 }
+/* 只有小头像、没写名字的选项：左右留白少一点 */
+.seg-btn.icon-only {
+  padding: 4px 6px;
+}
+.seg-btn.icon-only .seg-icon {
+  margin: -3px 0 -5px;
+}
 .seg-btn:hover {
   background: rgba(255, 255, 255, 0.65);
 }

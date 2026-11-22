@@ -682,10 +682,12 @@ async function main() {
         key: 'species',
         label: t('menu.animal'),
         value: settings.species,
+        compact: true, // 没选中的动物只显示小头像，名字在鼠标停上去时显示
         options: [
           { value: 'cat', label: t('menu.cat'), icon: headIcon('cat', settings.catCoat || 'tabby') },
           { value: 'panda', label: t('menu.panda'), icon: headIcon('panda') },
           { value: 'capybara', label: t('menu.capybara'), icon: headIcon('capybara') },
+          { value: 'shiba', label: t('menu.shiba'), icon: headIcon('shiba') },
         ],
       },
       ...(settings.species === 'cat' ? [{

@@ -150,15 +150,15 @@ async function inspectArt(poses, guideUrl) {
     stats[variantId] = { cases: cases.length, minPixels, minMargin, averageDrawMs: +( (performance.now() - start) / 240).toFixed(3) };
   }
   const sheet = document.createElement('canvas');
-  sheet.width = 1680; sheet.height = 1590;
+  sheet.width = 1680; sheet.height = 1955;
   const s = sheet.getContext('2d');
   s.fillStyle = '#f7f0e5'; s.fillRect(0, 0, sheet.width, sheet.height);
   s.fillStyle = '#614839'; s.font = '600 30px "Microsoft YaHei", sans-serif';
-  s.fillText('Pawmail · 熊猫、橘猫、招财猫与卡皮巴拉 / 动作预览', 36, 50);
+  s.fillText('Pawmail · 熊猫、橘猫、招财猫、卡皮巴拉与柴犬 / 动作预览', 36, 50);
   s.font = '17px "Microsoft YaHei", sans-serif'; s.fillStyle = '#856e5e';
   s.fillText('游戏实际绘制 · 放大检查轮廓、表情与部件衔接', 36, 82);
   const featured = [poses[0], poses[5], poses[3], poses[6], poses[7], ['抱信', { armL: -0.75, armR: -0.75 }], poses[8]];
-  for (const [row, sp] of [SPECIES.panda, SPECIES.cat, luckyCat, SPECIES.capybara].entries()) {
+  for (const [row, sp] of [SPECIES.panda, SPECIES.cat, luckyCat, SPECIES.capybara, SPECIES.shiba].entries()) {
     const top = 110 + row * 365;
     s.fillStyle = row ? '#e9e0d2' : '#fffaf3'; s.fillRect(20, top, sheet.width - 40, 348);
     for (const [col, [name, pose]] of featured.entries()) {
@@ -168,9 +168,9 @@ async function inspectArt(poses, guideUrl) {
       s.fillText(name, 135 + col * 235, top + 326); s.textAlign = 'left';
     }
   }
-  const dark = document.createElement('canvas'); dark.width = 960; dark.height = 430;
-  const d = dark.getContext('2d'); d.fillStyle = '#252a34'; d.fillRect(0, 0, 960, 430);
-  for (const [i, id] of ['panda', 'cat', 'capybara'].entries()) {
+  const dark = document.createElement('canvas'); dark.width = 1280; dark.height = 430;
+  const d = dark.getContext('2d'); d.fillStyle = '#252a34'; d.fillRect(0, 0, 1280, 430);
+  for (const [i, id] of ['panda', 'cat', 'capybara', 'shiba'].entries()) {
     d.save(); d.translate(160 + i * 320, 365); d.scale(2.3, 2.3);
     drawPet(d, SPECIES[id], makePose({ crouch: 1 }), { time: 0.3 }); d.restore();
   }

@@ -34,6 +34,7 @@ const COOLDOWN = {
   hopUp: 360, // 自己跳上窗口：最多六分钟一次
   climbUp: 420, // 自己顺着窗口侧边爬上去（和爬屏幕边的 climb 互相也算冷却，见 scores）
   orangeNap: 900, // 卡皮巴拉头顶橘子发呆：一小时两三次，多了就不稀奇了
+  stubborn: 900, // 柴犬赖着不走：模拟器里一小时四次左右，多了就不好笑了
 };
 
 // 刚从窗口上下来（自己跳的、掉下来的）：过这么多秒才想再上去
@@ -325,6 +326,12 @@ export class Brain {
     return !(pet.outfit && pet.outfit.hat) && !(pet.look && pet.look.head);
   }
 
+  /** 能不能赖着不走：这种动物有这个小动作（柴犬）、在地面上（站在窗口顶上地方太窄，不赖）、你在 */
+  #canStubborn() {
+    const pet = this.pet;
+    return pet.sp.quirk === 'stubborn' && pet.mode === 'ground' && !this.perched && !this.userAway;
+  }
+
   /** 离最近的墙有多近：贴着墙是 1，300 像素开外是 0 */
   #wallNear() {
     const d = wallDistances(this);
@@ -378,6 +385,8 @@ export class Brain {
       climbUp: wall ? keen * near(wall) * this.#cooldown('climb') : 0,
       // 卡皮巴拉：坐着发呆，头顶落下一个橘子。戴着帽子、节日头饰时不做（橘子没地方放）
       orangeNap: this.#canOrange() ? 0.08 + 0.15 * tired : 0,
+      // 柴犬：走着走着突然趴下赖着不走。越无聊越容易犯倔，太累了就直接睡了、不用赖
+      stubborn: this.#canStubborn() ? (0.06 + 0.2 * bo) * (0.4 + 0.6 * e) : 0,
     };
     // 性格（动物文件里的 calm：0 平常，1 佛系）：佛系的少跑、少追、少蹦，多坐、多打盹
     const calm = this.pet.sp.calm || 0;
@@ -392,6 +401,9 @@ export class Brain {
       s.sit *= 1 + 0.4 * calm;
       s.nap *= 1 + 0.6 * calm;
     }
+    // 各自的喜好（动物文件里的 likes：某个动作的分数乘多少）。比如柴犬不太黏人、爱自己溜达
+    const likes = this.pet.sp.likes;
+    if (likes) for (const [name, k] of Object.entries(likes)) if (name in s) s[name] *= k;
     if (this.perched) {
       // 站在窗口顶上：只在上面走几步、坐坐、睡一觉、探头往下看；待得越久、越无聊，越想跳下去
       const up = this.pet.time - this.pet.perchSince; // 在这个窗口上待了多少秒
@@ -587,8 +599,15 @@ export class Brain {
     } else if (type === 'comeBack') {
       pet.unbounded = false;
       this.queue.length = 0;
-      this.queue.push(['greet', {}]);
-      this.start('walk', { tx: (A.left + A.right) / 2, gait: 'run' }); // 回到活动范围的正中间
+      const back = ['walk', { tx: (A.left + A.right) / 2, gait: 'run' }]; // 回到活动范围的正中间
+      if (pet.sp.quirk === 'stubborn' && chance(0.35)) {
+        // 柴犬：有时先原地赖一下（"不走！"），赖完再乖乖跑回来
+        this.queue.push(back, ['greet', {}]);
+        this.start('stubborn', { short: true });
+      } else {
+        this.queue.push(['greet', {}]);
+        this.start(...back);
+      }
     }
   }
 

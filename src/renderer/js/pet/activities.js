@@ -277,7 +277,7 @@ function wallLeap(st, pet, side, S) {
 // ------------------------------------------------------------ 自己上窗口（brain.js 的 hopUp / climbUp）
 
 // 一跳最高能跳多高（按宠物原始大小算的像素）：猫轻巧，熊猫沉，卡皮巴拉懒得使劲
-const HOP_REACH = { cat: 190, panda: 120, capybara: 110 };
+const HOP_REACH = { cat: 190, panda: 120, capybara: 110, shiba: 170 };
 const hopReach = (sp) => HOP_REACH[sp.id] ?? 150;
 // 顺着窗口侧边爬到顶时：爪子扒住了顶边，脚还在顶边下面这么多，然后一翻身上去
 const HANG = 72;
@@ -641,6 +641,55 @@ export const ACTIVITIES = {
       pet.pose.prop = 0; // 头上那个马上拿掉，免得同时看到两个橘子
     },
   }),
+
+  /**
+   * 柴犬的招牌小动作（动物文件里 quirk = 'stubborn' 才有）：赖着不走。
+   * 正走着路，突然往地上一趴、下巴贴地、扭过头不看你（"不走！"），赖几秒，再自己爬起来接着走。
+   * 你点"叫它回来"时，它也可能先原地赖一下再跑回来（short，见 brain.js 的 command）。
+   * 不放进 INTERRUPTIBLE：不然排着队的"跑回来"零点几秒就把它叫起来了，赖不住
+   */
+  stubborn: (b, p) => {
+    const walking = !p.short; // 大脑自己挑的：先走几步再赖；叫它回来时：原地就赖
+    return {
+      tx: walking ? pickWalkTarget(b, 160, 420) : null,
+      walkFor: walking ? rand(0.8, 1.8) : 0, // 先走多久
+      dur: p.short ? rand(1.6, 2.6) : rand(3, 6), // 赖多久
+      side: chance(0.5) ? 1 : -1, // 扭头往哪边（就是不看你）
+      gait: GAITS.walk,
+      speedMul: 1,
+      flopped: false,
+      update(b, dt, t) {
+        const pet = b.pet;
+        const T = pet.target;
+        if (t < this.walkFor) {
+          if (!locomote(b, this, dt, this.tx, this.gait, this.speedMul)) return false;
+          this.walkFor = t; // 已经走到了：就地开始赖
+        }
+        const u = t - this.walkFor;
+        if (!this.flopped) {
+          this.flopped = true;
+          pet.squashSpring.kick(1.6); // 啪叽一下趴平
+          if (p.short || chance(0.7)) b.say('stubborn', 2.2);
+        }
+        const s = pet.style;
+        s.gaze = 'none';
+        s.tailAmp = 0.15;
+        s.fps = u < 0.6 ? 60 : 20;
+        T.loaf = 1;
+        T.headY += 4; // 下巴贴着地
+        T.lookX = this.side * 0.75;
+        T.lookY = 0.2;
+        T.headTilt += this.side * 0.08;
+        T.earDroop = 0.55; // 耳朵往后贴：不高兴
+        T.eyes = 'annoyed';
+        T.mouth = 'pout';
+        T.tailCurl = 0.3;
+        if (u < this.dur) return false;
+        if (this.tx !== null) b.queue.unshift(['walk', { tx: this.tx }]); // 赖够了，自己爬起来接着走
+        return true;
+      },
+    };
+  },
 
   /** 趴成一团睡觉 */
   sleep: (b, p) => ({

@@ -1,7 +1,8 @@
 // 右键点宠物弹出的菜单。
 //
 // 菜单内容由一个简单的列表（model）描述，三种行：
-//   { type: 'choice', key, label, value, options: [{ value, label, icon }] }   几选一（icon：可选的小图片，图片网址）
+//   { type: 'choice', key, label, value, options: [{ value, label, icon }], compact }   几选一（icon：可选的小图片，图片网址；
+//                                                                                     compact：没选中的只显示小图片，名字在鼠标停上去时显示）
 //   { type: 'action', id, label, danger }                                点一下执行
 //   { type: 'separator' }                                                分隔线
 
@@ -76,7 +77,15 @@ export class PetMenu {
           img.alt = '';
           button.append(img);
         }
-        button.append(option.label);
+        // 动物多了，名字全写出来一行放不下（英文更长）：选中的那个写名字，其他的只放小头像
+        const iconOnly = row.compact && option.icon && option.value !== row.value;
+        if (iconOnly) {
+          button.classList.add('icon-only');
+          button.title = option.label;
+          button.setAttribute('aria-label', option.label);
+        } else {
+          button.append(option.label);
+        }
         button.type = 'button';
         if (option.title) button.title = option.title;
         button.addEventListener('click', () => this.onChoice(row.key, option.value));
