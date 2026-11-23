@@ -233,6 +233,13 @@
     "fedOne": [
       "You fed me a file yesterday. It tasted pretty good. Got any more?"
     ],
+    "todos": [
+      "You finished {count} things on your list yesterday! I counted every one.",
+      "You ticked off {count} to-dos yesterday. Don't wear yourself out today."
+    ],
+    "todoOne": [
+      "You finished one to-do yesterday. One still counts, and I'm proud of you."
+    ],
     "ignored": [
       "You didn't notice me all day yesterday. I pretended not to mind. Did I do it well?"
     ],

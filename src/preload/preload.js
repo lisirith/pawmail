@@ -5,7 +5,8 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 // 后台 → 画面 允许的消息种类
-const INBOUND = new Set(['cursor', 'settings', 'command', 'system', 'save-now', 'mail', 'festival', 'ledges']);
+// remind：有一件待办到点了，宠物提醒你；todo-done：你在信纸窗口里勾掉了一件待办（见 src/main/todos.js）
+const INBOUND = new Set(['cursor', 'settings', 'command', 'system', 'save-now', 'mail', 'festival', 'ledges', 'remind', 'todo-done']);
 
 contextBridge.exposeInMainWorld('pawmail', {
   /** 启动时取一次：设置、存档、所有语言的文字 */
@@ -35,9 +36,10 @@ contextBridge.exposeInMainWorld('pawmail', {
   },
   /** 文件拖到它身上时，不让 Windows 画那个挡住它脸的大图标：'hide' 停在身上 | 'leave' 拖走了 | 'drop' 松手了 */
   dragImage: (mode) => ipcRenderer.send('pawmail:drag-image', String(mode)),
-  /** 打开信纸窗口（有没拆的信就直接打开那封） */
-  /** 打开信纸窗口。view = 'wardrobe' 时直接打开衣柜 */
-  openMail: (view) => ipcRenderer.send('pawmail:open-mail', view === 'wardrobe' ? 'wardrobe' : null),
+  /** 打开信纸窗口（有没拆的信就直接打开那封）。view = 'wardrobe' 直接打开衣柜，'todos' 直接打开待办 */
+  openMail: (view) => ipcRenderer.send('pawmail:open-mail', view === 'wardrobe' || view === 'todos' ? view : null),
+  /** 宠物提醒你一件待办，你点了它一下：知道了（这件不再提醒） */
+  todoAck: (id) => ipcRenderer.send('pawmail:todo-ack', String(id)),
   /** 记一次互动：'pet' 摸头 | 'poke' 戳 | 'throw' 扔 | 'dizzy' 弄晕 */
   stat: (kind) => ipcRenderer.send('pawmail:stat', String(kind)),
   /** 宠物现在站在哪个窗口顶上（窗口编号，见 src/main/ledges.js）；null = 不在窗口上。后台会更勤快地盯着那个窗口 */

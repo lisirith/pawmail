@@ -62,12 +62,14 @@ export function nightFactor(date = new Date()) {
 }
 
 export class Brain {
-  constructor({ pet, world, say, saved, clock, stat }) {
+  constructor({ pet, world, say, saved, clock, stat, onAck }) {
     this.pet = pet;
     this.world = world;
     this.sayFn = say || (() => {});
     this.clock = clock || (() => new Date()); // 现在几点（模拟测试时可以换成假的时钟）
     this.stat = stat || (() => {}); // 记一次互动（摸头、戳、弄晕），第二天的信里会提到
+    this.onAck = onAck || (() => {}); // 待办提醒你点了"知道了"（告诉后台，见 src/main/todos.js）
+    this.reminder = null; // 正在提醒的待办：{ id, text, until }（until 之前点它一下都算"知道了"）
     this.hasMail = false; // 手里有没有一封等你拆的信
     this.festival = null; // 今天过的节：{ id, day, look, greet }
     this.foodNear = false; // 有没有人正拖着文件停在它身上（要喂它）
@@ -128,10 +130,10 @@ export class Brain {
 
   // ------------------------------------------------------------ 给动作用的小接口
 
-  /** 说一句话（气泡）。key 对应语言文件里 say.xxx */
-  say(key, seconds) {
+  /** 说一句话（气泡）。key 对应语言文件里 say.xxx；params 填进句子里的 {占位}（比如待办的内容） */
+  say(key, seconds, params) {
     this.lastSayAt = this.world.time;
-    this.sayFn(key, seconds);
+    this.sayFn(key, seconds, params);
   }
 
   reward({ mood = 0, boredom = 0, social = 0, energy = 0 }) {
@@ -559,6 +561,52 @@ export class Brain {
     if (this.name === 'showOff' || this.queue.some(([name]) => name === 'showOff')) return;
     this.queue.push(['showOff', { off }]);
     if (this.name === 'sleep' && !this.current.forced) this.start('wake'); // 换了新衣服，醒来看看（哄睡的不叫醒）
+  }
+
+  /**
+   * 有一件待办到点了（后台发来的 { id, text }）：跑到你跟前举牌子提醒你。
+   * 睡着了也会马上爬起来；正被拎着、在空中的话，落地以后再提醒
+   */
+  onRemind(r) {
+    if (!r || typeof r.id !== 'string') return;
+    const text = String(r.text || '').slice(0, 80);
+    this.reminder = { id: r.id, text, until: this.world.time + 60 };
+    this.queue = this.queue.filter(([name]) => name !== 'remind');
+    if (this.pet.mode !== 'ground' || (REACTIVE.has(this.name) && this.name !== 'remind')) {
+      this.queue.unshift(['remind', { text }]);
+      return;
+    }
+    this.start('remind', { text });
+  }
+
+  /**
+   * 点了它一下：正在提醒待办的话（举着牌子，或者刚提醒完不到一分钟），就算"知道了"。
+   * 返回 true = 这一下是"知道了"（app.js 就不再把它当成戳一下 / 拆信）
+   */
+  ackReminder() {
+    const r = this.reminder;
+    if (!r || this.world.time > r.until || this.pet.mode !== 'ground') return false;
+    this.reminder = null;
+    this.onAck(r.id);
+    this.queue = this.queue.filter(([name]) => name !== 'remind');
+    this.start('hop', { count: 1 });
+    this.say('remindOk', 2.4);
+    return true;
+  }
+
+  /** 你在信纸窗口里勾掉了一件待办：替你高兴一下（睡着了就先醒） */
+  onTodoDone() {
+    const pet = this.pet;
+    if (pet.mode !== 'ground' || REACTIVE.has(this.name)) {
+      this.queue.push(['cheer', {}]);
+      return;
+    }
+    if (this.name === 'sleep') {
+      this.start('wake');
+      this.queue.unshift(['cheer', {}]);
+      return;
+    }
+    this.start('cheer');
   }
 
   /** 落地了。leapt：是它自己（从墙上、窗口上）跳下来的 */

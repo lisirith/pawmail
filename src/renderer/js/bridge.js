@@ -56,8 +56,13 @@ function createMockBridge() {
     setCapture() {},
     savePet() {},
     openMail(view) {
-      console.log(`[预览] 这里会打开信纸窗口${view === 'wardrobe' ? '的衣柜' : ''}（预览地址：mail.html${view === 'wardrobe' ? '?view=wardrobe' : ''}）`);
-      if (view !== 'wardrobe') emit('mail', { unread: 0, total: 1 });
+      const page = view === 'wardrobe' || view === 'todos' ? view : '';
+      console.log(`[预览] 这里会打开信纸窗口${page ? `的 ${page}` : ''}（预览地址：mail.html${page ? `?view=${page}` : ''}）`);
+      if (!page) emit('mail', { unread: 0, total: 1 });
+    },
+    /** 预览：模拟后台发来一个待办提醒用 emit('remind', { id, text }) */
+    todoAck(id) {
+      console.log('[预览] 待办提醒知道了：', id);
     },
     stat() {},
     perch() {},

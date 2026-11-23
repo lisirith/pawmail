@@ -57,7 +57,7 @@ function mockMail(query) {
       letter.opened = true; // 假装每天都拆了信：礼物进图鉴，衣服进衣柜
       L.receive(mail, letter);
     }
-    usage[day] = { first: now - 3600000, last: i % 3 === 0 ? late.getTime() : now + 40000000, activeMin: 200 + (i % 7) * 40, pets: i % 5, pokes: i % 3, throws: i % 6 === 0 ? 2 : 0, dizzies: 0, feeds: i % 4 === 0 ? 2 : 0 };
+    usage[day] = { first: now - 3600000, last: i % 3 === 0 ? late.getTime() : now + 40000000, activeMin: 200 + (i % 7) * 40, pets: i % 5, pokes: i % 3, throws: i % 6 === 0 ? 2 : 0, dizzies: 0, feeds: i % 4 === 0 ? 2 : 0, todosDone: i % 5 === 1 ? 3 : 0 };
   }
   // 最后几封标成"还没拆"（注意 slice(-0) 会取到全部，所以 0 要单独处理）
   if (unread > 0) {

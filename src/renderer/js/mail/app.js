@@ -18,6 +18,24 @@ function createMockApi() {
   const deleted = new Set();
   let name = params.get('name');
   let worn = params.get('outfit') || ''; // 预览时穿着的衣服：?outfit=capRed,hoodie
+  // 预览时的待办（只在这个页面里，刷新就没了）。?todos=1 先放几件示例
+  let todos = [];
+  let seq = 0;
+  if (params.get('todos')) {
+    const now = Date.now();
+    todos = [
+      { id: 'tdemo1', text: '交高数作业', createdAt: now - 3e5, due: now - 6e4, done: false },
+      { id: 'tdemo2', text: '给妈妈打电话', createdAt: now - 2e5, due: now + 3 * 3600e3, done: false },
+      { id: 'tdemo3', text: '买牛奶', createdAt: now - 1e5, due: null, done: false },
+      { id: 'tdemo4', text: '洗衣服', createdAt: now - 4e5, due: null, done: true, doneAt: now - 5e4 },
+    ];
+  }
+  const todoView = () => {
+    const now = Date.now();
+    const open = todos.filter((t) => !t.done).sort((a, b) => (a.due ?? Infinity) - (b.due ?? Infinity) || a.createdAt - b.createdAt);
+    const done = todos.filter((t) => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+    return [...open, ...done].map((t) => ({ id: t.id, text: t.text, due: t.due, done: t.done, overdue: !t.done && t.due !== null && t.due <= now }));
+  };
   const load = async () => {
     // 网址上的参数原样转给预览服务器（from、days、cultures、birthday、ask……见 tools/dev-server.js）
     const query = new URLSearchParams(location.search);
@@ -29,6 +47,7 @@ function createMockApi() {
     const data = await (await fetch(`/__mock/mail?${query}`)).json();
     data.letters = data.letters.filter((l) => !deleted.has(l.id));
     for (const letter of data.letters) if (opened.has(letter.id)) letter.opened = true;
+    data.todos = todoView();
     if (params.get('view')) data.nav = { view: params.get('view'), id: params.get('id') || undefined };
     return data;
   };
@@ -48,6 +67,25 @@ function createMockApi() {
       ids.forEach((id) => deleted.add(id));
       push();
       return { ok: true, removed: ids.length };
+    },
+    async todo(action) {
+      console.log('[预览] 待办：', JSON.stringify(action));
+      const find = () => todos.find((t) => t.id === action.id);
+      if (action.type === 'add') {
+        const text = String(action.text || '').trim().slice(0, 80);
+        if (!text) return { ok: false };
+        todos.push({ id: `tpreview${(seq += 1)}`, text, createdAt: Date.now(), due: Number.isFinite(action.due) ? action.due : null, done: false });
+      } else if (action.type === 'done' && find()) {
+        Object.assign(find(), { done: !!action.done, doneAt: action.done ? Date.now() : null });
+      } else if (action.type === 'remove') {
+        todos = todos.filter((t) => t.id !== action.id);
+      } else if (action.type === 'clearDone') {
+        todos = todos.filter((t) => !t.done);
+      } else {
+        return { ok: false };
+      }
+      push();
+      return { ok: true };
     },
     async setOutfit(next) {
       console.log('[预览] 换衣服：', JSON.stringify(next));
@@ -155,8 +193,12 @@ function toast(message) {
 
 const state = {
   data: null,
-  view: 'letter', // letter 读信 | box 信箱 | album 图鉴 | wardrobe 衣柜
+  view: 'letter', // letter 读信 | box 信箱 | album 图鉴 | wardrobe 衣柜 | todos 待办
   wardrobePose: 'stand', // 衣柜里的大图：stand 站着 | sit 坐着
+  todoDraft: '', // 待办：正在打的字（后台推来新清单、整页重画时原样放回去）
+  todoWhen: 'none', // 待办：选的提醒时间（none 不提醒 | in30 | in60 | tonight | tomorrow | pick 自己选）
+  todoPick: '', // 待办：自己选的时间（datetime-local 的格式）
+  todoFocus: false, // 待办：输入框是不是正在打字（重画后接着打）
   id: null, // 正在看哪一封信
   opening: null, // 正在播放拆信动画的那封
   justOpened: null, // 刚拆开的那封（播放一次展开的动画）
@@ -210,15 +252,18 @@ function renderBar() {
 
   const unread = letters().some((l) => !l.opened);
   const newClothes = state.data.wardrobe.items.some((item) => item.isNew); // 收到了还没穿过的衣服
+  const overdue = (state.data.todos || []).some((t) => t.overdue); // 有到点了还没做完的待办
   const tabs = [
     ['letter', ui.tabLetter],
     ['box', ui.tabBox],
     ['album', ui.tabAlbum],
     ['wardrobe', ui.tabWardrobe],
+    ['todos', ui.tabTodos],
   ].map(([view, label]) => {
     const tab = button(state.view === view ? 'active' : '', label, () => go(view));
     if (view === 'box' && unread && state.view !== 'box') tab.append(el('span', 'dot'));
     if (view === 'wardrobe' && newClothes && state.view !== 'wardrobe') tab.append(el('span', 'dot'));
+    if (view === 'todos' && overdue && state.view !== 'todos') tab.append(el('span', 'dot'));
     return tab;
   });
   $('tabs').replaceChildren(...tabs);
@@ -771,12 +816,182 @@ function wardrobeView() {
   return view;
 }
 
+// ---------------------------------------------------------------- 待办
+//
+// 写下要做的事，可以选一个提醒时间。到点了宠物会举着小牌子跑到鼠标旁边提醒你（见 src/main/todos.js）。
+// 后台每次有变化都会把整张清单推过来、整页重画，所以正在打的字、选好的提醒时间都记在 state 里，重画后原样放回去
+
+const pad2 = (n) => String(n).padStart(2, '0');
+/** 本地时间 → datetime-local 输入框要的格式：2026-11-23T20:00 */
+const localInput = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+/** 几个快捷的提醒时间：返回时间戳（null = 不提醒） */
+function quickDue(kind) {
+  const now = Date.now();
+  const d = new Date(now);
+  if (kind === 'in30') return now + 30 * 60000;
+  if (kind === 'in60') return now + 60 * 60000;
+  if (kind === 'tonight') {
+    d.setHours(20, 0, 0, 0);
+    if (d.getTime() <= now) d.setDate(d.getDate() + 1); // 已经过了今晚 8 点：明晚
+    return d.getTime();
+  }
+  if (kind === 'tomorrow') {
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+    return d.getTime();
+  }
+  if (kind === 'pick') {
+    const t = new Date(state.todoPick || '').getTime();
+    return Number.isFinite(t) ? t : null;
+  }
+  return null;
+}
+
+/** 提醒时间写成人话：今天 20:00 提醒 / 明天 09:00 提醒 / 11 月 30 日 08:00 提醒 */
+function dueText(ts) {
+  const { ui } = state.data;
+  const d = new Date(ts);
+  const time = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(d) - day(new Date())) / 86400000);
+  const when =
+    diff === 0
+      ? fillText(ui.todoToday, { time })
+      : diff === 1
+        ? fillText(ui.todoTomorrowAt, { time })
+        : fillText(ui.todoDate, { month: d.getMonth() + 1, day: d.getDate(), time, monthName: (ui.months || [])[d.getMonth()] || d.getMonth() + 1 });
+  return fillText(ui.todoRemindAt, { when });
+}
+
+async function todoAction(action) {
+  const result = await api.todo(action);
+  if (!result || !result.ok) toast(state.data.ui.failed);
+  return result;
+}
+
+async function addTodo() {
+  const { ui, todos } = state.data;
+  const text = state.todoDraft.trim();
+  if (!text) return;
+  if (todos.length >= 200) {
+    toast(ui.todoFull);
+    return;
+  }
+  const result = await todoAction({ type: 'add', text, due: quickDue(state.todoWhen) });
+  if (result && result.ok) {
+    state.todoDraft = '';
+    state.todoFocus = true;
+    renderMain();
+  }
+}
+
+function todoRow(todo) {
+  const { ui } = state.data;
+  const row = el('div', `todo-row${todo.done ? ' done' : ''}${todo.overdue ? ' overdue' : ''}`);
+  const check = button('todo-check', todo.done ? '✓' : '', () => todoAction({ type: 'done', id: todo.id, done: !todo.done }));
+  const body = el('div', 'todo-body');
+  body.append(el('div', 'todo-text', todo.text));
+  if (todo.due && !todo.done) body.append(el('div', 'todo-due', todo.overdue ? ui.todoOverdue : dueText(todo.due)));
+  const del = button('todo-delete', '×', () => todoAction({ type: 'remove', id: todo.id }));
+  del.title = ui.todoDelete;
+  row.append(check, body, del);
+  return row;
+}
+
+function todosView() {
+  const { ui, todos } = state.data;
+  const view = el('section', 'view todos');
+
+  // 写一件新的：回车或者点"加上"
+  const form = el('div', 'todo-form');
+  const input = el('input', 'todo-input');
+  input.type = 'text';
+  input.maxLength = 80;
+  input.placeholder = ui.todoPlaceholder;
+  input.value = state.todoDraft;
+  input.addEventListener('input', () => (state.todoDraft = input.value));
+  input.addEventListener('focus', () => (state.todoFocus = true));
+  input.addEventListener('blur', () => (state.todoFocus = false));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      addTodo();
+    }
+  });
+  form.append(input, button('btn primary todo-add', ui.todoAdd, addTodo));
+
+  // 什么时候提醒
+  const when = el('div', 'todo-when');
+  for (const [id, label] of [
+    ['none', ui.todoNoRemind],
+    ['in30', ui.todoIn30],
+    ['in60', ui.todoIn60],
+    ['tonight', ui.todoTonight],
+    ['tomorrow', ui.todoTomorrow],
+    ['pick', ui.todoPick],
+  ]) {
+    when.append(
+      button(state.todoWhen === id ? 'active' : '', label, () => {
+        state.todoWhen = id;
+        if (id === 'pick' && !state.todoPick) {
+          const d = new Date(Date.now() + 60 * 60000);
+          d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
+          state.todoPick = localInput(d);
+        }
+        renderMain();
+      })
+    );
+  }
+  if (state.todoWhen === 'pick') {
+    const picker = el('input', 'todo-picker');
+    picker.type = 'datetime-local';
+    picker.value = state.todoPick;
+    picker.addEventListener('change', () => (state.todoPick = picker.value));
+    when.append(picker);
+  }
+  view.append(form, when);
+
+  // 清单：没做完的在前，做完的在后面单独一栏
+  const open = todos.filter((t) => !t.done);
+  const done = todos.filter((t) => t.done);
+  if (!todos.length) view.append(el('div', 'todo-empty', ui.todoEmpty));
+  if (open.length) {
+    const list = el('div', 'todo-list');
+    for (const todo of open) list.append(todoRow(todo));
+    view.append(list);
+  }
+  if (done.length) {
+    const head = el('div', 'todo-done-head');
+    head.append(el('span', '', fillText(ui.todoDoneTitle, { n: done.length })), button('todo-clear', ui.todoClearDone, () => todoAction({ type: 'clearDone' })));
+    const list = el('div', 'todo-list done');
+    for (const todo of done) list.append(todoRow(todo));
+    view.append(head, list);
+  }
+  view.append(el('div', 'todo-hint', ui.todoHint));
+  if (state.todoFocus) {
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+  }
+  return view;
+}
+
 function renderMain() {
-  // 信箱、图鉴、衣柜：重画时（比如刚换了衣服）停在原来滚到的位置，不跳回顶上
+  // 信箱、图鉴、衣柜、待办：重画时（比如刚换了衣服）停在原来滚到的位置，不跳回顶上
   const old = $('main').firstChild;
   const keepScroll = state.view !== 'letter' && old && old.dataset.view === state.view ? old.scrollTop : 0;
   const view =
-    state.view === 'box' ? boxView() : state.view === 'album' ? albumView() : state.view === 'wardrobe' ? wardrobeView() : letterView();
+    state.view === 'box'
+      ? boxView()
+      : state.view === 'album'
+        ? albumView()
+        : state.view === 'wardrobe'
+          ? wardrobeView()
+          : state.view === 'todos'
+            ? todosView()
+            : letterView();
   view.dataset.view = state.view;
   state.shown = state.view === 'letter' ? fingerprint(current()) : '';
   $('main').replaceChildren(view);

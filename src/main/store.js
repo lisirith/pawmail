@@ -11,6 +11,7 @@ const crypto = require('node:crypto');
 const { MAX_LETTERS } = require('./letters');
 const F = require('../shared/festivals/catalog');
 const O = require('../shared/outfits/catalog');
+const { sanitizeTodos } = require('./todos');
 
 const SCALES = [0.8, 1, 1.3];
 const LANGUAGES = ['zh', 'en'];
@@ -129,6 +130,7 @@ function sanitizeUsage(raw) {
       throws: num(rec.throws, 0, 99999) || 0,
       dizzies: num(rec.dizzies, 0, 99999) || 0,
       feeds: num(rec.feeds, 0, 99999) || 0, // 喂它吃了几样东西（只记个数）
+      todosDone: num(rec.todosDone, 0, 99999) || 0, // 勾掉了几件待办（只记个数，不记是什么事）
     };
   }
   return out;
@@ -277,7 +279,7 @@ function sanitizeMail(raw) {
 class Store {
   constructor(file) {
     this.file = file;
-    this.data = { version: 2, settings: { ...DEFAULT_SETTINGS }, pet: null, usage: {}, mail: sanitizeMail(null) };
+    this.data = { version: 2, settings: { ...DEFAULT_SETTINGS }, pet: null, usage: {}, mail: sanitizeMail(null), todos: [] };
     this.timer = null;
   }
 
@@ -302,6 +304,7 @@ class Store {
         pet: sanitizePet(raw.pet),
         usage: sanitizeUsage(raw.usage),
         mail: sanitizeMail(raw.mail),
+        todos: sanitizeTodos(raw.todos), // 待办事项（见 todos.js）
       };
     }
     return this.data;

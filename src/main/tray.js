@@ -70,6 +70,7 @@ class PetTray {
       Menu.buildFromTemplate([
         { label: unread ? t('menu.mailboxUnread', { n: unread }) : t('menu.mailbox'), click: () => this.onOpenMail() },
         { label: t('menu.wardrobe'), click: () => this.onOpenMail('wardrobe') },
+        { label: t('menu.todos'), click: () => this.onOpenMail('todos') },
         { type: 'separator' },
         {
           label: t('menu.animal'),

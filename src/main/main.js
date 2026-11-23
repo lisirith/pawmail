@@ -20,6 +20,7 @@ const { Store, LANGUAGES, isValidSetting, sanitizePet } = require('./store');
 const { Overlay } = require('./overlay');
 const { PetTray } = require('./tray');
 const { Mail } = require('./mail');
+const { Todos, TODO_ID } = require('./todos');
 const { Feeder, buildRules } = require('./feed');
 const { logicalDay, festivalToday } = require('./letters');
 const F = require('../shared/festivals/catalog');
@@ -58,6 +59,7 @@ let store = null;
 let overlay = null;
 let tray = null;
 let mail = null;
+let todos = null; // 待办事项（见 todos.js）
 let feeder = null; // 喂它吃文件（见 feed.js）
 let logFiles = null; // 日志文件在哪儿（见 log.js）
 let ledgeWatch = null; // 看着屏幕上的窗口：宠物可以站到窗口顶上（见 ledges.js）
@@ -180,7 +182,7 @@ function todayRecord(now) {
   const usage = store.data.usage;
   const day = logicalDay(now);
   if (!usage[day]) {
-    usage[day] = { first: now, last: now, activeMin: 0, pets: 0, pokes: 0, throws: 0, dizzies: 0, feeds: 0 };
+    usage[day] = { first: now, last: now, activeMin: 0, pets: 0, pokes: 0, throws: 0, dizzies: 0, feeds: 0, todosDone: 0 };
     const days = Object.keys(usage).sort();
     while (days.length > 60) delete usage[days.shift()]; // 只留最近 60 天
   }
@@ -222,6 +224,8 @@ function startSystemWatch() {
     overlay.send('system', { idle });
     trackUsage(idle);
     mail.check(nowMs(), idle < 120); // 新的一天、而且你在电脑前：来信
+    // 待办到点了：你在电脑前、宠物露着才提醒（全屏打游戏时它躲着，等你出来再说）
+    todos.check(idle < 120 && overlay.alive && overlay.ready && !overlay.hidden);
     refreshFestival(); // 过了凌晨 4 点，节日可能开始或结束了
   }, 5000);
   // 全屏时躲起来（自检时不看：自检要截图，不能因为你正好开着全屏的程序就失败）
@@ -401,7 +405,12 @@ function registerIpc() {
   });
 
   ipcMain.on('pawmail:open-mail', (event, view) => {
-    if (fromOverlay(event)) mail.open(view === 'wardrobe' ? { view: 'wardrobe' } : undefined);
+    if (fromOverlay(event)) mail.open(view === 'wardrobe' || view === 'todos' ? { view } : undefined);
+  });
+
+  // 宠物提醒你一件待办，你点了它一下：知道了，这件不再提醒
+  ipcMain.on('pawmail:todo-ack', (event, id) => {
+    if (fromOverlay(event) && typeof id === 'string' && TODO_ID.test(id)) todos.ack(id);
   });
 
   ipcMain.on('pawmail:stat', (event, kind) => {
@@ -430,8 +439,27 @@ function start() {
   store = new Store(path.join(app.getPath('userData'), 'save.json'));
   store.load();
 
+  // 待办事项：到点了让宠物提醒你；勾掉一件，宠物替你高兴，今天的记录 +1（第二天的信里会提）
+  todos = new Todos({
+    store,
+    now: nowMs,
+    onChange: () => {
+      store.saveSoon();
+      if (mail) mail.refresh();
+    },
+    onRemind: (todo) => {
+      console.log('[待办] 提醒一件');
+      overlay.send('remind', { id: todo.id, text: todo.text });
+    },
+    onDone: (todo) => {
+      todayRecord(nowMs()).todosDone += 1;
+      overlay.send('todo-done', { text: todo.text });
+    },
+  });
+
   mail = new Mail({
     store,
+    todos,
     dev: DEV,
     getContext: () => {
       const lang = currentLanguage();

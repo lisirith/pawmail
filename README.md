@@ -30,6 +30,8 @@ Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drop
 
 <p align="center"><img src="docs/images/wardrobe-en.png" width="320" alt="The wardrobe: the pet on the left, clothes by type on the right, unreceived ones as grey silhouettes"></p>
 
+**To-do reminders.** Write down what you need to do on the *To-dos* page of the letter window, and have it remind you when it's time (in 30 minutes, tonight at 8, tomorrow at 9, or any time you pick). When it's time, it runs over to your cursor holding up a little note with an alarm clock on it; click it to say you got it. Every time you tick one off, it's happy for you, and the next day's letter mentions it.
+
 **It eats your files.** Drag files you don't need onto it and it gobbles them up. They really go to the Recycle Bin, so you can always get them back. It won't eat anything that can't be recovered (USB drives, network drives) or anything important (whole drives, Windows, your Desktop or Documents folders themselves).
 
 **It climbs.** At the edge of the screen, or of the play area you draw for it, it sometimes climbs up hand over hand, looks around, and jumps back down.
@@ -70,7 +72,8 @@ It's about 140 MB to download and uses around 175 MB of memory while running (wh
 | Do this | And |
 |---|---|
 | Click it while it's holding a letter | Open the letter |
-| Right-click it | Menu: mailbox, wardrobe, do a trick (it shows off one of its signature tricks right away), animal, display, size, language, start at login, perch on windows, play area, sleep, quit |
+| Right-click it | Menu: mailbox, wardrobe, do a trick (it shows off one of its signature tricks right away), to-dos, animal, display, size, language, start at login, perch on windows, play area, sleep, quit |
+| When it holds up a note to remind you of a to-do, click it | Got it (that one won't remind you again) |
 | When the Shiba drops a ball by you, click the ball | The ball flies off, and the Shiba chases it and brings it back |
 | Move the mouse back and forth over it | Pet it |
 | Click it | Poke it |
@@ -91,6 +94,7 @@ In the letter window: drag the top bar to move it, click the pet's name to chang
 - To write its letters, it notes a few things each day: when you first and last used the computer, for how many minutes, and how many times you petted, poked or threw it. Only the last 60 days are kept.
 - Your birthday (month and day only) and your festivals are stored in the same file.
 - Files you feed it go to the Recycle Bin. It only counts how many; it doesn't record names or look inside.
+- Your to-dos are kept in the same file too (finished ones are cleared after 30 days). The log only notes that a reminder went off, never what you wrote.
 - To hide during full-screen apps, it checks twice a second whether the frontmost window exactly covers the screen. It looks only at the window's size, never at which program it is, and records nothing.
 - To perch on windows, it checks twice a second where the windows on your screen are: their position, size and which one is in front. It never looks at window titles or which program a window belongs to, and records nothing. You can turn this off in the menu (*Perch on windows*).
 - It does **not** record your keystrokes, programs or websites.

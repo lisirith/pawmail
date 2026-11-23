@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('pawmailMail', {
   deleteLetters: (ids) => ipcRenderer.invoke('pawmail-mail:delete', ids),
   /** 换衣服：整身 { hat, glasses, top, bag, held }，每个部位是衣服编号或 null。返回 { ok } */
   setOutfit: (outfit) => ipcRenderer.invoke('pawmail-mail:set-outfit', outfit),
+  /** 待办事项：{ type: 'add' | 'update' | 'done' | 'remove' | 'clearDone', id, text, due, done }。返回 { ok } */
+  todo: (action) => ipcRenderer.invoke('pawmail-mail:todo', action),
   savePostcard: (dataUrl, id) => ipcRenderer.invoke('pawmail-mail:save-postcard', dataUrl, id),
   copyPostcard: (dataUrl) => ipcRenderer.invoke('pawmail-mail:copy-postcard', dataUrl),
   close: () => ipcRenderer.send('pawmail-mail:close'),

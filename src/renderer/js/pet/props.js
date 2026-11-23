@@ -706,6 +706,56 @@ export function drawYarn(ctx, r = 8) {
   ctx.restore();
 }
 
+/**
+ * 待办提醒的小牌子：一张钉着红图钉的便签，上面画着一个小闹钟（不写字，中文、英文都看得懂）。
+ * 原点在便签中间
+ */
+export function drawReminderSign(ctx) {
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.roundRect(-19, -14, 38, 28, 4);
+  fillStroke(ctx, '#fffaf0', 1.6);
+  ctx.fillStyle = 'rgba(255, 214, 140, 0.55)'; // 便签上面那一条
+  ctx.fillRect(-17.5, -12.5, 35, 5);
+  // 小闹钟：两个铃铛、表盘、两根针、两只小脚
+  ctx.save();
+  ctx.translate(0, 2.5);
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(s * 5.6, -6.6, 3.1, Math.PI, 0);
+    ctx.closePath();
+    fillStroke(ctx, '#ff8a7a', 1.1);
+  }
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (const s of [-1, 1]) {
+    ctx.moveTo(s * 4.5, 6.2);
+    ctx.lineTo(s * 6.2, 8.6);
+  }
+  ctx.stroke();
+  ellipse(ctx, 0, 0, 7.4, 7.4);
+  fillStroke(ctx, '#ff8a7a', 1.3);
+  ellipse(ctx, 0, 0, 5.4, 5.4);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -3.8);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(2.8, 1.2);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+  // 红图钉
+  ellipse(ctx, 0, -12.5, 2.4, 2.4);
+  fillStroke(ctx, '#e8423f', 1, '#a8302e');
+  ctx.restore();
+}
+
 /** 铜钱（招财猫招手时冒出来）：原点在中间，r 半径 */
 export function drawCoin(ctx, r = 6) {
   ctx.save();

@@ -149,6 +149,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
   await testFeed();
   await testMail();
   await testWardrobe();
+  await testTodos();
   await testReports();
   await testFestivals();
   await testFullscreen();
@@ -788,6 +789,66 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
     await wait(500);
     const bare = await js(`const P = window.__pawmail; return P.pet.outfit;`);
     check('"全部脱下"', Object.values(store.data.settings.outfit).every((v) => v === null) && bare === null, { setting: store.data.settings.outfit });
+
+    mail.close();
+    await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.2); return true;`);
+    await wait(200);
+  }
+
+  // ---------------------------------------------------------------- 待办（见 todos.js）
+
+  async function testTodos() {
+    const L = require('./letters');
+    const todos = mail.todos;
+    store.data.todos = [];
+    await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.2); return true;`);
+    // 在信纸窗口的「待办」页里写一件事，选"30 分钟后"，点"加上"
+    const win = mail.open({ view: 'todos' });
+    await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+    await wait(800);
+    const mjs = (code) => win.webContents.executeJavaScript(`(async () => { ${code} })()`, true);
+    await mjs(`
+      const input = document.querySelector('.todo-input');
+      input.value = '自检的待办';
+      input.dispatchEvent(new Event('input'));
+      [...document.querySelectorAll('.todo-when button')][1].click();
+      await new Promise((r) => setTimeout(r, 50));
+      document.querySelector('.todo-add').click();
+      return true;`);
+    await wait(500);
+    const added = store.data.todos[0];
+    const soon = Date.now() + 30 * 60000;
+    check('在信纸窗口的「待办」页写下一件事、选"30 分钟后"提醒：存进存档', !!added && added.text === '自检的待办' && Math.abs(added.due - soon) < 120000, added);
+    const rows = await mjs(`return document.querySelectorAll('.todo-row').length;`);
+    const bad = await mjs(`return [
+      await window.pawmailMail.todo({ type: 'add', text: '   ' }),
+      await window.pawmailMail.todo({ type: 'explode' }),
+      await window.pawmailMail.todo({ type: 'done', id: '../../x', done: true }),
+    ];`);
+    check('空的待办、不认识的操作、不存在的编号都会被拒绝；清单上只有那一件', rows === 1 && bad.every((r) => r && r.ok === false) && store.data.todos.length === 1, { rows, bad });
+
+    // 到点了（把提醒时间改到刚刚过去）：宠物举着牌子提醒你
+    added.due = Date.now() - 1000;
+    const reminded = todos.check(true);
+    await wait(300);
+    const pet = await js(`const P = window.__pawmail; P.run(0.5); return { name: P.brain.name, reminder: P.brain.reminder && P.brain.reminder.text };`);
+    check('待办到点了：宠物跑过来举着牌子提醒你', !!reminded && pet.name === 'remind' && pet.reminder === '自检的待办', pet);
+    check('刚提醒过的那件，10 分钟之内不会再提醒；你不在电脑前时不提醒', todos.check(true) === null && todos.check(false) === null);
+    await js(`const P = window.__pawmail; P.brain.ackReminder(); P.run(0.2); return true;`);
+    await wait(300);
+    check('点它一下就算"知道了"：这件不再提醒', added.reminded >= 3, { reminded: added.reminded });
+
+    // 在信纸窗口里勾掉：存档里标成做完，今天的记录 +1（第二天的信里会提），宠物替你高兴
+    const day = L.logicalDay(Date.now());
+    const before = (store.data.usage[day] && store.data.usage[day].todosDone) || 0;
+    await mjs(`document.querySelector('.todo-row .todo-check').click(); return true;`);
+    await wait(500);
+    const cheer = await js(`const P = window.__pawmail; return { name: P.brain.name, queued: P.brain.queue.map((q) => q[0]) };`);
+    const after = (store.data.usage[day] && store.data.usage[day].todosDone) || 0;
+    check('勾掉一件：标成做完、今天的记录 +1、宠物替你高兴', added.done === true && after === before + 1 && (cheer.name === 'cheer' || cheer.queued.includes('cheer')), { ...cheer, before, after });
+    await mjs(`document.querySelector('.todo-row .todo-delete').click(); return true;`);
+    await wait(400);
+    check('删掉一件', store.data.todos.length === 0);
 
     mail.close();
     await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.2); return true;`);

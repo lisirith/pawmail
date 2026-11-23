@@ -185,8 +185,14 @@ async function main() {
   const pet = new Pet(getSpecies(settings.species, settings.catCoat), world);
   pet.setOutfit(settings.outfit); // 穿着上次换好的衣服出场
   const bubble = new Bubble(document.getElementById('bubble'));
-  const say = (key, seconds) => bubble.say(i18n.line(key, pet.sp.id), seconds);
-  const brain = new Brain({ pet, world, say, saved: init.pet, stat: (kind) => bridge.stat(kind) });
+  // 说一句话：params 填进句子里的 {占位}（比如待办提醒里你写的那件事）
+  const fill = (text, params) => (params ? String(text).replace(/\{(\w+)\}/g, (whole, key) => (params[key] === undefined ? whole : String(params[key]))) : text);
+  const say = (key, seconds, params) => bubble.say(fill(i18n.line(key, pet.sp.id), params), seconds);
+  const brain = new Brain({ pet, world, say, saved: init.pet, stat: (kind) => bridge.stat(kind), onAck: (id) => bridge.todoAck(id) });
+
+  // 待办（见 src/main/todos.js）：到点了它举牌子提醒你；你在信纸窗口里勾掉一件，它替你高兴
+  bridge.on('remind', (r) => brain.onRemind(r));
+  bridge.on('todo-done', () => brain.onTodoDone());
 
   // 来信：后台告诉我们还有几封没拆。有没拆的信时，它会把信抱在手里。
   let mail = { unread: 0, total: 0, special: false, ...(init.mail || {}) };
@@ -290,7 +296,9 @@ async function main() {
       canvas.style.transform = transform;
     }
     // 气泡在头顶上方；它把信举起来的时候，气泡再往上让一让，别挡住信
-    bubble.update(pet.x, pet.y + (pet.headTop() - 6 - (pet.carry ? pet.carryLift * 32 : 0)) * S, world.width);
+    // （举着提醒的便签时也一样）
+    const lifted = Math.max(pet.carry ? pet.carryLift * 32 : 0, pet.out.sign * 44);
+    bubble.update(pet.x, pet.y + (pet.headTop() - 6 - lifted) * S, world.width);
   }
 
   // ------------------------------------------------------------ 桌面上的玩具（毛线球、网球）
@@ -468,6 +476,7 @@ async function main() {
       pet.release(v.x, v.y);
       brain.onRelease();
     } else if (!cancelled) {
+      if (brain.ackReminder()) return; // 正在提醒待办：点一下 = 知道了
       if (mail.unread > 0 && pet.mode === 'ground') {
         // 手里有信：点它 = 拆信
         bridge.openMail();
@@ -683,6 +692,7 @@ async function main() {
     onAction: (id) => {
       menu.close();
       if (id === 'trick') brain.performTrick();
+      else if (id === 'todos') bridge.openMail('todos');
       else if (id === 'toggleSleep') brain.command(brain.asleep ? 'wake' : 'sleep');
       else if (id === 'mail') bridge.openMail();
       else if (id === 'wardrobe') bridge.openMail('wardrobe');
@@ -739,6 +749,7 @@ async function main() {
       { type: 'action', id: 'mail', label: `📬 ${mailLabel}` },
       { type: 'action', id: 'wardrobe', label: `👕 ${t('menu.wardrobe')}` },
       { type: 'action', id: 'trick', label: `✨ ${t('menu.trick')}` },
+      { type: 'action', id: 'todos', label: `📝 ${t('menu.todos')}` },
       { type: 'separator' },
       {
         type: 'choice',

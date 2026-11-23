@@ -84,7 +84,8 @@ button {
 }
 #tabs button {
   position: relative;
-  padding: 4px 9px;
+  padding: 4px 6px; /* 五个标签（加了"待办"）：英文时也要给名字留出地方 */
+  font-size: 13px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -963,4 +964,170 @@ button.wardrobe-item:hover {
 .outfit-gift-link:hover {
   color: #4b2f1c;
   text-decoration: underline;
+}
+
+/* ---------- 待办 ---------- */
+
+.view.todos {
+  padding: 14px 16px 18px;
+  box-sizing: border-box;
+}
+.todo-form {
+  display: flex;
+  gap: 8px;
+}
+.todo-input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 2px solid #5b3a24;
+  border-radius: 12px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.todo-input:focus {
+  border-color: #f5a652;
+}
+.todo-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 12px;
+}
+.todo-when button {
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: #f3e6d3;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.todo-when button:hover {
+  background: #f7d7ad;
+}
+.todo-when button.active {
+  background: #f5a652;
+  font-weight: 700;
+}
+.todo-picker {
+  padding: 3px 8px;
+  border: 1.5px solid #5b3a24;
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.todo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 10px;
+  border: 2px solid #ead7ba;
+  border-radius: 12px;
+  background: #fffdf8;
+}
+.todo-row.overdue {
+  border-color: #f3b3ad;
+  background: #fff3f0;
+}
+.todo-check {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid #5b3a24;
+  border-radius: 50%;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+}
+.todo-check:hover {
+  background: #f7d7ad;
+}
+.todo-row.done .todo-check {
+  border-color: #8fbf6a;
+  background: #8fbf6a;
+  color: #fff;
+}
+.todo-body {
+  flex: 1;
+  min-width: 0;
+}
+.todo-text {
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.todo-row.done .todo-text {
+  color: #a8957f;
+  text-decoration: line-through;
+}
+.todo-due {
+  margin-top: 2px;
+  color: #9a7b5a;
+  font-size: 12px;
+}
+.todo-row.overdue .todo-due {
+  color: #c0392b;
+  font-weight: 700;
+}
+.todo-delete {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #b49b82;
+  font-size: 18px;
+  line-height: 1;
+}
+.todo-delete:hover {
+  background: #ffd9d2;
+  color: #b3261e;
+}
+.todo-done-head {
+  display: flex;
+  align-items: baseline;
+  margin: 16px 2px 6px;
+  color: #9a7b5a;
+  font-size: 13px;
+}
+.todo-clear {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #9a7b5a;
+  font-size: 12px;
+}
+.todo-clear:hover {
+  background: #f3e6d3;
+}
+.todo-empty {
+  padding: 34px 20px 10px;
+  color: #9a7b5a;
+  text-align: center;
+}
+.todo-hint {
+  margin: 16px 2px 0;
+  color: #b09577;
+  font-size: 12px;
+  line-height: 1.5;
 }

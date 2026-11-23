@@ -27,9 +27,11 @@ class Mail {
    * @param now         () => 现在的时间戳（开发时可以快进）
    * @param dev         开发模式
    * @param allClothes  开发时：衣柜里的衣服全部解锁（--x-allclothes）
+   * @param todos       待办事项（见 todos.js），信纸窗口的「待办」页用
    */
-  constructor({ store, getContext, onChange, setName, getProfile, setProfile, setOutfit, now = Date.now, dev = false, allClothes = false }) {
+  constructor({ store, todos = null, getContext, onChange, setName, getProfile, setProfile, setOutfit, now = Date.now, dev = false, allClothes = false }) {
     this.store = store;
+    this.todos = todos;
     this.getContext = getContext;
     this.onChange = onChange;
     this.setName = setName;
@@ -158,6 +160,7 @@ class Mail {
       album: L.album(owned, ctx.lang, F.activeFestivals(profile.cultures)),
       wardrobe: W.wardrobeView(this.data.outfits, ctx.outfit, ctx.lang, { all: this.allClothes }),
       festivalLook: ctx.festivalLook || null, // 今天的节日装扮（会盖住你选的帽子或手里拿的）
+      todos: this.todos ? this.todos.view() : [], // 待办事项
       profile: { birthday: profile.birthday, cultures: profile.cultures, asked: profile.asked },
       groups: F.GROUPS.map((g) => ({ id: g.id, emoji: g.emoji, name: T.groups[g.id].name, examples: T.groups[g.id].examples })),
       next: next ? { name: T.festivals[next.id].name, day: next.day } : null,
@@ -172,7 +175,7 @@ class Mail {
 
   /**
    * 打开信纸窗口。
-   * @param target { view: 'letter' | 'box' | 'album' | 'wardrobe', id }；不传 = 有没拆的信就打开最新那封，否则打开信箱
+   * @param target { view: 'letter' | 'box' | 'album' | 'wardrobe' | 'todos', id }；不传 = 有没拆的信就打开最新那封，否则打开信箱
    */
   open(target) {
     if (!target) {
@@ -299,6 +302,27 @@ class Mail {
     ipcMain.handle('pawmail-mail:set-outfit', (event, outfit) => {
       if (!mine(event)) return { ok: false };
       return { ok: this.wear(outfit) };
+    });
+
+    // 待办事项：加一件、改、勾上 / 取消、删掉、清掉做完的。每一项都在 todos.js 里再检查一遍
+    ipcMain.handle('pawmail-mail:todo', (event, action) => {
+      if (!mine(event) || !this.todos || !action || typeof action !== 'object') return { ok: false };
+      const due = action.due === null || Number.isFinite(action.due) ? action.due : undefined;
+      const T = this.todos;
+      switch (action.type) {
+        case 'add':
+          return { ok: !!T.add({ text: action.text, due: due ?? null }) };
+        case 'update':
+          return { ok: T.update(action.id, { text: typeof action.text === 'string' ? action.text : undefined, due }) };
+        case 'done':
+          return { ok: T.setDone(action.id, action.done === true) };
+        case 'remove':
+          return { ok: T.remove(action.id) };
+        case 'clearDone':
+          return { ok: true, removed: T.clearDone() };
+        default:
+          return { ok: false };
+      }
     });
 
     ipcMain.on('pawmail-mail:close', (event) => {

@@ -915,6 +915,91 @@ export const ACTIVITIES = {
   }),
 
   /**
+   * 待办到点了（见 src/main/todos.js）：跑到你鼠标旁边，把画着小闹钟的便签举过头顶，一蹦一蹦地晃，
+   * 气泡里写着你要做的事（p.text，你自己写的）。点它一下 = 知道了（见 brain.ackReminder）。
+   * 站在窗口上、鼠标不在屏幕上时，就在原地举
+   */
+  remind: (b, p) => ({
+    phase: 'go',
+    pt: 0,
+    said: false,
+    tx: undefined,
+    update(b, dt) {
+      const pet = b.pet;
+      const T = pet.target;
+      const w = b.world;
+      const S = w.scale;
+      const P = w.pointer;
+      this.pt += dt;
+      if (this.phase === 'go') {
+        if (pet.perch || !P.inside) {
+          this.phase = 'show';
+          this.pt = 0;
+          return false;
+        }
+        if (this.tx === undefined) {
+          const side = pet.x < P.x ? -1 : 1;
+          const [lo, hi] = pet.spanX(56, 24);
+          this.tx = clamp(P.x + side * 90 * S, lo, hi);
+        }
+        if (locomote(b, this, dt, this.tx, GAITS.trot, 1.1) || this.pt > 6) {
+          this.phase = 'show';
+          this.pt = 0;
+        }
+        return false;
+      }
+      const SHOW = 7;
+      const k = clamp(this.pt / 0.3, 0, 1) * clamp((SHOW - this.pt) / 0.4, 0, 1);
+      pet.style.fps = 60;
+      pet.style.gaze = 'cursor';
+      pet.style.tailSpeed = 3;
+      pet.style.tailAmp = 0.9;
+      T.facing = 0;
+      T.sign = k;
+      T.armL = T.armR = 2.15 * k;
+      T.mouth = 'o';
+      T.mouthOpen = 0.4;
+      T.eyes = 'wide';
+      T.earDroop = -0.2;
+      const hop = this.pt % 1.4;
+      if (hop < 0.3) T.lift += bell(hop / 0.3) * 7 * k;
+      if (!this.said && this.pt > 0.2) {
+        this.said = true;
+        b.say('remind', SHOW, { text: p.text || '' });
+      }
+      return this.pt >= SHOW;
+    },
+  }),
+
+  /** 你勾掉了一件待办：替你高兴，蹦两下、冒爱心 */
+  cheer: () => ({
+    update(b, dt, t) {
+      const pet = b.pet;
+      const T = pet.target;
+      pet.style.fps = 60;
+      pet.style.gaze = 'none';
+      pet.style.tailSpeed = 3;
+      pet.style.tailAmp = 0.9;
+      if (!this.started) {
+        this.started = true;
+        hearts(pet, 2);
+        b.say('todoDone', 2.6);
+      }
+      const i = Math.floor(t / 0.42);
+      const u = (t % 0.42) / 0.42;
+      if (i < 2) {
+        T.lift = bell(u) * 22;
+        T.armL = T.armR = 0.4 + bell(u) * 1.3;
+      }
+      T.eyes = 'happy';
+      T.mouth = 'smile';
+      T.mouthOpen = 0.7;
+      T.blush = 1;
+      return t >= 1.3;
+    },
+  }),
+
+  /**
    * 过节那天第一次见到你：打个节日招呼。
    * style：bow 作揖拜年 | cheer 欢呼蹦跳 | gaze 坐下抬头看月亮（星星） | boo 吓你一下（万圣节）
    */
@@ -2121,4 +2206,5 @@ export const ACTIVITIES = {
 // （招牌动作里的踩奶、抱着尾巴睡、趴在窗口边上睡也算：它们和坐着、打盹差不多，见 tricks.js）
 export const INTERRUPTIBLE = new Set(['idle', 'lookAround', 'sit', 'nap', 'groom', 'walk', 'peekDown', 'orangeNap', 'knead', 'tailHug', 'drapeNap']);
 // 这些是对你的操作做出的反应，进行中不会被摸头、戳一下打断
-export const REACTIVE = new Set(['held', 'falling', 'landed', 'dizzy', 'annoyed', 'arrive', 'hungry', 'eat']);
+// （举着牌子提醒你待办时也一样：摸它不会打断，点它一下才是"知道了"）
+export const REACTIVE = new Set(['held', 'falling', 'landed', 'dizzy', 'annoyed', 'arrive', 'hungry', 'eat', 'remind']);

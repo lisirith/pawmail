@@ -9,7 +9,7 @@
 import { TAU, clamp } from '../util/math.js';
 import { drawLookHead, drawLookNeck, drawHeldItem, drawLookCover } from './looks.js';
 import { resolveOutfit } from './outfits.js';
-import { drawOrange, drawSnack, drawBoxBack, drawBoxFront, drawTubBack, drawTubFront, drawBird, drawBall, BOX, TUB } from './props.js';
+import { drawOrange, drawSnack, drawBoxBack, drawBoxFront, drawTubBack, drawTubFront, drawBird, drawBall, drawReminderSign, BOX, TUB } from './props.js';
 
 export const RIG = Object.freeze({
   // 宠物所在的小画布的大小，以及"脚底中心"在这块画布里的位置
@@ -899,6 +899,17 @@ export function drawPet(ctx, sp, P, opts = {}) {
   }
 
   if (carryLift >= 0.5) drawCarried(ctx, sp, P, g, carryLift, opts.carryGold); // 举起来：在最前面
+
+  // 待办到点了：把画着小闹钟的便签举过头顶，晃一晃（见 activities.js 的 remind）
+  const sign = clamp(P.sign || 0, 0, 1);
+  if (sign > 0.02) {
+    ctx.save();
+    ctx.translate(g.headCx, g.headCy - sp.head.ry - sp.earReach - 18 + (1 - sign) * 30);
+    ctx.globalAlpha *= clamp(sign * 2, 0, 1);
+    ctx.rotate(Math.sin(time * 6) * 0.06 * sign);
+    drawReminderSign(ctx);
+    ctx.restore();
+  }
 
   drawLookCover(ctx, look, sp, P, g, opts.sheetLift || 0, time); // 万圣节的白布：盖住全身
 
