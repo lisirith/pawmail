@@ -673,11 +673,25 @@ function paintItem(ctx, size, item, withItem) {
 }
 
 /**
+ * 画好的小图留着下次直接用：衣柜每点一下都要整页重画，50 件衣服每次都现画要 0.25 秒（点了会顿一下）。
+ * 小图只和动物、花色、哪件衣服、收没收到、大小有关（姿势是固定的），这些都放进 key 里。
+ */
+const thumbCache = new Map();
+
+/**
  * 衣柜里的小图。还没收到的衣服画成灰色剪影：
  * 先画"穿着这件"和"什么都没穿"两张，两张不一样的地方就是衣服，把那块涂成灰色，盖在淡淡的它身上。
  */
 function itemThumb(item, size) {
+  const key = [state.data.species, state.data.catCoat, item.id, item.owned ? 1 : 0, size, window.devicePixelRatio || 1].join('|');
+  const cached = thumbCache.get(key);
   const { canvas, ctx } = makeCanvas(size, size, 'wardrobe-thumb');
+  if (cached) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(cached, 0, 0);
+    return canvas;
+  }
+  thumbCache.set(key, canvas); // 下面画好以后，这块画布就是样板（以后从它复制，它自己被换下来也不要紧）
   if (item.owned) {
     paintItem(ctx, size, item, true);
     return canvas;
@@ -796,11 +810,16 @@ function wardrobeView() {
   const covered = [look && look.head && ui.partHat, look && look.held && ui.partHeld].filter(Boolean);
   if (covered.length) side.append(el('div', 'wardrobe-note', fillText(ui.festivalCovers, { parts: covered.join(ui.partJoin) })));
 
-  // 右边：每个部位一组
+  // 右边：每个部位一组。衣服多了（一个部位十件，要往下翻好久），顶上一排小按钮，点一下跳到那个部位
   const list = el('div', 'wardrobe-list');
   list.append(el('div', 'wardrobe-hint', ui.wardrobeHint));
+  const jump = el('div', 'wardrobe-jump');
+  list.append(jump);
   for (const slot of wardrobe.slots) {
-    list.append(el('div', 'wardrobe-slot', slot.name));
+    const head = el('div', 'wardrobe-slot', slot.name);
+    // 翻到这个部位的标题正好露在小按钮下面（小按钮一直停在顶上，英文时可能有两行）
+    jump.append(button('', slot.name, () => view.scrollTo({ top: head.offsetTop - jump.offsetHeight - 4, behavior: 'smooth' })));
+    list.append(head);
     const grid = el('div', 'wardrobe-grid');
     for (const item of wardrobe.items.filter((i) => i.slot === slot.id)) {
       const on = now[item.slot] === item.id;

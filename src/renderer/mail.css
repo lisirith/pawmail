@@ -885,6 +885,30 @@ canvas.box-icon {
   margin: 8px 2px 5px;
   font-weight: 700;
 }
+/* 顶上一排跳到各部位的小按钮：往下翻的时候一直停在顶上 */
+.wardrobe-jump {
+  position: sticky;
+  top: -12px; /* 抵掉 .view 上面的留白，贴着窗口顶 */
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 -2px;
+  padding: 6px 2px;
+  background: #fffaf2;
+}
+.wardrobe-jump button {
+  padding: 2px 7px;
+  border: 1.5px solid #ead9c2;
+  border-radius: 999px;
+  background: #fffdf8;
+  color: #6b4a33;
+  font-size: 11.5px;
+}
+.wardrobe-jump button:hover {
+  border-color: #e8b77f;
+  background: #fff6e8;
+}
 .wardrobe-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

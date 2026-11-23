@@ -43,7 +43,7 @@ npm run preview
 信纸窗口：<http://localhost:5177/mail>（加 `?lang=en&species=panda&unread=0` 之类的参数；
 `&from=2026-11-20&days=45` 会从那天起模拟 45 天，能看到月报和年度回顾）；
 姿势图鉴：<http://localhost:5177/gallery>；衣服一览：<http://localhost:5177/src/renderer/gallery.html?outfits=1>
-（`&only=capRed,hoodie` 只看几件）；衣柜：<http://localhost:5177/mail?view=wardrobe&days=10>；
+（`&only=capRed,hoodie` 只看几件，`&poses=站,坐` 只看几个姿势，`&zoom=2` 放大）；衣柜：<http://localhost:5177/mail?view=wardrobe&days=10>；
 喂它吃的纸团一览：<http://localhost:5177/src/renderer/gallery.html?food=1>；
 和设定图对照：<http://localhost:5177/src/renderer/gallery.html?compare=1>（需要本机的 `img resource/` 文件夹里有设定图，它不在仓库里）。
 
@@ -174,7 +174,7 @@ docs/images/       说明页里的图（由 npm run promo 生成）
 - [x] 每日来信、礼物、信箱、图鉴、明信片、起名字、开机启动、月报、年度回顾、删信
 - [x] 节日：生日、四组节日、节日来信和限定礼物、节日装扮和动作
 - [x] 活动范围、爬墙
-- [x] 换装（第一批 16 件，随信寄来，所有动物通用）
+- [x] 换装（第一批 16 件 + 第二批 34 件，一共 50 件，随信寄来，所有动物通用）
 - [x] 把文件拖给它吃（其实是放进回收站，可以恢复）
 - [ ] 打包发布：测试版放到 GitHub 和 itch.io（进行中），之后 Steam
 - [ ] 沙滩椅、遮阳伞、小音响、涂鸦

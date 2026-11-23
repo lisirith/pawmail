@@ -26,7 +26,7 @@ Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drop
   <img src="docs/images/postcard-en.png" width="300" alt="The same letter saved as a postcard image">
 </p>
 
-**A wardrobe.** 16 hats, glasses, tops, bags and things to hold. It starts with three; the rest arrive with its letters. Dress it up and it looks down at its new clothes, spins around and asks how it looks.
+**A wardrobe.** 50 hats, glasses, tops, bags and things to hold. It starts with three; the rest arrive with its letters. Dress it up and it looks down at its new clothes, spins around and asks how it looks.
 
 <p align="center"><img src="docs/images/wardrobe-en.png" width="320" alt="The wardrobe: the pet on the left, clothes by type on the right, unreceived ones as grey silhouettes"></p>
 

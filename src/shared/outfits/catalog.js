@@ -20,22 +20,61 @@ const SLOTS = ['hat', 'glasses', 'top', 'bag', 'held'];
  * 不写 places / scenes 的话，在哪儿都一样容易捡到。
  */
 const OUTFITS = {
+  // 帽子
   capRed: { slot: 'hat', starter: true },
   bucketHat: { slot: 'hat', scenes: ['sea', 'mountain'] },
   knitBeanie: { slot: 'hat', scenes: ['snow', 'city'] },
   wizardHat: { slot: 'hat', scenes: ['night'], places: ['observatory'] },
+  aviatorCap: { slot: 'hat', places: ['hill', 'rooftop'] },
+  sunHat: { slot: 'hat', scenes: ['sea'], places: ['seaside', 'flowerField', 'orchard'] },
+  beret: { slot: 'hat', scenes: ['city'], places: ['bookstore', 'park'] },
+  sailorCap: { slot: 'hat', scenes: ['sea'], places: ['harbor', 'lighthouse'] },
+  trapperHat: { slot: 'hat', scenes: ['snow'], places: ['snowfield', 'frozenLake'] },
+  headphoneCap: { slot: 'hat', scenes: ['city'], places: ['trainStation', 'convenience'] },
+  // 眼镜
   roundGlasses: { slot: 'glasses', starter: true },
   pixelShades: { slot: 'glasses', scenes: ['sea', 'city'] },
   starGlasses: { slot: 'glasses', scenes: ['night'] },
+  squareGlasses: { slot: 'glasses', places: ['bookstore', 'observatory'] },
+  retroShades: { slot: 'glasses', scenes: ['sea'], places: ['seaside'] },
+  safetyGoggles: { slot: 'glasses', scenes: ['forest'], places: ['riverside'] },
+  monocle: { slot: 'glasses', places: ['lighthouse', 'bookstore'] },
+  swirlGlasses: { slot: 'glasses', scenes: ['night'], places: ['nightMarket'] },
+  cyberVisor: { slot: 'glasses', scenes: ['night', 'city'], places: ['rooftop'] },
+  techVisor: { slot: 'glasses', places: ['observatory', 'trainStation'] },
+  // 上衣
   sailorTop: { slot: 'top', scenes: ['sea'], places: ['harbor', 'lighthouse'] },
   hoodie: { slot: 'top', scenes: ['city', 'mountain'] },
   knitSweater: { slot: 'top', starter: true },
   tangJacket: { slot: 'top', places: ['teaField', 'nightMarket', 'bambooGrove', 'hotSpring'] },
+  varsityJacket: { slot: 'top', scenes: ['city'], places: ['park', 'bookstore'] },
+  haori: { slot: 'top', places: ['hotSpring', 'teaField', 'mapleValley'] },
+  apronOveralls: { slot: 'top', places: ['orchard', 'flowerField'] },
+  vestTie: { slot: 'top', scenes: ['city'], places: ['trainStation'] },
+  pufferJacket: { slot: 'top', scenes: ['snow', 'mountain'] },
+  furCoat: { slot: 'top', scenes: ['snow'], places: ['snowfield'] },
+  // 包
   backpack: { slot: 'bag', scenes: ['mountain', 'forest'] },
   catBag: { slot: 'bag', scenes: ['city'] },
+  shoulderBag: { slot: 'bag', scenes: ['city'], places: ['trainStation'] },
+  bubbleBag: { slot: 'bag', scenes: ['city'], places: ['park'] },
+  satchel: { slot: 'bag', scenes: ['city'], places: ['bookstore'] },
+  hikingPack: { slot: 'bag', scenes: ['mountain'], places: ['hill', 'riverside'] },
+  pawPouch: { slot: 'bag', places: ['nightMarket', 'convenience'] },
+  slingBag: { slot: 'bag', scenes: ['forest'], places: ['park'] },
+  bedrollPack: { slot: 'bag', scenes: ['forest', 'mountain'], places: ['forest'] },
+  wingBag: { slot: 'bag', scenes: ['night'], places: ['rooftop', 'observatory'] },
+  // 手里拿的
   bobaTea: { slot: 'held', places: ['nightMarket', 'convenience', 'trainStation'] },
   blueFish: { slot: 'held', places: ['harbor', 'seaside', 'frozenLake'] },
   bamboo: { slot: 'held', places: ['bambooGrove', 'teaField'] },
+  handheld: { slot: 'held', scenes: ['city'], places: ['convenience', 'trainStation'] },
+  camera: { slot: 'held', scenes: ['mountain', 'sea'], places: ['lighthouse', 'flowerField'] },
+  openBook: { slot: 'held', places: ['bookstore'] },
+  catLaptop: { slot: 'held', places: ['bookstore', 'convenience'] },
+  omamori: { slot: 'held', places: ['bambooGrove', 'mapleValley'] },
+  dangoSkewer: { slot: 'held', places: ['hotSpring', 'nightMarket'] },
+  fan: { slot: 'held', places: ['teaField', 'hotSpring'] },
 };
 
 const IDS = Object.keys(OUTFITS);

@@ -4,7 +4,8 @@
 //
 // 衣服怎么到手：
 //   - 一开始送三件（目录里标了 starter 的）
-//   - 其余的随每日来信捎来：第一封日常来信一定有一件，之后大约每三四封有一件，同一件不会寄两次
+//   - 其余的随每日来信捎来：第一封日常来信一定有一件，之后每封一半的机会（不会连着两封都有，所以大约每三封有一件），
+//     同一件不会寄两次
 //   - 和礼物一样，拆开信才算收到（存档里的 mail.outfits）
 
 const O = require('../shared/outfits/catalog');
@@ -14,7 +15,7 @@ const TEXT = {
   en: require('../shared/outfits/en.json'),
 };
 
-const CHANCE = 0.4; // 还有没收到的衣服时，一封日常来信捎来衣服的机会
+const CHANCE = 0.5; // 还有没收到的衣服时，一封日常来信捎来衣服的机会（衣服有 50 件了，40% 太慢）
 const MIN_GAP = 2; // 两件衣服之间至少隔几封日常来信（不会连着两天都有）
 
 const textOf = (lang) => TEXT[lang] || TEXT.en;

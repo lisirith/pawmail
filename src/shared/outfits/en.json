@@ -8,14 +8,14 @@
   },
   "wear": {
     "hat": "Put it on",
-    "glasses": "Put them on",
+    "glasses": "Put on",
     "top": "Put it on",
     "bag": "Put it on",
     "held": "Hand it over"
   },
   "wearing": {
     "hat": "Wearing it now",
-    "glasses": "Wearing them now",
+    "glasses": "Wearing now",
     "top": "Wearing it now",
     "bag": "Wearing it now",
     "held": "Holding it now"
@@ -37,6 +37,30 @@
       "name": "Starry wizard hat",
       "a": "a starry wizard hat"
     },
+    "aviatorCap": {
+      "name": "Aviator cap",
+      "a": "an aviator cap with goggles"
+    },
+    "sunHat": {
+      "name": "Bow sun hat",
+      "a": "a straw sun hat with a bow"
+    },
+    "beret": {
+      "name": "Plaid beret",
+      "a": "a plaid beret"
+    },
+    "sailorCap": {
+      "name": "Sailor cap",
+      "a": "a sailor cap"
+    },
+    "trapperHat": {
+      "name": "Fluffy trapper hat",
+      "a": "a fluffy trapper hat"
+    },
+    "headphoneCap": {
+      "name": "Headphone cap",
+      "a": "a panda cap with headphones"
+    },
     "roundGlasses": {
       "name": "Round glasses",
       "a": "a pair of round glasses"
@@ -48,6 +72,34 @@
     "starGlasses": {
       "name": "Star glasses",
       "a": "a pair of star-shaped glasses"
+    },
+    "squareGlasses": {
+      "name": "Square glasses",
+      "a": "a pair of square glasses"
+    },
+    "retroShades": {
+      "name": "Retro shades",
+      "a": "a pair of retro shades"
+    },
+    "safetyGoggles": {
+      "name": "Goggles",
+      "a": "a pair of green goggles"
+    },
+    "monocle": {
+      "name": "Monocle",
+      "a": "a gold monocle"
+    },
+    "swirlGlasses": {
+      "name": "Swirly glasses",
+      "a": "a pair of swirly glasses"
+    },
+    "cyberVisor": {
+      "name": "Cyber visor",
+      "a": "a cyberpunk visor"
+    },
+    "techVisor": {
+      "name": "Smart visor",
+      "a": "a smart visor"
     },
     "sailorTop": {
       "name": "Sailor top",
@@ -65,6 +117,30 @@
       "name": "Red knot-button jacket",
       "a": "a red jacket with knot buttons"
     },
+    "varsityJacket": {
+      "name": "Varsity jacket",
+      "a": "a varsity jacket"
+    },
+    "haori": {
+      "name": "Kimono jacket",
+      "a": "a flowery kimono jacket"
+    },
+    "apronOveralls": {
+      "name": "Apron overalls",
+      "a": "an apron with a green shirt"
+    },
+    "vestTie": {
+      "name": "Vest and tie",
+      "a": "a little vest with a tie"
+    },
+    "pufferJacket": {
+      "name": "Puffer jacket",
+      "a": "a cozy puffer jacket"
+    },
+    "furCoat": {
+      "name": "Fluffy cape",
+      "a": "a fluffy little cape"
+    },
     "backpack": {
       "name": "Backpack",
       "a": "a backpack"
@@ -72,6 +148,38 @@
     "catBag": {
       "name": "Cat-face bag",
       "a": "a little cat-face bag"
+    },
+    "shoulderBag": {
+      "name": "Brown shoulder bag",
+      "a": "a brown shoulder bag"
+    },
+    "bubbleBag": {
+      "name": "Bubble kitty bag",
+      "a": "a clear bubble bag with a kitty inside"
+    },
+    "satchel": {
+      "name": "Vintage satchel",
+      "a": "a vintage satchel"
+    },
+    "hikingPack": {
+      "name": "Hiking pack",
+      "a": "a green hiking pack"
+    },
+    "pawPouch": {
+      "name": "Paw-print pouch",
+      "a": "a paw-print drawstring pouch"
+    },
+    "slingBag": {
+      "name": "Sling bag",
+      "a": "a little sling bag"
+    },
+    "bedrollPack": {
+      "name": "Bedroll pack",
+      "a": "a camping pack with a bedroll"
+    },
+    "wingBag": {
+      "name": "Wing backpack",
+      "a": "a little backpack with wings"
     },
     "bobaTea": {
       "name": "Bubble tea",
@@ -84,6 +192,34 @@
     "bamboo": {
       "name": "Bamboo",
       "a": "a fresh bamboo stalk"
+    },
+    "handheld": {
+      "name": "Cat-ear game console",
+      "a": "a little game console with cat ears"
+    },
+    "camera": {
+      "name": "Retro camera",
+      "a": "a retro camera"
+    },
+    "openBook": {
+      "name": "Storybook",
+      "a": "a storybook"
+    },
+    "catLaptop": {
+      "name": "Kitty laptop",
+      "a": "a tiny kitty laptop"
+    },
+    "omamori": {
+      "name": "Lucky charm",
+      "a": "a little lucky charm"
+    },
+    "dangoSkewer": {
+      "name": "Dango",
+      "a": "a skewer of three-color dango"
+    },
+    "fan": {
+      "name": "Cherry blossom fan",
+      "a": "a folding fan with cherry blossoms"
     }
   },
   "lines": {
@@ -92,8 +228,8 @@
       "Oh, and someone gave me {item} on my trip to {place}. I tucked it carefully into the envelope. Try it on me?"
     ],
     "glasses": [
-      "Also, I found {item} on my trip to {place}. Everything looks fun through them. Will you put them on me?",
-      "Oh, and I spotted {item} on my trip to {place} and loved them right away. Try them on me?"
+      "Also, I found {item} on my trip to {place}, and everything looked more fun. Will you help me try my new find?",
+      "Oh, and I spotted {item} on my trip to {place}. It was love at first sight! Want to see how I look?"
     ],
     "top": [
       "Also, I saw {item} on my trip to {place} and just knew it would look good on me, so I brought it home. Try it on me?",

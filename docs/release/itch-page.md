@@ -20,7 +20,7 @@ A tiny desktop pet that writes you a letter every day. 每天给你写一封信�
 
 - Five pets to choose from: an orange cat (with a lucky-cat coat), a panda, a capybara, a Shiba Inu and a red panda, drawn and animated in code. They breathe, blink, follow your cursor and decide for themselves what to do, and each has its own temper
 - A letter every day: 21 places, little stories, a line about your day, and 38 gifts to collect (plus festival-only ones). Save any letter as a postcard to share
-- A wardrobe of 16 hats, glasses, tops, bags and things to hold, delivered with its letters
+- A wardrobe of 50 hats, glasses, tops, bags and things to hold, delivered with its letters
 - Pick it up by the scruff and swing it around; drag files onto it and it eats them (they go to the Recycle Bin, so you can get them back)
 - It perches on your windows: drop it on one, or watch it hop up or climb a window's side by itself, then ride along when you drag the window
 - Birthdays and festivals from China and the West, monthly letters and a year in review
@@ -41,7 +41,7 @@ Windows 10 / 11, 64-bit. Free. This is a beta, so please tell us about anything 
 
 - 五只动物任你选：橘猫（还有招财猫花色）、熊猫、卡皮巴拉、柴犬、小熊猫，全部用代码画、用代码动：会呼吸、眨眼、看你的鼠标，自己决定做什么，各有各的脾气
 - 每天一封信：21 个地方、在那儿遇到的小事、一句关于你的话，还有 38 件礼物可以收集（另有节日限定）。每封信都能存成明信片分享
-- 衣柜：帽子、眼镜、上衣、包包、手里拿的东西共 16 件，随信寄来
+- 衣柜：帽子、眼镜、上衣、包包、手里拿的东西共 50 件，随信寄来
 - 拎住后脖子提起来晃一晃；把文件拖给它吃（其实是放进回收站，能找回来）
 - 站到你的窗口上：你把它放上去，或者它自己跳上去、顺着窗口侧边爬上去；拖动窗口，它跟着一起走
 - 生日和中西方节日，每月一封月报，元旦一封年度回顾

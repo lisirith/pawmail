@@ -101,6 +101,8 @@ async function inspectArt(poses, guideUrl) {
   const outfitSets = Object.entries(OUTFITS).map(([id, art]) => [id, { [art.slot]: id }]);
   outfitSets.push(['setA', { hat: 'capRed', glasses: 'roundGlasses', top: 'sailorTop', bag: 'backpack', held: 'bobaTea' }]);
   outfitSets.push(['setB', { hat: 'wizardHat', glasses: 'starGlasses', top: 'tangJacket', bag: 'catBag', held: 'bamboo' }]);
+  outfitSets.push(['setC', { hat: 'aviatorCap', glasses: 'techVisor', top: 'pufferJacket', bag: 'hikingPack', held: 'camera' }]);
+  outfitSets.push(['setD', { hat: 'trapperHat', glasses: 'monocle', top: 'furCoat', bag: 'wingBag', held: 'fan' }]);
   for (const [id, outfit] of outfitSets) {
     for (const [poseName, pose] of outfitPoses) {
       const holding = outfit.held && !pose.loaf && pose.armL === undefined ? { armL: -0.75, armR: -0.75 } : {};

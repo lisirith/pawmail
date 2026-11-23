@@ -48,15 +48,16 @@ const grid = document.getElementById('grid');
 const dpr = window.devicePixelRatio || 1;
 const W = 150;
 const H = 175;
+const ZOOM = Math.max(0.5, Number(params.get('zoom')) || 1); // &zoom=2：每个格子放大看细节（看衣服时有用）
 
 function cell(row, name, sp, pose, opts) {
   const figure = document.createElement('figure');
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(W * dpr);
-  canvas.height = Math.round(H * dpr);
-  canvas.style.height = `${H}px`;
+  canvas.width = Math.round(W * ZOOM * dpr);
+  canvas.height = Math.round(H * ZOOM * dpr);
+  canvas.style.height = `${H * ZOOM}px`;
   const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
+  ctx.scale(dpr * ZOOM, dpr * ZOOM);
   ctx.translate(W / 2, H - 12);
   drawPet(ctx, sp, makePose(pose), { time: 0.3, ...opts });
   const caption = document.createElement('figcaption');
@@ -185,7 +186,13 @@ if (showOutfits) {
     ['爬墙', { armR: 1.85, armL: 0.95, wallArm: 1, facing: 0.85, footLX: 9, footRX: 9, footLY: 6, lean: 0.03, tailHang: 1, tailSide: -1, lookY: -0.7 }],
   ];
   const onlyOutfits = params.get('only') ? params.get('only').split(',') : null;
-  const combos = [['全套 A', { hat: 'capRed', glasses: 'roundGlasses', top: 'sailorTop', bag: 'backpack', held: 'bobaTea' }], ['全套 B', { hat: 'wizardHat', glasses: 'starGlasses', top: 'tangJacket', bag: 'catBag', held: 'bamboo' }]];
+  const onlyPoses = params.get('poses') ? params.get('poses').split(',') : null; // &poses=站,坐 只看几个姿势
+  const combos = [
+    ['全套 A', { hat: 'capRed', glasses: 'roundGlasses', top: 'sailorTop', bag: 'backpack', held: 'bobaTea' }],
+    ['全套 B', { hat: 'wizardHat', glasses: 'starGlasses', top: 'tangJacket', bag: 'catBag', held: 'bamboo' }],
+    ['全套 C', { hat: 'aviatorCap', glasses: 'techVisor', top: 'pufferJacket', bag: 'hikingPack', held: 'camera' }],
+    ['全套 D', { hat: 'trapperHat', glasses: 'monocle', top: 'furCoat', bag: 'wingBag', held: 'fan' }],
+  ];
   const rows = [...Object.entries(OUTFITS).map(([id, art]) => [id, { [art.slot]: id }]), ...combos];
   for (const [name, outfit] of rows) {
     if (onlyOutfits && !onlyOutfits.includes(name)) continue;
@@ -194,6 +201,7 @@ if (showOutfits) {
     for (const sp of appearances) {
       if (only && sp.id !== only) continue; // &species=capybara 只看一种动物
       for (const [label, pose] of OUTFIT_POSES) {
+        if (onlyPoses && !onlyPoses.includes(label)) continue;
         // 手里拿着东西时两只手抱在胸前；欢呼、爬墙时两只手都忙着，东西会收起来（见 draw.js 的 holdAmount）
         const busy = pose.loaf || pose.wallArm || pose.armL > 1;
         const holding = outfit.held && !busy ? { armL: -0.75, armR: -0.75 } : {};
