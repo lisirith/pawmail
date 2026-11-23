@@ -51,6 +51,8 @@ Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drop
 - A monthly letter about your month together, and a year in review on New Year's Day.
 - Drop it on top of a window and it perches there: it strolls along the top, naps, peeks over the edge, and rides along when you drag the window. Close the window and down it goes. Sometimes it gets up there by itself, hopping onto a low window or climbing the side of one that reaches down to the taskbar.
 - Hides by itself while a game or video is full-screen, and comes back when you're done.
+- Still at the computer after 12:30 am? It comes over hugging a little pillow to tell you to go to bed (at most three times a night; after the third, it goes to sleep first).
+- When your laptop battery is low (below 20% and unplugged), it droops too and asks you to plug in; plug in and it perks up.
 - Draw a box to keep it in one part of the screen.
 - English and Chinese.
 
@@ -97,6 +99,7 @@ In the letter window: drag the top bar to move it, click the pet's name to chang
 - Your to-dos are kept in the same file too (finished ones are cleared after 30 days). The log only notes that a reminder went off, never what you wrote.
 - To hide during full-screen apps, it checks twice a second whether the frontmost window exactly covers the screen. It looks only at the window's size, never at which program it is, and records nothing.
 - To perch on windows, it checks twice a second where the windows on your screen are: their position, size and which one is in front. It never looks at window titles or which program a window belongs to, and records nothing. You can turn this off in the menu (*Perch on windows*).
+- To tell you when your laptop battery is low, it checks the battery level and whether you're plugged in. It only looks; nothing is recorded.
 - It does **not** record your keystrokes, programs or websites.
 - Postcards are saved only when you click *Save as postcard* (into `Pictures\Pawmail`).
 - It keeps a small log of what the app itself did, such as errors and when it hid for a full-screen app, in `%APPDATA%\Pawmail\logs` (about 1 MB at most), so you can attach it to a bug report. Your Windows user name is replaced with `~`. The log is never sent anywhere.
@@ -112,7 +115,6 @@ Uninstalling keeps your letters and gifts, so they're still there if you reinsta
 
 - This is a beta. There's no automatic update yet. To see if there's a newer version, use the tray icon → *Help & feedback → Check for updates…* (it opens the download page in your browser). To update, install or unzip the new version over the old one. Your letters carry over.
 - It lives on your main monitor only.
-- The gift icons are emoji for now; original icons are coming.
 - Found a bug, or have an idea? Please open an [issue](../../issues). For a bug, attaching the log helps a lot: tray icon → *Help & feedback → Open log folder*, then add `pawmail.log`.
 
 ## License

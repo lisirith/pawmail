@@ -359,7 +359,7 @@
     "newPlaces": "And I went to {places} for the very first time.",
     "joiner": ", ",
     "gifts": "I brought you {count} gifts.",
-    "giftsHighlight": "I brought you {count} gifts. The most precious was {gift} {emoji}.",
+    "giftsHighlight": "I brought you {count} gifts. The most precious was {gift}.",
     "noGifts": "I didn't bring you any gifts this month. I'll look harder next month.",
     "album": "Your album grew from {before} to {after}.",
     "albumFirst": "Your album already holds {after}.",

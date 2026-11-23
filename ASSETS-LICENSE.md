@@ -16,6 +16,7 @@ Those files are part of this list, even though they are JavaScript.
 - The festival costumes: `src/renderer/js/pet/looks.js`
 - The paper-ball "food": `src/renderer/js/pet/food.js`
 - The letter scenery and postcard design: `src/renderer/js/mail/scenes.js`, `src/renderer/js/mail/postcard.js`
+- The gift icons: `src/renderer/js/mail/gifts.js`
 - The app icon and every image in `build/` and `docs/`
 
 **Writing**

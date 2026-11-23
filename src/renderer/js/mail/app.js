@@ -8,6 +8,7 @@ import { drawEnvelope, drawHeadOnly, drawPet } from '../pet/draw.js';
 import { makePose } from '../pet/pose.js';
 import { lookById } from '../pet/looks.js';
 import { drawPhoto, renderPostcard, capitalize } from './postcard.js';
+import { drawGift } from './gifts.js';
 
 // ---------------------------------------------------------------- 和后台说话
 
@@ -140,6 +141,14 @@ function makeCanvas(w, h, className) {
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
   return { canvas, ctx };
+}
+
+/** 礼物的小图标（用代码画的，见 gifts.js）：一块 size×size 的小画布 */
+function giftIcon(id, size, className) {
+  const { canvas, ctx } = makeCanvas(size, size, className);
+  ctx.translate(size / 2, size / 2);
+  drawGift(ctx, id, size);
+  return canvas;
 }
 
 function drawFace(ctx, size, species, pose) {
@@ -371,7 +380,7 @@ function paperView(letter) {
   // 礼物
   if (letter.gift) {
     const gift = el('div', 'gift');
-    gift.append(el('span', 'gift-emoji', letter.gift.emoji), el('span', 'gift-text', letter.gift.line));
+    gift.append(giftIcon(letter.gift.id, 40, 'gift-icon'), el('span', 'gift-text', letter.gift.line));
     if (letter.gift.rarity !== 'common') gift.append(el('span', `chip ${letter.gift.rarity}`, letter.gift.rarityLabel));
     if (state.newGifts.has(letter.id)) gift.append(el('span', 'chip new', ui.newGift));
     paper.append(gift);
@@ -408,12 +417,11 @@ function letterView() {
 
 // ---------------------------------------------------------------- 信箱
 
+/** 信箱里每封信前面的小图标：拆开过、带着礼物的信画那件礼物（见 gifts.js），别的用小符号 */
 function boxIcon(letter) {
-  if (!letter.opened) return isReport(letter) ? '🌟' : '💌';
-  if (letter.kind === 'yearly') return '🏆';
-  if (letter.kind === 'monthly') return '📊';
-  if (letter.kind === 'ask') return '❓';
-  return letter.gift ? letter.gift.emoji : '✉️';
+  if (letter.opened && letter.gift && !isReport(letter) && letter.kind !== 'ask') return giftIcon(letter.gift.id, 28, 'box-icon gift');
+  const mark = !letter.opened ? (isReport(letter) ? '🌟' : '💌') : letter.kind === 'yearly' ? '🏆' : letter.kind === 'monthly' ? '📊' : letter.kind === 'ask' ? '❓' : '✉️';
+  return el('span', 'box-icon', mark);
 }
 
 // ---------------------------------------------------------------- 生日和节日的表格
@@ -574,7 +582,7 @@ function boxView() {
         el('div', 'box-title', showTitle ? capitalize(letter.title) : ui.unread),
         el('div', 'box-preview', letter.opened ? letter.lines[letter.kind === 'daily' ? 1 : 0] || '' : ui.openHint)
       );
-      item.append(el('span', 'box-icon', boxIcon(letter)), text, el('span', 'box-date', letter.dateText));
+      item.append(boxIcon(letter), text, el('span', 'box-date', letter.dateText));
       const remove = button('box-delete', '🗑', () => confirmDelete([letter.id], ui.confirmOne));
       remove.title = ui.deleteOne;
       remove.setAttribute('aria-label', ui.deleteOne);
@@ -621,7 +629,7 @@ function albumView() {
       const owned = gift.count > 0;
       const item = el('div', owned ? `album-item ${gift.rarity}` : `album-item missing ${gift.rarity}`);
       item.title = owned ? `${capitalize(gift.name)} · ${gift.rarityLabel}` : `${ui.unknownGift} · ${gift.rarityLabel}`;
-      item.append(el('div', 'album-emoji', owned ? gift.emoji : '？'), el('div', 'album-name', owned ? capitalize(gift.name) : gift.rarityLabel));
+      item.append(owned ? giftIcon(gift.id, 40, 'album-icon') : el('div', 'album-emoji', '？'), el('div', 'album-name', owned ? capitalize(gift.name) : gift.rarityLabel));
       if (gift.count > 1) item.append(el('div', 'album-count', `×${gift.count}`));
       grid.append(item);
     }

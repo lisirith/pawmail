@@ -151,3 +151,16 @@ import(pathToFileURL(path.join(__dirname, '..', 'src', 'renderer', 'js', 'pet', 
     console.log(`衣服的画法和目录一致（${Object.keys(art).length} 件）`);
   }
 });
+
+// 礼物图标（画面那边用代码画的，见 src/renderer/js/mail/gifts.js）：目录里的每件礼物都要有画法
+import(pathToFileURL(path.join(__dirname, '..', 'src', 'renderer', 'js', 'mail', 'gifts.js')).href).then(({ GIFT_ICON_IDS }) => {
+  const { GIFTS } = require('../src/shared/letters/catalog');
+  const missing = Object.keys(GIFTS).filter((id) => !GIFT_ICON_IDS.includes(id));
+  const extra = GIFT_ICON_IDS.filter((id) => !GIFTS[id]);
+  if (missing.length || extra.length) {
+    console.log(`⚠ 礼物图标和目录对不上：没有画法的 ${missing.join('、') || '无'}；目录里没有的 ${extra.join('、') || '无'}`);
+    process.exitCode = 1;
+  } else {
+    console.log(`礼物图标和目录一致（${GIFT_ICON_IDS.length} 件都有画法）`);
+  }
+});

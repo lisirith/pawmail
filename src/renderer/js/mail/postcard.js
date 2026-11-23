@@ -5,6 +5,7 @@ import { drawPet } from '../pet/draw.js';
 import { makePose } from '../pet/pose.js';
 import { lookById } from '../pet/looks.js';
 import { drawScene, scenePose, hashText, GROUND } from './scenes.js';
+import { drawGift } from './gifts.js';
 
 // 信的正文用带点手写感的字体：英文和数字用 Segoe Print，中文用楷体（都是 Windows 自带的）
 export const LETTER_FONT = "'Segoe Print', 'KaiTi', 'STKaiti', 'Microsoft YaHei UI', cursive, sans-serif";
@@ -189,8 +190,11 @@ export function renderPostcard(letter, { species, footer, catCoat = 'tabby', out
     roundedRect(ctx, 70, gy - 58, W - 140, 86, 22);
     ctx.fillStyle = '#fdefd6';
     ctx.fill();
-    ctx.font = `52px ${EMOJI_FONT}`;
-    ctx.fillText(letter.gift.emoji, 92, gy);
+    // 礼物图标（用代码画的，见 gifts.js）
+    ctx.save();
+    ctx.translate(122, gy - 15);
+    drawGift(ctx, letter.gift.id, 66);
+    ctx.restore();
     ctx.fillStyle = INK;
     ctx.font = `32px ${LETTER_FONT}`;
     let giftText = letter.gift.line;

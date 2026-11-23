@@ -359,7 +359,7 @@
     "newPlaces": "还第一次去了{places}。",
     "joiner": "、",
     "gifts": "给你带回了 {count} 件礼物。",
-    "giftsHighlight": "给你带回了 {count} 件礼物，其中最珍贵的是{gift} {emoji}。",
+    "giftsHighlight": "给你带回了 {count} 件礼物，其中最珍贵的是{gift}。",
     "noGifts": "这个月没给你带回礼物，下个月我多找找。",
     "album": "图鉴从 {before} 件涨到了 {after} 件。",
     "albumFirst": "图鉴里已经有 {after} 件了。",

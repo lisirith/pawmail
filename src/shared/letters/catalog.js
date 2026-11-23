@@ -37,7 +37,7 @@ const PLACES = [
 ];
 
 /**
- * 礼物。emoji 是暂时的占位图标（以后会换成自己画的）。
+ * 礼物。图标是用代码画的（src/renderer/js/mail/gifts.js，每件都要有画法，npm run letters 会核对）；emoji 只是旧的备用，界面上已经不用了。
  * rarity 稀有度：common 普通 | rare 稀有 | legendary 传说
  */
 const GIFTS = {
