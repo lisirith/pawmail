@@ -231,8 +231,8 @@ const HATS = {
       const knit = '#50505b';
       ctx.save();
       ctx.translate(lx * 3, 0);
-      for (const s of [-1, 1]) {
-        // 织出来的猫耳朵
+      // 织出来的猫耳朵。兔子的长耳朵收不进帽子、从帽子后面竖出来，再织两只就成了四只耳朵：不画
+      for (const s of sp.longEars ? [] : [-1, 1]) {
         ctx.beginPath();
         ctx.moveTo(s * rx * 0.24, top + 6);
         ctx.quadraticCurveTo(s * rx * 0.5, top - 9, s * rx * 0.72, top - 8);
@@ -630,8 +630,9 @@ const HATS = {
       const brow = -ry * 0.52; // 额头那圈绒毛的中线
       ctx.save();
       ctx.translate(lx * 3, 0);
-      for (const s of [-1, 1]) {
-        ctx.beginPath(); // 帽子上的小耳朵（先画，帽顶压在上面）
+      // 帽子上的小耳朵（先画，帽顶压在上面）。兔子自己的长耳朵会从帽子后面竖出来，就不画这两只了
+      for (const s of sp.longEars ? [] : [-1, 1]) {
+        ctx.beginPath();
         ctx.moveTo(s * rx * 0.28, top + 7);
         ctx.quadraticCurveTo(s * rx * 0.4, top - 10, s * rx * 0.64, top - 10);
         ctx.quadraticCurveTo(s * rx * 0.76, top - 1, s * rx * 0.8, top + 11);

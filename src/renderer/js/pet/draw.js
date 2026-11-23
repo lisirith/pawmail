@@ -540,8 +540,9 @@ function drawHead(ctx, sp, P, g, time, look, outfit = null, extra = {}) {
   ctx.translate(g.headCx, g.headCy);
   ctx.rotate(P.headTilt);
 
-  if (!(hat && hat.hidesEars)) {
-    // 戴毛线帽这种帽子时，耳朵收进帽子里，不画
+  if (!(hat && hat.hidesEars) || sp.longEars) {
+    // 戴毛线帽这种帽子时，耳朵收进帽子里，不画。
+    // 兔子的长耳朵收不进去：照样画，从帽子后面竖出来（帽子上织的猫耳朵在兔子身上也不画，见 outfits.js）
     sp.drawEar(ctx, -1, P, lx, ly);
     sp.drawEar(ctx, 1, P, lx, ly);
   }
@@ -564,6 +565,10 @@ function drawHead(ctx, sp, P, g, time, look, outfit = null, extra = {}) {
   ctx.stroke();
 
   drawFace(ctx, sp, P, lx, ly, time);
+  // 拉到脸前面的东西（兔子洗耳朵时把长耳朵拉下来）：在脸的前面、眼镜和帽子的后面
+  if (sp.drawHeadFront) sp.drawHeadFront(ctx, P, lx, ly);
+  // 头上一直戴着的小饰品（兔子右耳根的蝴蝶结，压住拉下来的耳根）：戴帽子、节日头饰时收起来，免得挤在一起
+  if (sp.drawHeadAccessory && !hat && !(look && look.head)) sp.drawHeadAccessory(ctx, P, lx, ly);
   const info = { sp, P, lx, ly, time };
   if (outfit && outfit.glasses) outfit.glasses.glasses(ctx, info); // 换装：眼镜
   drawLookHead(ctx, look, sp, P, lx, time); // 节日的帽子、兔耳朵……

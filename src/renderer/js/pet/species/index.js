@@ -9,8 +9,9 @@ import { panda } from './panda.js';
 import { capybara } from './capybara.js';
 import { shiba } from './shiba.js';
 import { redpanda } from './redpanda.js';
+import { bunny } from './bunny.js';
 
-export const SPECIES = Object.freeze({ cat, panda, capybara, shiba, redpanda });
+export const SPECIES = Object.freeze({ cat, panda, capybara, shiba, redpanda, bunny });
 export const SPECIES_IDS = Object.freeze(Object.keys(SPECIES));
 export const DEFAULT_SPECIES = 'cat';
 

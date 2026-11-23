@@ -30,6 +30,7 @@ export const POSE_DEFAULTS = Object.freeze({
   earL: 0, // 额外转动（抖耳朵）
   earR: 0,
   earDroop: 0, // 0 … 1 耷拉下来
+  earPull: 0, // 把一只长耳朵拉下来（兔子洗耳朵）：负数左耳、正数右耳，越大拉得越低；过了一半就画到脸前面（见 species/bunny.js）
 
   // —— 手 ——（0 = 自然下垂，越大抬得越高）
   armL: 0,
@@ -98,6 +99,7 @@ export const HALF_LIFE = Object.freeze({
   mouthOpen: 0.06,
   blush: 0.3,
   earDroop: 0.14,
+  earPull: 0.12,
   footLX: 0.035,
   footLY: 0.03,
   footRX: 0.035,
@@ -149,6 +151,7 @@ const POSE_PIXELS = Object.freeze({
   earL: 27,
   earR: 27,
   earDroop: 22,
+  earPull: 40,
   armL: 20,
   armR: 20,
   wallArm: 40,

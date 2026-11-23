@@ -73,6 +73,8 @@ const CAPY_SHEET = '/img resource/暖萌水豚桌宠素材表.png';
 // 柴犬、小熊猫：用户把我们代码画的草图交给 ChatGPT 改出来的设定图（2026-11-22）
 const SHIBA_SHEET = '/img resource/ChatGPT 图像 2026年11月22日 13_18_18.png';
 const REDPANDA_SHEET = '/img resource/ChatGPT 图像 2026年11月22日 13_18_51.png';
+// 兔子：用户用 ChatGPT 生成的奶油兔贴纸表（2026-11-23）
+const BUNNY_SHEET = '/img resource/可爱奶油兔角色设定贴纸表.png';
 const REFERENCE = {
   src: '/img resource/ba8d7185-40d5-456b-ab17-12ce9a388f21.png',
   cat: { head: [1252, 370], rx: 282, pose: { crouch: 1, headTilt: -0.06, lookY: -0.15, tailCurl: 0.75, tailSide: 1 } },
@@ -99,6 +101,12 @@ const REFERENCE = {
     { src: REDPANDA_SHEET, head: [143.25, 147], rx: 101.75, pose: { crouch: 1, mouth: 'smile', mouthOpen: 1, blush: 1, tailSide: -1, tailCurl: 0.35 } },
     // 第一排第五个：站着举起双手（就是招牌的"吓唬人"）
     { src: REDPANDA_SHEET, head: [1088, 131], rx: 89.25, pose: { armL: 2.0, armR: 2.0, mouth: 'smile', mouthOpen: 1, blush: 1 } },
+  ],
+  bunny: [
+    // 左边的大图：坐着、张嘴笑
+    { src: BUNNY_SHEET, head: [293.5, 272.5], rx: 193.5, pose: { crouch: 1, headTilt: -0.04, mouth: 'smile', mouthOpen: 0.8, blush: 1 } },
+    // 最下面一排第一个：正面站着
+    { src: BUNNY_SHEET, head: [110.5, 765], rx: 52.5, pose: {} },
   ],
 };
 

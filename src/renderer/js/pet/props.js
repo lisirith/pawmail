@@ -382,12 +382,72 @@ function snackApple(ctx, bite) {
   ctx.restore();
 }
 
-const SNACKS = { fish: snackFish, jerky: snackJerky, bamboo: snackBamboo, watermelon: snackWatermelon, apple: snackApple };
+/** 兔子：胡萝卜。尖朝上（朝着嘴），叶子在下面；一口一口从尖往下咬，越咬越短，最后只剩叶子和一小截 */
+function snackCarrot(ctx, bite) {
+  ctx.save();
+  ctx.rotate(-0.22);
+  const top = -13 + clamp(bite, 0, 1) * 17; // 咬到哪儿了（上面这截已经吃掉）
+  // 叶子：在下面，三片往外散开
+  for (const [rot, len] of [[-0.6, 9], [0, 11.5], [0.6, 9]]) {
+    ctx.save();
+    ctx.translate(-1.2, 9.2);
+    ctx.rotate(Math.PI + rot);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(3.2, -len * 0.5, 0, -len);
+    ctx.quadraticCurveTo(-3.2, -len * 0.5, 0, 0);
+    ctx.closePath();
+    fillStroke(ctx, '#7cbf55', 1, '#4f7a3a');
+    ctx.restore();
+  }
+  // 身子：上尖下宽（尖在 (1.5, -13)，底在 y = 9 左右）
+  const edgeR = (y) => 1.5 + ((y + 13) / 22) * 3.4;
+  const edgeL = (y) => 1.5 - ((y + 13) / 22) * 8.4;
+  const body = () => {
+    ctx.beginPath();
+    ctx.moveTo(1.5, -13);
+    ctx.quadraticCurveTo(6, -1, 4.9, 9);
+    ctx.quadraticCurveTo(-1.5, 11.6, -6.9, 9);
+    ctx.quadraticCurveTo(-5, -2, 1.5, -13);
+    ctx.closePath();
+  };
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(-20, top, 40, 40);
+  ctx.clip();
+  body();
+  const grad = ctx.createLinearGradient(-7, 0, 6, 0);
+  grad.addColorStop(0, '#ffb45c');
+  grad.addColorStop(1, '#ea7b22');
+  fillStroke(ctx, grad, 1.2);
+  ctx.strokeStyle = 'rgba(150, 70, 15, 0.5)'; // 胡萝卜身上的小横纹
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  for (const y of [-6, -1, 4]) {
+    const r = edgeR(y);
+    ctx.moveTo(r - 0.3, y);
+    ctx.lineTo(r - 2.6, y + 0.6);
+  }
+  ctx.moveTo(edgeL(1.5) + 0.4, 1.5);
+  ctx.lineTo(edgeL(1.5) + 2.6, 2);
+  ctx.stroke();
+  ctx.restore();
+  if (bite > 0.02) {
+    // 咬过的地方：淡橘色的截面
+    const r = edgeR(top);
+    const l = edgeL(top);
+    ellipse(ctx, (r + l) / 2, top, Math.max(1.5, (r - l) / 2), 1.6);
+    fillStroke(ctx, '#ffd39c', 1);
+  }
+  ctx.restore();
+}
+
+const SNACKS = { fish: snackFish, jerky: snackJerky, bamboo: snackBamboo, watermelon: snackWatermelon, apple: snackApple, carrot: snackCarrot };
 // 画多大：细长的小鱼干、肉干放大一点，不然抱在胸前被爪子一挡就看不清是什么了
-const SNACK_SCALE = { fish: 1.35, jerky: 1.35, bamboo: 1.15, watermelon: 1.05, apple: 1 };
+const SNACK_SCALE = { fish: 1.35, jerky: 1.35, bamboo: 1.15, watermelon: 1.05, apple: 1, carrot: 1.25 };
 
 /** 零食的颜色（嚼的时候掉的渣用） */
-export const SNACK_CRUMB = { fish: '#d9a660', jerky: '#a8563a', bamboo: '#8cc46a', watermelon: '#ff7b7b', apple: '#fbf1d6' };
+export const SNACK_CRUMB = { fish: '#d9a660', jerky: '#a8563a', bamboo: '#8cc46a', watermelon: '#ff7b7b', apple: '#fbf1d6', carrot: '#f39a3c' };
 
 /** 画一样零食：kind 见 SNACKS（每种动物爱吃的写在动物文件的 snack 里） */
 export function drawSnack(ctx, kind, bite = 0, time = 0) {

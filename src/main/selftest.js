@@ -108,7 +108,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
   const swapped = await js(`return window.__pawmail.pet.sp.id;`);
   // 后来加的动物也挨个切过去：画面换成了它，存档里也记住了
   const later = {};
-  for (const id of ['capybara', 'shiba', 'redpanda']) {
+  for (const id of ['capybara', 'shiba', 'redpanda', 'bunny']) {
     setSetting('species', id);
     await wait(250);
     const shown = await js(`const P = window.__pawmail; P.run(0.2); return P.pet.sp.id;`);
@@ -117,7 +117,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
   setSetting('species', info.species);
   await wait(250);
   const laterOk = Object.entries(later).every(([id, r]) => r.shown === id && r.saved === id);
-  check('从后台切换动物，画面会跟着变（猫、熊猫、卡皮巴拉、柴犬、小熊猫）', swapped !== info.species && laterOk, { swapped, ...later });
+  check('从后台切换动物，画面会跟着变（猫、熊猫、卡皮巴拉、柴犬、小熊猫、兔子）', swapped !== info.species && laterOk, { swapped, ...later });
 
   const previousCoat = store.data.settings.catCoat;
   setSetting('species', 'cat'); setSetting('catCoat', 'lucky');

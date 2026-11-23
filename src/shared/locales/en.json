@@ -16,6 +16,7 @@
     "capybara": "Capybara",
     "shiba": "Shiba Inu",
     "redpanda": "Red Panda",
+    "bunny": "Bunny",
     "display": "Show",
     "top": "On top",
     "desktop": "Desktop only",
@@ -155,6 +156,14 @@
       "held": ["P-put me down!", "I'm very fierce, you know!", "Eep… so high"],
       "bluff": ["I'm VERY fierce!", "Rawr!", "Stay back! I bite!"],
       "snack": ["Apple~", "Crunch, crunch~"]
+    },
+    "bunny": {
+      "hello": ["Hi!", "Hop, hop~ I'm here!", "(ears up) Hello~"],
+      "held": ["My ears! Mind my ears!", "Where are we hopping to?", "Swing, swing…"],
+      "binky": ["Wheee!", "So happy I could fly!", "Boing!"],
+      "faceWash": ["Washing my face~", "Ears need a wash too~", "Scrub, scrub~"],
+      "flop": ["(flop) …so comfy", "This spot is perfect…", "Don't mind me, just melting~"],
+      "snack": ["Carrot!", "Nom nom nom~"]
     }
   },
   "mail": {

@@ -5,6 +5,7 @@
 //   卡皮巴拉 顶着橘子发呆 orangeNap（在 activities.js）、泡温泉 onsen、小鸟落在头上 bird
 //   柴犬     赖着不走 stubborn（在 activities.js）、叼球给你 fetch、转圈追尾巴 chaseTail
 //   小熊猫   举手吓唬人 bluff（在 activities.js）、趴在窗口边上睡 drapeNap、抱着尾巴睡 tailHug
+//   兔子     开心扭跳 binky、洗脸洗耳朵 faceWash、摊成兔饼 flop
 //   大家都会 抱着自己爱吃的零食啃 snack（零食见动物文件里的 snack）
 //
 // 写法和 activities.js 里的动作一样（工厂函数 → { update, exit }），大脑会把两边合在一起用。
@@ -1340,6 +1341,288 @@ export const TRICKS = {
     },
   }),
 
+  // ============================================================ 兔子
+
+  /**
+   * 开心扭跳（binky）：兔子开心到极点真的会这样——蹲一下，原地蹦得老高，在半空中把身子一扭、后腿往旁边一蹬、
+   * 两只耳朵甩起来；落地以后再连蹦两下小的，一脸得意，冒小星星。往空的那边挪一点点
+   */
+  binky: (b) => {
+    const pet = b.pet;
+    const [lo, hi] = pet.spanX(40, 20);
+    const dir = hi - pet.x >= pet.x - lo ? 1 : -1;
+    return {
+      phase: 'crouch',
+      pt: 0,
+      hops: 0,
+      said: false,
+      next(p) {
+        this.phase = p;
+        this.pt = 0;
+      },
+      update(b, dt) {
+        const T = pet.target;
+        const s = pet.style;
+        const S = b.world.scale;
+        this.pt += dt;
+        s.fps = 60;
+        s.gaze = 'none';
+        s.tailAmp = 0.8;
+        s.tailSpeed = 3;
+        T.eyes = 'happy';
+        T.mouth = 'smile';
+        T.mouthOpen = 0.6;
+        T.blush = 0.9;
+        const drift = (px) => {
+          const [a, c] = pet.spanX(34, 14);
+          pet.x = clamp(pet.x + dir * px * S, a, c);
+        };
+        if (this.phase === 'crouch') {
+          // 蹲下来，攒劲
+          const u = clamp(this.pt / 0.3, 0, 1);
+          T.squash += 0.16 * u;
+          T.armL = T.armR = 0.15;
+          T.earDroop = 0.25 * u;
+          if (u >= 1) this.next('jump');
+          return false;
+        }
+        if (this.phase === 'jump') {
+          // 蹦起来：在空中扭一下（绕着身子中间转过去再转回来），后腿往旁边一蹬，耳朵甩来甩去
+          const D = 0.72;
+          const u = clamp(this.pt / D, 0, 1);
+          const tw = Math.sin(u * TAU);
+          T.lift = 46 * 4 * u * (1 - u);
+          drift((dt / D) * 24);
+          T.roll = 0.42 * tw * dir;
+          T.footLX = -12 * tw;
+          T.footRX = -12 * tw;
+          T.footLY = 7 * bell(u);
+          T.footRY = 4 * bell(u);
+          T.armL = 1.05 + 0.4 * tw;
+          T.armR = 1.05 - 0.4 * tw;
+          T.earL = -0.45 * tw;
+          T.earR = 0.45 * tw;
+          T.earDroop = 0.2;
+          if (u >= 1) {
+            pet.squashSpring.kick(1.6);
+            pet.fx.spawn('dust', { x: -dir * 18, y: -3, vx: -dir * 30, vy: -6, life: 0.4 });
+            this.next('hop');
+          }
+          return false;
+        }
+        if (this.phase === 'hop') {
+          // 落地以后再连蹦两下小的
+          const H = this.hops === 0 ? 14 : 8;
+          const D = 0.32;
+          const u = clamp(this.pt / D, 0, 1);
+          T.lift = H * 4 * u * (1 - u);
+          drift((dt / D) * 10);
+          T.footLY = T.footRY = 2.5 * bell(u);
+          T.earDroop = 0.14 * bell(u);
+          if (u >= 1) {
+            pet.squashSpring.kick(0.9);
+            this.hops += 1;
+            this.pt = 0;
+            if (this.hops >= 2) this.next('proud');
+          }
+          return false;
+        }
+        // 一脸得意
+        T.armL = T.armR = 0.3;
+        T.headTilt += 0.06 * dir;
+        if (!this.said) {
+          this.said = true;
+          sparks(pet, 4);
+          b.reward({ mood: 0.05, boredom: -0.15 });
+          if (chance(0.55)) b.say('binky', 2.2);
+        }
+        return this.pt > 1.1;
+      },
+    };
+  },
+
+  /**
+   * 洗脸：坐好，两只前爪捧着脸上下搓一搓；然后歪着头把一只长耳朵拉下来（从脸的外侧一直拉到下巴边），
+   * 两只爪子捧着舔一舔、捋一捋；最后甩甩脑袋，耳朵"啪"地弹回去，一脸清爽
+   */
+  faceWash: () => ({
+    phase: 'sit',
+    pt: 0,
+    side: chance(0.5) ? -1 : 1,
+    rub: rand(1.8, 2.6),
+    lick: rand(2, 2.8),
+    said: false,
+    next(p) {
+      this.phase = p;
+      this.pt = 0;
+    },
+    update(b, dt) {
+      const pet = b.pet;
+      const T = pet.target;
+      const s = pet.style;
+      this.pt += dt;
+      s.fps = 30;
+      s.gaze = 'none';
+      T.crouch = 1;
+      T.tailCurl = 0.35;
+      const side = this.side;
+      switch (this.phase) {
+        case 'sit':
+          if (this.pt > 0.4) this.next('rub');
+          return false;
+        case 'rub': {
+          // 两只前爪捧着脸上下搓（手往里抬到嘴边，画在脸的前面）
+          const c = Math.sin(this.pt * TAU * 2.2);
+          const k = clamp(this.pt / 0.3, 0, 1);
+          T.armL = T.armR = (-2.4 + c * 0.13) * k;
+          T.headY += (2 + c) * k;
+          T.headTilt += c * 0.05 * k;
+          T.lookY = 0.4;
+          T.eyes = 'sleep';
+          T.earDroop = 0.15;
+          if (!this.said && this.pt > 0.6) {
+            this.said = true;
+            if (chance(0.45)) b.say('faceWash', 2);
+          }
+          if (this.pt > this.rub) this.next('ear');
+          return false;
+        }
+        case 'ear': {
+          // 歪头，把一只耳朵拉到脸前面，舔一舔（嘴一张一合），爪子跟着一下一下地捋
+          const e = easeInOut(clamp(this.pt / 0.45, 0, 1));
+          const lickNow = Math.sin(this.pt * 13) > 0.2;
+          T.earPull = side * e;
+          T.headTilt += side * 0.2 * e;
+          T.headY += 2.5;
+          T.lookX = side * 0.35 * e;
+          T.lookY = 0.5;
+          T.armL = T.armR = -2.45 + Math.sin(this.pt * 6.5) * 0.1;
+          T.eyes = 'sleep';
+          T.mouth = lickNow && e > 0.8 ? 'o' : 'cat';
+          T.mouthOpen = 0.4;
+          if (this.pt > this.lick) this.next('shake');
+          return false;
+        }
+        case 'shake': {
+          // 甩甩脑袋：耳朵弹回去，左右甩两下
+          const amp = clamp(1 - this.pt / 0.6, 0, 1);
+          const w = Math.sin(this.pt * 30) * amp;
+          T.headTilt += w * 0.16;
+          T.earL = -w * 0.45;
+          T.earR = w * 0.45;
+          T.eyes = 'squeeze';
+          if (this.pt > 0.6) this.next('done');
+          return false;
+        }
+        default:
+          T.eyes = 'happy';
+          T.mouth = 'smile';
+          T.mouthOpen = 0.35;
+          T.blush = 0.8;
+          if (this.pt - dt <= 0) sparks(pet, 3);
+          return this.pt > 1;
+      }
+    },
+  }),
+
+  /**
+   * 摊成兔饼（flop）：兔子觉得特别安心才会这样——往旁边"啪叽"一倒、侧躺着，后腿往后一伸，
+   * 眯着眼打个小盹，耳朵软软地搭着，偶尔蹬蹬腿；醒了慢慢翻回来坐好，抖抖毛
+   */
+  flop: (b) => {
+    const pet = b.pet;
+    const [lo, hi] = pet.spanX(40, 20);
+    const side = hi - pet.x >= pet.x - lo ? 1 : -1; // 往空的那边倒
+    return {
+      phase: 'ready',
+      pt: 0,
+      nap: rand(5, 8),
+      zzIn: 1.6,
+      said: false,
+      next(p) {
+        this.phase = p;
+        this.pt = 0;
+      },
+      update(b, dt) {
+        const T = pet.target;
+        const s = pet.style;
+        this.pt += dt;
+        s.gaze = 'none';
+        T.crouch = 1;
+        const LIE = 1.42; // 侧躺：差不多转到平
+        if (this.phase === 'ready') {
+          // 左右看一眼，觉得很安全
+          s.fps = 30;
+          T.lookX = Math.sin(this.pt * 7) * 0.6;
+          if (this.pt > 0.5) this.next('flop');
+          return false;
+        }
+        if (this.phase === 'flop') {
+          // 啪叽：一下子倒下去（越倒越快）
+          s.fps = 60;
+          const u = clamp(this.pt / 0.24, 0, 1);
+          T.roll = side * LIE * u * u;
+          T.lift = rollLift(T.roll);
+          T.eyes = 'sleep';
+          if (u >= 1) {
+            pet.squashSpring.kick(1.8);
+            pet.fx.spawn('dust', { x: side * 50, y: -3, vx: side * 36, vy: -6, life: 0.45 });
+            this.next('lie');
+          }
+          return false;
+        }
+        if (this.phase === 'lie') {
+          // 侧躺着打盹：后腿往后伸直，耳朵软软地搭着，呼吸深一点，偶尔蹬一下腿
+          s.fps = 30;
+          s.blink = false;
+          s.breathDepth = 1.7;
+          T.roll = side * LIE;
+          T.lift = rollLift(T.roll);
+          T.eyes = 'sleep';
+          T.mouth = 'cat';
+          T.blush = 0.85;
+          T.earDroop = 0.5;
+          T.footLY = T.footRY = -4;
+          T.footLX = T.footRX = -side * 5;
+          const kick = Math.max(0, Math.sin(this.pt * 2.3) - 0.92) * 12;
+          T.footRY -= kick * 3;
+          T.armL = T.armR = 0.35;
+          if (!this.said && this.pt > 0.6) {
+            this.said = true;
+            hearts(pet, 1);
+            if (chance(0.5)) b.say('flop', 2.2);
+          }
+          this.zzIn -= dt;
+          if (this.zzIn <= 0) {
+            this.zzIn = rand(2.2, 3.2);
+            pet.fx.spawn('zzz', { x: side * 26, y: pet.headTop() + 22, vx: side * 6, vy: -14, life: 2.2, phase: rand(0, 6) });
+          }
+          if (this.pt > this.nap) this.next('up');
+          return false;
+        }
+        if (this.phase === 'up') {
+          // 慢慢翻回来坐好
+          s.fps = 60;
+          const u = clamp(this.pt / 0.7, 0, 1);
+          T.roll = side * LIE * (1 - easeInOut(u));
+          T.lift = rollLift(T.roll);
+          T.eyes = u > 0.5 ? 'open' : 'sleep';
+          if (u >= 1) this.next('shake');
+          return false;
+        }
+        // 抖抖毛
+        s.fps = 60;
+        const amp = clamp(1 - this.pt / 0.55, 0, 1);
+        const w = Math.sin(this.pt * 32) * amp;
+        T.lean += w * 0.05;
+        T.earL = -w * 0.35;
+        T.earR = w * 0.35;
+        T.eyes = 'squeeze';
+        return this.pt > 0.7;
+      },
+    };
+  },
+
   // ============================================================ 大家都会
 
   /**
@@ -1480,8 +1763,11 @@ export const TRICK_INFO = {
   chaseTail: { cd: 900, can: (b) => ground(b) && b.needs.energy > 0.3, weight: (b) => 0.025 + 0.05 * b.mood },
   drapeNap: { cd: 600, can: (b) => b.perched && b.pet.mode === 'ground', weight: (b) => 0.25 + 0.4 * tired(b) },
   tailHug: { cd: 900, can: (b) => b.pet.mode === 'ground', weight: (b) => 0.03 + 0.18 * tired(b) },
+  binky: { cd: 1100, can:(b) => ground(b) && b.needs.energy > 0.35 && !b.hasMail && !covered(b), weight: (b) => 0.022 + 0.06 * b.mood },
+  faceWash: { cd: 900, can: (b) => b.pet.mode === 'ground' && !b.hasMail, weight: () => 0.04 },
+  flop: { cd: 900, can: (b) => ground(b) && !b.hasMail && !covered(b) && room(b, 80), weight: (b) => 0.03 + 0.12 * tired(b) },
   snack: { cd: 1500, can: (b) => ground(b) && !b.hasMail && !covered(b) && !!b.pet.sp.snack, weight: () => 0.03 },
 };
 
 /** 费劲的招牌动作：做的时候精力掉得快（和走路、爬墙一样，见 brain.js 的 ENERGETIC） */
-export const ENERGETIC_TRICKS = ['yarn', 'fetch', 'chaseTail', 'roll', 'backScratch'];
+export const ENERGETIC_TRICKS = ['yarn', 'fetch', 'chaseTail', 'roll', 'backScratch', 'binky'];

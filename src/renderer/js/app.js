@@ -794,9 +794,11 @@ async function main() {
       c.width = 40;
       c.height = 40;
       const ctx = c.getContext('2d');
-      ctx.translate(20, 22);
-      ctx.scale(0.36, 0.36);
-      drawHeadOnly(ctx, getSpecies(id, coat), makePose());
+      const sp = getSpecies(id, coat);
+      const tall = sp.earReach > 20; // 兔子的长耳朵：头画小一点、往下挪一点，耳尖才不会出格
+      ctx.translate(20, tall ? 25 : 22);
+      ctx.scale(tall ? 0.32 : 0.36, tall ? 0.32 : 0.36);
+      drawHeadOnly(ctx, sp, makePose());
       headIcons.set(key, c.toDataURL());
     }
     return headIcons.get(key);
@@ -825,6 +827,7 @@ async function main() {
           { value: 'capybara', label: t('menu.capybara'), icon: headIcon('capybara') },
           { value: 'shiba', label: t('menu.shiba'), icon: headIcon('shiba') },
           { value: 'redpanda', label: t('menu.redpanda'), icon: headIcon('redpanda') },
+          { value: 'bunny', label: t('menu.bunny'), icon: headIcon('bunny') },
         ],
       },
       ...(settings.species === 'cat' ? [{

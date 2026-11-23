@@ -662,10 +662,11 @@ function paintItem(ctx, size, item, withItem) {
     const pose = item.slot === 'held' ? { armL: -0.75, armR: -0.75, blush: 0.5 } : { blush: 0.5 };
     drawPet(ctx, sp, makePose(pose), { time: 0.3, shadow: false, outfit });
   } else {
-    // 帽子：缩小一点，帽顶才放得下；眼镜：凑近一点看脸
+    // 帽子：缩小一点，帽顶才放得下；眼镜：凑近一点看脸（兔子的长耳朵：再往下挪一点，耳尖别出格）
     const hat = item.slot === 'hat';
     const k = (size / (2 * (sp.head.rx + 8))) * (hat ? 0.88 : 1.08);
-    ctx.translate(size / 2, size / 2 + (hat ? 13 : 3) * k);
+    const tallEars = sp.earReach > 20 ? sp.earReach * 0.3 : 0;
+    ctx.translate(size / 2, size / 2 + (hat ? 13 : 3 + tallEars) * k);
     ctx.scale(k, k);
     drawHeadOnly(ctx, sp, makePose({ blush: 0.5 }), null, outfit);
   }

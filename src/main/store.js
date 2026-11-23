@@ -15,7 +15,7 @@ const { sanitizeTodos } = require('./todos');
 
 const SCALES = [0.8, 1, 1.3];
 const LANGUAGES = ['zh', 'en'];
-const SPECIES = ['cat', 'panda', 'capybara', 'shiba', 'redpanda']; // 和画面那边 species/index.js 的 SPECIES 一致
+const SPECIES = ['cat', 'panda', 'capybara', 'shiba', 'redpanda', 'bunny']; // 和画面那边 species/index.js 的 SPECIES 一致
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH = /^\d{4}-\d{2}$/;
 const YEAR = /^\d{4}$/;

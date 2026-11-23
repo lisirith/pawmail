@@ -81,6 +81,14 @@ async function inspectArt(poses, guideUrl) {
     ['trick-knead', { crouch: 1, armL: 0.34, eyeL: 0.32, eyeR: 0.32, blush: 1 }],
     ['trick-beckon', { crouch: 1, armR: 1.95, eyes: 'happy', mouth: 'smile' }],
     ['trick-scratch', { crouch: 0.4, facing: -0.25, lean: 0.04, armL: 0.45, armR: 0.45, eyes: 'happy', mouth: 'smile', mouthOpen: 0.55 }],
+    // 兔子：开心扭跳（半空中扭身子、蹬腿、甩耳朵）、洗耳朵（把耳朵拉到脸前面，拉到一半 / 拉到底）、摊成兔饼（侧躺）
+    ['trick-binky', { lift: 46, roll: 0.42, footLX: -12, footRX: -12, footLY: 7, footRY: 4, armL: 1.45, armR: 0.65, earL: -0.45, earR: 0.45, earDroop: 0.2, eyes: 'happy', mouth: 'smile', mouthOpen: 0.6 }],
+    ['trick-binky-left', { lift: 46, roll: -0.42, footLX: 12, footRX: 12, footLY: 7, footRY: 4, armL: 0.65, armR: 1.45, earL: 0.45, earR: -0.45, eyes: 'happy' }],
+    ['trick-earpull-half', { crouch: 1, earPull: 0.55, armL: -2.45, armR: -2.45, headTilt: 0.11, headY: 2.5, eyes: 'sleep' }],
+    ['trick-earpull', { crouch: 1, earPull: 1, armL: -2.45, armR: -2.45, headTilt: 0.2, headY: 2.5, lookX: 0.35, lookY: 0.5, eyes: 'sleep', mouth: 'o' }],
+    ['trick-earpull-left', { crouch: 1, earPull: -1, armL: -2.45, armR: -2.45, headTilt: -0.2, headY: 2.5, lookX: -0.35, lookY: 0.5, eyes: 'sleep' }],
+    ['trick-flop', { crouch: 1, roll: 1.42, lift: rollLift(1.42), earDroop: 0.5, footLY: -4, footRY: -4, footLX: -5, footRX: -5, armL: 0.35, armR: 0.35, eyes: 'sleep' }],
+    ['trick-flop-left', { crouch: 1, roll: -1.42, lift: rollLift(-1.42), earDroop: 0.5, footLY: -4, footRY: -4, footLX: 5, footRX: 5, armL: 0.35, armR: 0.35, eyes: 'sleep' }],
     ['todo-sign', { armL: 2.15, armR: 2.15, sign: 1, lift: 7, eyes: 'wide', mouth: 'o' }], // 待办提醒：举着便签
     ['todo-sign-perch', { armL: 2.15, armR: 2.15, sign: 0.5 }],
     ['bedtime-pillow', { crouch: 1, pillow: 1, armL: -0.75, armR: -0.75, mouth: 'yawn', mouthOpen: 1, eyes: 'sleep' }], // 深夜催睡：抱着小枕头
@@ -186,15 +194,15 @@ async function inspectArt(poses, guideUrl) {
     stats[variantId] = { cases: cases.length, minPixels, minMargin, averageDrawMs: +( (performance.now() - start) / 240).toFixed(3) };
   }
   const sheet = document.createElement('canvas');
-  sheet.width = 1680; sheet.height = 2320;
+  sheet.width = 1680; sheet.height = 2690;
   const s = sheet.getContext('2d');
   s.fillStyle = '#f7f0e5'; s.fillRect(0, 0, sheet.width, sheet.height);
   s.fillStyle = '#614839'; s.font = '600 30px "Microsoft YaHei", sans-serif';
-  s.fillText('Pawmail · 熊猫、橘猫、招财猫、卡皮巴拉、柴犬与小熊猫 / 动作预览', 36, 50);
+  s.fillText('Pawmail · 熊猫、橘猫、招财猫、卡皮巴拉、柴犬、小熊猫与兔子 / 动作预览', 36, 50);
   s.font = '17px "Microsoft YaHei", sans-serif'; s.fillStyle = '#856e5e';
   s.fillText('游戏实际绘制 · 放大检查轮廓、表情与部件衔接', 36, 82);
   const featured = [poses[0], poses[5], poses[3], poses[6], poses[7], ['抱信', { armL: -0.75, armR: -0.75 }], poses[8]];
-  for (const [row, sp] of [SPECIES.panda, SPECIES.cat, luckyCat, SPECIES.capybara, SPECIES.shiba, SPECIES.redpanda].entries()) {
+  for (const [row, sp] of [SPECIES.panda, SPECIES.cat, luckyCat, SPECIES.capybara, SPECIES.shiba, SPECIES.redpanda, SPECIES.bunny].entries()) {
     const top = 110 + row * 365;
     s.fillStyle = row ? '#e9e0d2' : '#fffaf3'; s.fillRect(20, top, sheet.width - 40, 348);
     for (const [col, [name, pose]] of featured.entries()) {
@@ -206,8 +214,8 @@ async function inspectArt(poses, guideUrl) {
   }
   const dark = document.createElement('canvas'); dark.width = 1600; dark.height = 430;
   const d = dark.getContext('2d'); d.fillStyle = '#252a34'; d.fillRect(0, 0, 1600, 430);
-  for (const [i, id] of ['panda', 'cat', 'capybara', 'shiba', 'redpanda'].entries()) {
-    d.save(); d.translate(160 + i * 320, 365); d.scale(2.3, 2.3);
+  for (const [i, id] of ['panda', 'cat', 'capybara', 'shiba', 'redpanda', 'bunny'].entries()) {
+    d.save(); d.translate(140 + i * 264, 365); d.scale(2.3, 2.3);
     drawPet(d, SPECIES[id], makePose({ crouch: 1 }), { time: 0.3 }); d.restore();
   }
   const images = { 'poses.png': sheet.toDataURL(), 'dark.png': dark.toDataURL() };
