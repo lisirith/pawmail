@@ -611,6 +611,32 @@ export class Brain {
   }
 
   /**
+   * 右键菜单「陪它玩球」（只有会叼球的动物——柴犬——才有这一项）：马上原地叼出一个球或者骨头，
+   * 跑到你跟前放下等你扔（拖着扔、点一下都行，见 tricks.js 的 fetch）。
+   * 这会儿玩不了（站在窗口上、手里有信、太累了、鼠标不在屏幕上）就开心地蹦一下
+   */
+  playFetch() {
+    const pet = this.pet;
+    if (pet.mode !== 'ground' || REACTIVE.has(this.name) || this.name === 'arrive') return false;
+    if (!(pet.sp.tricks || []).includes('fetch')) return false;
+    if (this.name === 'fetch') return true; // 已经在玩了
+    const toy = this.world.toy;
+    if (toy && toy.active && !toy.userHeld) toy.clear(); // 上一回的球还没收完：直接收掉
+    if (!TRICK_INFO.fetch.can(this)) {
+      this.start('hop');
+      return true;
+    }
+    this.queue = this.queue.filter(([q]) => !TRICK_INFO[q]);
+    if (this.name === 'sleep') {
+      this.start('wake');
+      this.queue.unshift(['fetch', { quick: true }]);
+    } else {
+      this.start('fetch', { quick: true });
+    }
+    return true;
+  }
+
+  /**
    * 深夜催你睡觉：凌晨 0:30 到 5:00 之间你还在用电脑，它隔一会儿就抱着小枕头跑来劝你睡觉。
    * 一晚最多 3 次、每次至少隔 25 分钟；第 3 次劝完它自己先去睡了。早上 8 点以后次数清零。
    * 只在它闲着的时候来（发呆、坐着、走路……），刚开程序的头一分半钟不来

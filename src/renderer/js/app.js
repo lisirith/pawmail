@@ -10,7 +10,7 @@ import { lookById } from './pet/looks.js';
 import { drawFood, foodOfMime, foodOfName } from './pet/food.js';
 import { makePose, poseDistance, copyPose } from './pet/pose.js';
 import { Toy } from './pet/toy.js';
-import { drawYarn, drawBall } from './pet/props.js';
+import { drawYarn, drawBall, drawBone } from './pet/props.js';
 import { Bubble } from './ui/bubble.js';
 import { PetMenu } from './ui/menu.js';
 import { AreaEditor } from './ui/area.js';
@@ -273,6 +273,7 @@ async function main() {
       drawn.look !== pet.look ||
       drawn.outfit !== pet.outfit ||
       (drawn.birdDir !== pet.birdDir && O.bird > 0.02) ||
+      (drawn.mouthToy !== pet.mouthToy && O.mouthBall > 0.02) ||
       Math.abs(pet.carryLift - drawn.carryLift) * 70 * k > REDRAW_PX ||
       Math.abs(pet.sheetLift - drawn.sheetLift) * 80 * k > REDRAW_PX ||
       poseDistance(O, drawn.pose) * k > REDRAW_PX ||
@@ -297,6 +298,7 @@ async function main() {
       drawn.outfit = pet.outfit;
       drawn.sheetLift = pet.sheetLift;
       drawn.birdDir = pet.birdDir;
+      drawn.mouthToy = pet.mouthToy;
       drawn.at = nowMs;
       redraws += 1;
     }
@@ -345,6 +347,7 @@ async function main() {
       toyCtx.clearRect(0, 0, TOY_BOX, TOY_BOX);
       toyCtx.translate(TOY_BOX / 2, TOY_BOX / 2);
       if (toy.kind === 'yarn') drawYarn(toyCtx, toy.r);
+      else if (toy.kind === 'bone') drawBone(toyCtx, 30);
       else drawBall(toyCtx, toy.r);
       toyDrawn.transform = '';
     }
@@ -425,6 +428,7 @@ async function main() {
 
   const samples = []; // 最近的鼠标轨迹，用来算"松手时扔出去的速度"
   let press = null; // 鼠标左键按在宠物身上：{ x, y, t, dragging }
+  let toyPress = null; // 鼠标左键按在柴犬放下的球（骨头）上：{ x, y, t, dragging }
   let lastClickAt = -Infinity;
 
   function setPointer(x, y) {
@@ -478,6 +482,30 @@ async function main() {
     document.body.classList.add('dragging');
   }
 
+  // 柴犬叼来的球（骨头）：按住拖着走，松手带着鼠标的速度扔出去；只点一下的话，它替你扔（见 pet/tricks.js 的 fetch）
+  function startToyDrag() {
+    if (!toyPress || toyPress.dragging) return;
+    toyPress.dragging = true;
+    world.toy.grab();
+    world.toy.dragTo(world.pointer.x, world.pointer.y, world);
+    document.body.classList.add('dragging');
+  }
+
+  function endToyPress(cancelled) {
+    if (!toyPress) return;
+    const wasDragging = toyPress.dragging;
+    toyPress = null;
+    world.pointer.down = false;
+    document.body.classList.remove('dragging');
+    if (!world.toy.active) return; // 拖着的时候它已经被收走了
+    if (wasDragging) {
+      const v = cancelled ? { x: 0, y: 0 } : releaseVelocity();
+      world.toy.release(v.x, v.y, world.scale);
+    } else if (!cancelled) {
+      world.toy.clicked = true;
+    }
+  }
+
   function endPress(cancelled) {
     if (!press) return;
     const wasDragging = press.dragging;
@@ -511,7 +539,14 @@ async function main() {
       return;
     }
     if (e.button === 0 && world.toy.hit(e.clientX, e.clientY, world.scale)) {
-      world.toy.clicked = true; // 点了球：柴犬会把它扔出去、追过去（见 pet/tricks.js 的 fetch）
+      // 按在柴犬放下的球（骨头）上：拖着扔出去，或者点一下让它替你扔
+      toyPress = { x: e.clientX, y: e.clientY, t: world.time, dragging: false };
+      world.pointer.down = true;
+      try {
+        stage.setPointerCapture(e.pointerId);
+      } catch {
+        /* 没关系 */
+      }
       e.preventDefault();
       return;
     }
@@ -528,17 +563,27 @@ async function main() {
 
   window.addEventListener('pointermove', (e) => {
     setPointer(e.clientX, e.clientY);
+    if (toyPress) {
+      if (!toyPress.dragging && Math.hypot(e.clientX - toyPress.x, e.clientY - toyPress.y) > 5) startToyDrag();
+      if (toyPress && toyPress.dragging) world.toy.dragTo(e.clientX, e.clientY, world);
+      return;
+    }
     // 按住并移动超过几个像素才算"拖"，否则算"点一下"
     if (press && !press.dragging && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 5) startDrag();
   });
 
   window.addEventListener('pointerup', (e) => {
-    if (e.button === 0) endPress(false);
+    if (e.button !== 0) return;
+    endToyPress(false);
+    endPress(false);
   });
-  window.addEventListener('pointercancel', () => endPress(true));
+  window.addEventListener('pointercancel', () => {
+    endToyPress(true);
+    endPress(true);
+  });
 
   document.documentElement.addEventListener('mouseleave', () => {
-    if (!press) world.pointer.inside = false;
+    if (!press && !toyPress) world.pointer.inside = false;
   });
 
   window.addEventListener('contextmenu', (e) => {
@@ -689,7 +734,7 @@ async function main() {
       wasOver = over;
       document.body.classList.toggle('over-pet', over);
     }
-    const want = !!press || menu.isOpen || areaEditor.isOpen || over;
+    const want = !!press || !!toyPress || menu.isOpen || areaEditor.isOpen || over;
     const now = performance.now();
     // 需要接住鼠标时，每 0.2 秒重新确认一次；万一画面卡死，后台收不到确认就会自动恢复穿透
     if (want !== captureWanted || (want && now - captureSentAt > 200)) {
@@ -707,6 +752,7 @@ async function main() {
       menu.close();
       if (id === 'trick') brain.performTrick();
       else if (id === 'todos') bridge.openMail('todos');
+      else if (id === 'fetch') brain.playFetch();
       else if (id === 'toggleSleep') brain.command(brain.asleep ? 'wake' : 'sleep');
       else if (id === 'mail') bridge.openMail();
       else if (id === 'wardrobe') bridge.openMail('wardrobe');
@@ -763,6 +809,8 @@ async function main() {
       { type: 'action', id: 'mail', label: `📬 ${mailLabel}` },
       { type: 'action', id: 'wardrobe', label: `👕 ${t('menu.wardrobe')}` },
       { type: 'action', id: 'trick', label: `✨ ${t('menu.trick')}` },
+      // 柴犬：随时陪它玩球（叼来一个球或者骨头，你扔，它追）
+      ...(settings.species === 'shiba' ? [{ type: 'action', id: 'fetch', label: `🎾 ${t('menu.fetch')}` }] : []),
       { type: 'action', id: 'todos', label: `📝 ${t('menu.todos')}` },
       { type: 'separator' },
       {
@@ -921,6 +969,7 @@ async function main() {
     world.time += dt;
     updatePointer(dt);
     if (press && !press.dragging && world.time - press.t > 0.28) startDrag(); // 按住不动一小会儿也算拎起来
+    if (toyPress && !toyPress.dragging && world.time - toyPress.t > 0.28) startToyDrag();
     if (menu.isOpen) {
       // 菜单开着时，整个窗口都在接鼠标。如果你把鼠标移开不管它了，过几秒自动关掉，免得挡住你点别的东西。
       const p = world.pointer;
@@ -955,7 +1004,7 @@ async function main() {
   function wantedFps() {
     if (forcedFps) return forcedFps;
     const toyMoving = world.toy.active && (!world.toy.resting || world.toy.fading > 0); // 球还在滚、还在淡出
-    if (press || menu.isOpen || areaEditor.isOpen || wasOver || pet.busy || toyMoving) return 60;
+    if (press || toyPress || menu.isOpen || areaEditor.isOpen || wasOver || pet.busy || toyMoving) return 60;
     if (brain.userAway && brain.asleep) return 6; // 你不在、它也睡着了：没人看，几乎不占资源
     return Math.max(pet.style.fps, pet.fx.active ? 20 : 0);
   }

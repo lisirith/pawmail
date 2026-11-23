@@ -9,7 +9,7 @@
 import { TAU, clamp } from '../util/math.js';
 import { drawLookHead, drawLookNeck, drawHeldItem, drawLookCover } from './looks.js';
 import { resolveOutfit } from './outfits.js';
-import { drawOrange, drawSnack, drawBoxBack, drawBoxFront, drawTubBack, drawTubFront, drawBird, drawBall, drawReminderSign, drawPillow, BOX, TUB } from './props.js';
+import { drawOrange, drawSnack, drawBoxBack, drawBoxFront, drawTubBack, drawTubFront, drawBird, drawBall, drawBone, drawReminderSign, drawPillow, BOX, TUB } from './props.js';
 
 export const RIG = Object.freeze({
   // 宠物所在的小画布的大小，以及"脚底中心"在这块画布里的位置
@@ -570,19 +570,24 @@ function drawHead(ctx, sp, P, g, time, look, outfit = null, extra = {}) {
   if (hat) hat.hat(ctx, info); // 换装：帽子（过节那天节日戴了帽子，这里就是空的）
   // 头顶的小东西（卡皮巴拉的橘子）。戴着帽子、节日头饰时不画（大脑也不会在这时候安排它）
   if (sp.headProp && P.prop > 0.02 && !hat && !(look && look.head)) drawHeadProp(ctx, sp, P, lx);
-  if (P.mouthBall > 0.02) drawMouthBall(ctx, sp, P, lx, ly); // 嘴里叼着球（柴犬叼球）
+  if (P.mouthBall > 0.02) drawMouthBall(ctx, sp, P, lx, ly, extra.mouthToy); // 嘴里叼着球或骨头（柴犬叼球）
   // 头顶落着的小鸟（卡皮巴拉）。戴着帽子、节日头饰时不画（大脑也不会在这时候安排它）
   if (P.bird > 0.02 && !hat && !(look && look.head)) drawHeadBird(ctx, sp, P, lx, time, extra.birdDir || 1);
   ctx.restore();
 }
 
-/** 嘴里叼着的网球：正好盖住嘴，跟着视线在脸上滑 */
-function drawMouthBall(ctx, sp, P, lx, ly) {
+/** 嘴里叼着的网球（正好盖住嘴）或者骨头（横着咬在嘴里，两头露出来），跟着视线在脸上滑 */
+function drawMouthBall(ctx, sp, P, lx, ly, kind = 'ball') {
   const F = faceOf(sp);
   ctx.save();
   ctx.globalAlpha *= clamp(P.mouthBall, 0, 1);
   ctx.translate(lx * 8.5, F.noseY + ly * 4.5 + F.mouthDy + 6);
-  drawBall(ctx, 7.5);
+  if (kind === 'bone') {
+    ctx.rotate(-0.08);
+    drawBone(ctx, 30);
+  } else {
+    drawBall(ctx, 7.5);
+  }
   ctx.restore();
 }
 
@@ -879,7 +884,7 @@ export function drawPet(ctx, sp, P, opts = {}) {
     ctx.restore();
   }
 
-  drawHead(ctx, sp, P, g, time, look, outfit, { birdDir: opts.birdDir });
+  drawHead(ctx, sp, P, g, time, look, outfit, { birdDir: opts.birdDir, mouthToy: opts.mouthToy });
   drawLookNeck(ctx, look, g); // 围巾、香囊挂在下巴下面
 
   // 零食捧在下巴前面（啃的时候低头，嘴正好碰到它）；熊猫抱在胸前的爪子还会再画在它前面

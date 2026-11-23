@@ -5,6 +5,7 @@
     "mailboxUnread": "Mailbox ({n} new)",
     "wardrobe": "Wardrobe",
     "trick": "Do a trick!",
+    "fetch": "Play fetch",
     "todos": "To-dos",
     "animal": "Animal",
     "cat": "Cat",
@@ -144,7 +145,7 @@
       "hello": ["Woof!", "Hi!", "I'm here~"],
       "held": ["AAAAH put me down!!", "I can walk by myself!", "Nonononono—"],
       "stubborn": ["Not moving!", "Nope. Not going.", "Hmph, don't feel like it…"],
-      "fetch": ["Throw it! Throw it!", "Click the ball!", "Again, again!"],
+      "fetch": ["Throw it! Throw it!", "Go on, throw it!", "Again, again!"],
       "fetchBored": ["Not playing anymore…", "Hmph, fine then"],
       "chaseTail": ["My tail!", "Come back here!", "Got you… huh?"],
       "snack": ["Jerky!", "Woof! Smells so good!"]

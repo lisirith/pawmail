@@ -73,6 +73,8 @@ async function inspectArt(poses, guideUrl) {
     ['trick-bird-fly-left', { crouch: 1, bird: 1, birdFly: 1, birdX: -118, birdY: 150 }],
     ['trick-ball', { mouthBall: 1, facing: 0.8, lookY: 0.4 }],
     ['trick-ball-sit', { crouch: 1, mouthBall: 1 }],
+    ['trick-bone', { mouthBall: 1, facing: 0.8, lookY: 0.4, mouthToy: 'bone' }],
+    ['trick-bone-sit', { crouch: 1, mouthBall: 1, lookX: -0.8, mouthToy: 'bone' }],
     ['trick-drape', { loaf: 1, drape: 1, footLY: -15, footRY: -15, tailHang: 1, tailCurl: 1, headY: 5, headTilt: 0.22, eyes: 'sleep' }],
     ['trick-tailwrap', { loaf: 1, tailWrap: 1, tailCurl: 0.15, headY: 3, eyes: 'sleep' }],
     ['trick-tailwrap-left', { loaf: 1, tailWrap: 1, tailCurl: 0.15, tailSide: -1, eyes: 'sleep' }],
@@ -82,7 +84,7 @@ async function inspectArt(poses, guideUrl) {
     ['todo-sign', { armL: 2.15, armR: 2.15, sign: 1, lift: 7, eyes: 'wide', mouth: 'o' }], // 待办提醒：举着便签
     ['todo-sign-perch', { armL: 2.15, armR: 2.15, sign: 0.5 }],
     ['bedtime-pillow', { crouch: 1, pillow: 1, armL: -0.75, armR: -0.75, mouth: 'yawn', mouthOpen: 1, eyes: 'sleep' }], // 深夜催睡：抱着小枕头
-  ]) cases.push({ name, pose, opts: { birdDir: -1 } });
+  ]) cases.push({ name, pose, opts: { birdDir: -1, mouthToy: pose.mouthToy } }); // 嘴里叼的是什么是画法的选项，不是姿势
   // 衣柜里的衣服：每件单独穿，在站、坐、趴、走、举手、被拎起、扒墙歪着这些姿势下都画一遍；再加两套全身搭配
   const { OUTFITS } = await import('/src/renderer/js/pet/outfits.js');
   const outfitPoses = [

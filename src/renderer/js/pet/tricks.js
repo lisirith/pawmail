@@ -1000,8 +1000,9 @@ export const TRICKS = {
    * 你点一下球，球就飞出去，它追过去叼回来，再放到你跟前……玩几回就心满意足地趴下了。
    * 不理它的话，等一会儿它就不高兴地走开了
    */
-  fetch: (b) => ({
-    phase: 'find',
+  fetch: (b, p) => ({
+    phase: p.quick ? 'sniff' : 'find', // quick：右键「陪它玩球」，不用先跑开，原地就叼出来
+    kind: chance(0.5) ? 'ball' : 'bone', // 这一回玩的是网球还是骨头
     pt: 0,
     round: 0,
     maxRounds: Math.round(rand(2, 4)),
@@ -1042,6 +1043,7 @@ export const TRICKS = {
           T.earDroop = -0.2;
           if (this.pt > 0.9) {
             sparks(pet, 3);
+            pet.mouthToy = this.kind;
             this.next('bring');
           }
           return false;
@@ -1065,7 +1067,7 @@ export const TRICKS = {
             this.dropped = true;
             const m = mouthPoint(pet);
             const toward = p.inside ? sign(p.x - pet.x) || 1 : 1;
-            toy.spawn('ball', pet.x + m.x * S, pet.y + (m.y + 13) * S, { vx: toward * 60 * S, vy: -40 * S, alpha: 1, ledgeId: pet.perch ? pet.perch.id : null });
+            toy.spawn(this.kind, pet.x + m.x * S, pet.y + (m.y + 13) * S, { vx: toward * 60 * S, vy: -40 * S, alpha: 1, ledgeId: pet.perch ? pet.perch.id : null });
             toy.clickable = !this.final;
             pet.pose.mouthBall = 0; // 球已经掉出来了：嘴里那个马上拿掉，免得同时看到两个
           }
@@ -1074,7 +1076,7 @@ export const TRICKS = {
         }
         case 'wait': {
           // 坐着摇尾巴，眼巴巴地看着你：扔呀！
-          if (toy.kind !== 'ball') return true;
+          if (toy.kind !== this.kind) return true;
           wag();
           T.crouch = 1;
           s.gaze = 'cursor';
@@ -1088,8 +1090,22 @@ export const TRICKS = {
             this.said = true;
             if (chance(0.6)) b.say('fetch', 2.4);
           }
+          if (toy.userHeld) {
+            // 你按着它拖来拖去：它盯着看，激动得原地蹦（这时候不算等太久）
+            this.pt = Math.min(this.pt, 3);
+            T.lift += Math.abs(Math.sin(t * 9)) * 4;
+            T.eyes = 'wide';
+          }
+          if (toy.thrown) {
+            // 你拖着它扔出去了：追！
+            toy.thrown = false;
+            b.reward({ mood: 0.05, boredom: -0.3, social: -0.12 });
+            pet.fx.spawn('bang', { x: 26, y: pet.headTop() + 4, life: 0.5 });
+            this.next('chase');
+            return false;
+          }
           if (toy.clicked) {
-            // 你点了球：往空的那一边扔出去，它追！
+            // 你只点了一下：它替你往空的那一边扔出去，再追
             toy.clicked = false;
             toy.clickable = false;
             const [lo, hi] = pet.spanX(40, 20);
@@ -1104,7 +1120,7 @@ export const TRICKS = {
           return false;
         }
         case 'chase': {
-          if (toy.kind !== 'ball') return true;
+          if (toy.kind !== this.kind) return true;
           wag();
           T.mouth = 'smile';
           T.mouthOpen = 0.5;
@@ -1125,6 +1141,7 @@ export const TRICKS = {
           if (this.pt > 0.25 && !toy.held) {
             toy.held = true;
             toy.vx = 0;
+            pet.mouthToy = toy.kind;
           }
           if (toy.held) T.mouthBall = 1;
           if (this.pt > 0.45) {
@@ -1170,7 +1187,7 @@ export const TRICKS = {
     },
     exit(b) {
       const toy = b.world.toy;
-      if (toy && toy.kind === 'ball') toy.fadeOut(0.6);
+      if (toy && (toy.kind === 'ball' || toy.kind === 'bone')) toy.fadeOut(0.6);
     },
   }),
 

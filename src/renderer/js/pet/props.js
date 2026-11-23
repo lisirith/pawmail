@@ -674,6 +674,36 @@ export function drawBall(ctx, r = 7) {
   ctx.restore();
 }
 
+/** 骨头（柴犬叼来叼去的）：横着的一根，两头各两个圆疙瘩。原点在中间，len 是全长 */
+export function drawBone(ctx, len = 28) {
+  const h = len / 2 - 4.5; // 中间那一截从中心到两头圆疙瘩的距离
+  // 一根圆角长条 + 两头各两个圆，拼成一根骨头
+  const shapes = () => {
+    ctx.beginPath();
+    ctx.roundRect(-h, -2.8, h * 2, 5.6, 2);
+    for (const [x, y] of [[-h - 0.5, -3], [-h - 0.5, 3], [h + 0.5, -3], [h + 0.5, 3]]) {
+      ctx.moveTo(x + 3.7, y);
+      ctx.arc(x, y, 3.7, 0, TAU);
+    }
+  };
+  ctx.save();
+  ctx.lineJoin = 'round';
+  // 先描一圈粗边，再把颜色整个盖上去：拼接处多余的线都被盖住，只剩整根骨头最外面那一圈轮廓
+  shapes();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2.6;
+  ctx.stroke();
+  shapes();
+  const grad = ctx.createLinearGradient(0, -6, 0, 6);
+  grad.addColorStop(0, '#fffdf6');
+  grad.addColorStop(1, '#eadcc2');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)'; // 高光
+  ctx.fillRect(-h + 1, -1.7, h * 2 - 2, 1.1);
+  ctx.restore();
+}
+
 /** 毛线球（猫玩的）：粉红色，一圈圈缠着的线，拖着一小截线头 */
 export function drawYarn(ctx, r = 8) {
   ctx.save();

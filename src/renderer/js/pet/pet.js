@@ -71,6 +71,7 @@ export class Pet {
     this.carryLift = 0;
 
     this.birdDir = 1; // 头顶的小鸟朝哪边（卡皮巴拉的招牌动作，见 tricks.js 的 bird）
+    this.mouthToy = 'ball'; // 嘴里叼的是网球还是骨头（柴犬叼球，见 tricks.js 的 fetch）
 
     this.look = null; // 节日装扮（见 looks.js）；null = 平常的样子
     this.outfit = null; // 穿着的衣服 { hat, glasses, top, bag, held }（衣服编号，见 outfits.js）；null = 什么都没穿
@@ -690,6 +691,7 @@ export class Pet {
       outfit: this.outfit,
       sheetLift: this.sheetLift,
       birdDir: this.birdDir,
+      mouthToy: this.mouthToy,
     });
     ctx.restore();
     this.fx.draw(ctx);
