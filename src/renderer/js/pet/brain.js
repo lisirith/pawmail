@@ -9,8 +9,12 @@
 // 每次要选新动作时，给每个候选动作算一个分数（越符合当前需求分越高），
 // 再按分数"加权随机"抽一个。刚做过的动作有冷却时间，所以不会来回重复同样几个。
 
-import { clamp, damp, pickWeighted, chance } from '../util/math.js';
+import { clamp, damp, pickWeighted, chance, pick } from '../util/math.js';
 import { ACTIVITIES, INTERRUPTIBLE, REACTIVE, wallDistances, planHop, planClimb } from './activities.js';
+import { TRICKS, TRICK_INFO, ENERGETIC_TRICKS } from './tricks.js';
+
+// 所有会做的动作：日常的（activities.js）+ 招牌动作（tricks.js）
+const ACTIONS = { ...ACTIVITIES, ...TRICKS };
 
 // 每个动作做完之后，过多少秒才会恢复到正常的出现概率
 const COOLDOWN = {
@@ -44,7 +48,9 @@ const RUSH_BLUFF_AFTER = 90;
 // 刚从窗口上下来（自己跳的、掉下来的）：过这么多秒才想再上去
 const UP_AGAIN_AFTER = 180;
 // 活动的、费劲的动作：精力掉得快
-const ENERGETIC = new Set(['walk', 'run', 'chase', 'hop', 'climb', 'hopUp', 'climbUp']);
+const ENERGETIC = new Set(['walk', 'run', 'chase', 'hop', 'climb', 'hopUp', 'climbUp', ...ENERGETIC_TRICKS]);
+// 打盹一类的（招牌动作里的抱着尾巴睡、趴在窗口边上睡）：和 nap 一样慢慢恢复精力，眼皮不算"困"
+const NAPPING = new Set(['nap', 'tailHug', 'drapeNap']);
 
 /** 现在有多"深夜"：白天是 0，晚上 11 点开始升高，凌晨 0~6 点是 1，早上 8 点回到 0 */
 export function nightFactor(date = new Date()) {
@@ -87,6 +93,7 @@ export class Brain {
     this.lastNear = Infinity; // 上一帧鼠标离它多远（小熊猫看鼠标是不是正朝它冲过来）
     this.rushArmed = true; // 鼠标离开远一点以后才算"新的一次冲过来"
     this.lastRushBluff = -Infinity;
+    this.lastTrick = null; // 上次"来一个！"表演的是哪个（下次尽量换一个）
 
     if (saved) this.restore(saved);
     pet.onLand = (impact, dizzy, leapt) => this.onLand(impact, dizzy, leapt);
@@ -149,10 +156,11 @@ export class Brain {
       this.history[this.name] = this.world.time;
       this.lastName = this.name;
     }
-    if (!ACTIVITIES[name]) name = 'idle';
+    if (!ACTIONS[name]) name = 'idle';
     this.name = name;
-    this.current = ACTIVITIES[name](this, params || {});
+    this.current = ACTIONS[name](this, params || {});
     this.t = 0;
+    if (TRICK_INFO[name]) this.reward({ boredom: -0.2, mood: 0.02 }); // 招牌动作做起来挺开心的
     if (name === 'walk' || name === 'run') this.reward({ boredom: -0.22 });
     if (name === 'hop') this.reward({ boredom: -0.2, energy: -0.01 });
     if (name === 'chase') this.reward({ energy: -0.015 });
@@ -196,7 +204,7 @@ export class Brain {
     // 只是困得更快、每觉睡得久一点、哈欠更多、眼皮更重。你离开电脑之后，它才会一直睡到你回来。
     if (name === 'sleep') {
       n.energy += dt / (720 * (1 + night * 0.5)); // 白天大约 12 分钟睡饱，深夜大约 18 分钟
-    } else if (name === 'nap') {
+    } else if (NAPPING.has(name)) {
       n.energy += dt / 2400;
     } else {
       let drain = 1 / 9000; // 白天大约能精神 1~1.5 小时
@@ -219,7 +227,7 @@ export class Brain {
     this.mood = clamp(this.mood, 0, 1);
 
     // 眼皮有多重：精力低时下垂；深夜即使精力还行，也会带一点困意
-    const awake = name !== 'sleep' && name !== 'nap' && name !== 'wake';
+    const awake = name !== 'sleep' && !NAPPING.has(name) && name !== 'wake';
     this.pet.sleepy = awake ? clamp(Math.max((0.3 - n.energy) / 0.3, night * 0.3), 0, 1) : 0;
   }
 
@@ -307,7 +315,7 @@ export class Brain {
   }
 
   #cooldown(name) {
-    const cd = COOLDOWN[name];
+    const cd = COOLDOWN[name] ?? (TRICK_INFO[name] && TRICK_INFO[name].cd);
     if (!cd) return 1;
     const last = this.history[name];
     if (last === undefined) return 1;
@@ -417,6 +425,11 @@ export class Brain {
       // 柴犬：走着走着突然趴下赖着不走。越无聊越容易犯倔，太累了就直接睡了、不用赖
       stubborn: this.#canStubborn() ? (0.06 + 0.2 * bo) * (0.4 + 0.6 * e) : 0,
     };
+    // 招牌动作（tricks.js）：这种动物会的那几个、外加大家都会的"抱着零食啃"，现在能做的才有分
+    for (const name of this.#trickNames()) {
+      const info = TRICK_INFO[name];
+      if (info) s[name] = info.can(this) ? info.weight(this) : 0;
+    }
     // 性格（动物文件里的 calm：0 平常，1 佛系）：佛系的少跑、少追、少蹦，多坐、多打盹
     const calm = this.pet.sp.calm || 0;
     if (calm) {
@@ -456,6 +469,47 @@ export class Brain {
   #choose() {
     const entries = Object.entries(this.scores()).map(([item, weight]) => ({ item, weight }));
     return pickWeighted(entries) || 'idle';
+  }
+
+  /** 这种动物会的招牌动作（动物文件里的 tricks），再加上大家都会的"抱着零食啃" */
+  #trickNames() {
+    const list = [...(this.pet.sp.tricks || [])];
+    if (!list.includes('snack')) list.push('snack');
+    return list;
+  }
+
+  /** 这个招牌动作现在能不能做（不管冷却） */
+  #canTrick(name) {
+    if (TRICK_INFO[name]) return TRICK_INFO[name].can(this);
+    if (name === 'orangeNap') return this.#canOrange();
+    if (name === 'stubborn') return this.#canStubborn();
+    if (name === 'bluff') return this.pet.mode === 'ground';
+    return false;
+  }
+
+  /**
+   * 右键菜单"来一个！"：马上表演一个招牌动作（不管冷却，尽量别和上一次一样）。
+   * 睡着了就先醒过来：醒 → 打个哈欠 → 表演。现在一个都做不了（比如站在窗口上、窗口太窄）就开心地蹦两下
+   */
+  performTrick() {
+    const pet = this.pet;
+    if (pet.mode !== 'ground' || REACTIVE.has(this.name) || this.name === 'arrive') return false;
+    const ready = this.#trickNames().filter((name) => this.#canTrick(name));
+    if (!ready.length) {
+      this.start('hop');
+      return true;
+    }
+    const fresh = ready.filter((name) => name !== this.lastTrick && name !== this.name);
+    const name = pick(fresh.length ? fresh : ready);
+    this.lastTrick = name;
+    this.queue = this.queue.filter(([q]) => !TRICK_INFO[q]); // 之前排着的招牌动作不要了
+    if (this.name === 'sleep') {
+      this.start('wake');
+      this.queue.unshift([name, {}]);
+    } else {
+      this.start(name);
+    }
+    return true;
   }
 
   // ------------------------------------------------------------ 你对它做了什么

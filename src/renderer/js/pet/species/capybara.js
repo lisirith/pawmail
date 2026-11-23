@@ -282,4 +282,7 @@ export const capybara = {
   pace: 0.85, // 走路慢悠悠的（猫、熊猫是 1）
   // 招牌小动作：坐着发呆时，头顶偶尔落下一个橘子（见 activities.js 的 orangeNap、props.js）
   headProp: 'orange',
+  // 三个招牌动作（见 tricks.js）：顶着橘子发呆、泡温泉、让小鸟落在头上
+  tricks: ['orangeNap', 'onsen', 'bird'],
+  snack: 'watermelon', // 爱吃的零食（和信里写的一样）：西瓜
 };

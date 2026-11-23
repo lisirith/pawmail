@@ -427,4 +427,7 @@ export const shiba = {
   likes: { seekUser: 0.5, chase: 0.75, walk: 1.3 },
   // 招牌小动作：走着走着突然趴下赖着不走（见 activities.js 的 stubborn）
   quirk: 'stubborn',
+  // 三个招牌动作（见 tricks.js）：赖着不走、叼球给你（点一下球它就去追）、转圈追自己的尾巴
+  tricks: ['stubborn', 'fetch', 'chaseTail'],
+  snack: 'jerky', // 爱吃的零食（和信里写的一样）：肉干
 };

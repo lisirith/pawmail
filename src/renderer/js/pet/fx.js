@@ -3,7 +3,7 @@
 
 import { TAU, clamp, easeOutBack } from '../util/math.js';
 import { drawFood } from './food.js';
-import { drawOrange } from './props.js';
+import { drawOrange, drawCoin, drawYarn } from './props.js';
 
 const MAX_ITEMS = 48;
 const FONT = '"Segoe UI", "Microsoft YaHei UI", sans-serif';
@@ -170,6 +170,61 @@ const DRAW = {
     ctx.arc(it.x, it.y, 1.4 * it.size, 0, TAU);
     ctx.fillStyle = it.color || '#d8c8b0';
     ctx.fill();
+  },
+  /** 招财猫招手：蹦出来的铜钱，翻着跟头往下掉 */
+  coin(ctx, it) {
+    ctx.translate(it.x, it.y);
+    ctx.scale(Math.cos(it.age * 9 + it.phase), 1); // 翻转
+    drawCoin(ctx, 5.5 * it.size);
+  },
+  /** 泡温泉冒的热气：一团团慢慢变大、变淡、往上飘 */
+  steam(ctx, it, u) {
+    ctx.translate(it.x + Math.sin(it.age * 1.6 + it.phase) * 5, it.y);
+    ctx.globalAlpha *= 0.5 * Math.sin(Math.min(1, u * 1.4) * Math.PI);
+    ctx.beginPath();
+    ctx.arc(0, 0, (5 + u * 9) * it.size, 0, TAU);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+  },
+  /** 水珠（泡完澡甩一甩） */
+  drop(ctx, it) {
+    ctx.translate(it.x, it.y);
+    ctx.rotate(Math.atan2(it.vy, it.vx) - Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(0, 3.2 * it.size);
+    ctx.quadraticCurveTo(2.4 * it.size, -0.5 * it.size, 0, -3.2 * it.size);
+    ctx.quadraticCurveTo(-2.4 * it.size, -0.5 * it.size, 0, 3.2 * it.size);
+    ctx.closePath();
+    ctx.fillStyle = '#8fcdec';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  },
+  /** 小音符：猫踩奶时打呼噜、小鸟唱歌 */
+  note(ctx, it, u, pop) {
+    ctx.translate(it.x + Math.sin(it.age * 3 + it.phase) * 3, it.y);
+    ctx.rotate(-0.15 + Math.sin(it.age * 4 + it.phase) * 0.12);
+    ctx.scale(pop, pop);
+    text(ctx, it.text || '♪', 13 * it.size, it.color || '#e98aa8');
+  },
+  /** 毛线球被拍飞以后滚出画面、掉到地上的那一下（真正在桌面上滚的那个见 toy.js） */
+  yarn(ctx, it) {
+    ctx.translate(it.x, it.y);
+    ctx.rotate(it.rot);
+    drawYarn(ctx, 8 * it.size);
+  },
+  /** "啵"的一下：一圈小泡泡散开（纸箱、木盆收起来的时候） */
+  puff(ctx, it, u) {
+    ctx.translate(it.x, it.y);
+    ctx.globalAlpha *= 1 - u;
+    ctx.beginPath();
+    ctx.arc(0, 0, (4 + u * 10) * it.size, 0, TAU);
+    ctx.fillStyle = 'rgba(255, 250, 240, 0.9)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(160, 130, 100, 0.5)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
   },
 };
 

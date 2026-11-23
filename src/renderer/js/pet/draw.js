@@ -9,7 +9,7 @@
 import { TAU, clamp } from '../util/math.js';
 import { drawLookHead, drawLookNeck, drawHeldItem, drawLookCover } from './looks.js';
 import { resolveOutfit } from './outfits.js';
-import { drawOrange } from './props.js';
+import { drawOrange, drawSnack, drawBoxBack, drawBoxFront, drawTubBack, drawTubFront, drawBird, drawBall, BOX, TUB } from './props.js';
 
 export const RIG = Object.freeze({
   // 宠物所在的小画布的大小，以及"脚底中心"在这块画布里的位置
@@ -200,17 +200,19 @@ function drawFeet(ctx, sp, P, g) {
 function drawArm(ctx, sp, P, g, s, top = null, swap = null) {
   const pal = sp.palette;
   const a = swap ? swap.a : s < 0 ? P.armL : P.armR;
-  if (g.loaf > 0.9) return; // 趴着时手收在身体下面
+  // 趴在窗口边上时（drape），手从边上垂下去：整条都看得见，从肚子底下伸出来
+  const drape = clamp(P.drape || 0, 0, 1);
+  if (g.loaf > 0.9 && drape < 0.3) return; // 趴着时手收在身体下面
   const b = g.build;
   // 猫坐下时，自然垂着的手就是两条前腿：挪到肚子前面，伸直撑到地上
   const hang = 1 - clamp(Math.abs(a) / 0.9, 0, 1);
   const rest = (b.restArm || 0) * g.sit * (1 - g.loaf) * hang * hang;
   const fold = g.sit * (1 - g.loaf) * clamp(-(a + rest), 0, 1) * clamp((a + 1.8) / 0.55, 0, 1);
   const legs = b.frontLegs ? g.sit * (1 - g.loaf) * hang : 0;
-  const len = 20 * (b.armLen || 1) * (1 - g.loaf * 0.75) + legs * 7;
+  const len = 20 * (b.armLen || 1) * (1 - g.loaf * 0.75 * (1 - drape)) + legs * 7;
   const r = 6.3 * b.arm;
-  const px = s * ((20.5 + g.loaf * 3 + g.sit * 1.5) * b.torso - legs * (b.frontLegInset ?? 9.5) - fold * (b.foldInset || 0)) + g.facing * 2.5;
-  const py = g.torsoCy - g.torsoRy * 0.42;
+  const px = s * ((20.5 + g.loaf * 3 + g.sit * 1.5) * b.torso - legs * (b.frontLegInset ?? 9.5) - fold * (b.foldInset || 0) - drape * 4) + g.facing * 2.5;
+  const py = g.torsoCy - g.torsoRy * 0.42 + drape * (g.torsoBottom - 5 - (g.torsoCy - g.torsoRy * 0.42));
   ctx.save();
   ctx.translate(px + (swap ? swap.dx : 0), py + (swap ? swap.dy : 0));
   ctx.rotate(-s * (0.24 * (1 - legs) + a + rest));
@@ -527,7 +529,7 @@ function drawFace(ctx, sp, P, lx, ly, time) {
   if (sp.drawFaceExtras) sp.drawFaceExtras(ctx, lx, ly);
 }
 
-function drawHead(ctx, sp, P, g, time, look, outfit = null) {
+function drawHead(ctx, sp, P, g, time, look, outfit = null, extra = {}) {
   const pal = sp.palette;
   const { rx, ry } = sp.head;
   const lx = clamp(P.lookX + g.facing * 0.55, -1, 1);
@@ -568,6 +570,29 @@ function drawHead(ctx, sp, P, g, time, look, outfit = null) {
   if (hat) hat.hat(ctx, info); // 换装：帽子（过节那天节日戴了帽子，这里就是空的）
   // 头顶的小东西（卡皮巴拉的橘子）。戴着帽子、节日头饰时不画（大脑也不会在这时候安排它）
   if (sp.headProp && P.prop > 0.02 && !hat && !(look && look.head)) drawHeadProp(ctx, sp, P, lx);
+  if (P.mouthBall > 0.02) drawMouthBall(ctx, sp, P, lx, ly); // 嘴里叼着球（柴犬叼球）
+  // 头顶落着的小鸟（卡皮巴拉）。戴着帽子、节日头饰时不画（大脑也不会在这时候安排它）
+  if (P.bird > 0.02 && !hat && !(look && look.head)) drawHeadBird(ctx, sp, P, lx, time, extra.birdDir || 1);
+  ctx.restore();
+}
+
+/** 嘴里叼着的网球：正好盖住嘴，跟着视线在脸上滑 */
+function drawMouthBall(ctx, sp, P, lx, ly) {
+  const F = faceOf(sp);
+  ctx.save();
+  ctx.globalAlpha *= clamp(P.mouthBall, 0, 1);
+  ctx.translate(lx * 8.5, F.noseY + ly * 4.5 + F.mouthDy + 6);
+  drawBall(ctx, 7.5);
+  ctx.restore();
+}
+
+/** 头顶的小鸟：站在头顶正中；birdX / birdY 是正飞来、飞走时离得多远 */
+function drawHeadBird(ctx, sp, P, lx, time, dir) {
+  ctx.save();
+  ctx.globalAlpha *= clamp(P.bird, 0, 1);
+  ctx.translate(lx * 4 + P.birdX, -sp.head.ry + 1.5 - P.birdY);
+  ctx.scale(1.2, 1.2);
+  drawBird(ctx, { dir, fly: clamp(P.birdFly, 0, 1), time });
   ctx.restore();
 }
 
@@ -712,19 +737,46 @@ export function drawPet(ctx, sp, P, opts = {}) {
   ctx.save();
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
+  // 脚底中心、没跳没歪的坐标：纸箱、木盆按这个画（它们放在地上，不跟着身子跳、歪、转）
+  const base = ctx.getTransform();
+  const box = clamp(P.box || 0, 0, 1.25);
+  const tub = clamp(P.tub || 0, 0, 1.25);
 
   if (opts.shadow !== false) {
     const k = clamp(1 - P.lift / 150, 0.3, 1);
     ctx.fillStyle = `rgba(40, 26, 12, ${(0.2 * k).toFixed(3)})`;
     ellipse(ctx, 0, 1.2, (31 + g.loaf * 9 + g.sit * 4) * k, 4.4 * k);
     ctx.fill();
+    // 纸箱、木盆自己的影子
+    ctx.fillStyle = 'rgba(40, 26, 12, 0.16)';
+    if (box > 0.02) {
+      ellipse(ctx, P.boxX, 1.2, (BOX.w / 2 + 4) * Math.min(1, box), 4.4);
+      ctx.fill();
+    }
+    if (tub > 0.02) {
+      ellipse(ctx, 0, 0.8, (TUB.w / 2 + 2) * Math.min(1, tub), 4.6);
+      ctx.fill();
+    }
   }
 
+  // 纸箱、木盆的后半截（箱子里面、翻盖、盆的里侧和水面）：在宠物后面
+  if (box > 0.02) withPop(ctx, P.boxX, box, () => drawBoxBack(ctx));
+  if (tub > 0.02) withPop(ctx, 0, tub, () => drawTubBack(ctx, time));
+
   ctx.translate(0, -P.lift);
+  if (P.roll) {
+    // 打滚、歪倒：绕着身子中间（肚子和脑袋之间）转，而不是像 lean 那样绕着脚底转
+    const cy = (g.torsoCy + g.headCy) / 2;
+    ctx.translate(0, cy);
+    ctx.rotate(P.roll);
+    ctx.translate(0, -cy);
+  }
   ctx.rotate(P.lean);
   ctx.scale(1 + P.squash * 0.55, 1 - P.squash);
 
-  sp.drawTail(ctx, P, g);
+  // 小熊猫抱着尾巴（tailWrap）：尾巴绕到身子前面，等身子画完再画
+  const tailFront = (P.tailWrap || 0) > 0.5;
+  if (!tailFront) sp.drawTail(ctx, P, g);
 
   const feetInFront = g.low > 0.5;
   if (!feetInFront) drawFeet(ctx, sp, P, g);
@@ -777,6 +829,7 @@ export function drawPet(ctx, sp, P, opts = {}) {
   // （以后下装画在这里）
 
   if (feetInFront) drawFeet(ctx, sp, P, g);
+  if (tailFront) sp.drawTail(ctx, P, g);
 
   // 手臂一律画在头的下面一层：举起来的时候，靠近肩膀那一截会被头挡住，不会盖住脸颊。
   // 往里收到嘴边的手（舔爪子）、熊猫坐下抱在胸前的手，画在脸前面。
@@ -786,8 +839,10 @@ export function drawPet(ctx, sp, P, opts = {}) {
   const restingInFront = (a) => g.build.restArm && g.build.restInFront !== false
     ? smooth((g.sit - 0.25) / 0.5) * smooth((0.65 - g.loaf) / 0.35) * smooth((0.4 - a) / 0.35)
     : 0;
-  const frontL = P.armL < -1.25 ? 1 : restingInFront(P.armL);
-  const frontR = P.armR < -1.25 ? 1 : restingInFront(P.armR);
+  // 坐在纸箱里：搭在箱沿上的爪子画在脸前面（不然会藏在大脑袋后面），下面那截被箱子的前墙挡住
+  const inBox = box > 0.5 && Math.abs(P.boxX) < 20;
+  const frontL = P.armL < -1.25 || (inBox && P.armL > 1.2) ? 1 : restingInFront(P.armL);
+  const frontR = P.armR < -1.25 || (inBox && P.armR > 1.2) ? 1 : restingInFront(P.armR);
   // 扒墙时离墙远的那只手已经画在身子后面了（见上面），这里就不再画它
   const keep = (s) => (wallK > 0.01 && s === farSide ? 0 : 1);
   for (const [side, front] of [[-1, frontL], [1, frontR]]) {
@@ -802,7 +857,10 @@ export function drawPet(ctx, sp, P, opts = {}) {
   // 手里的东西都画在胸口：得有爪子在胸前拿着才画（见 holdAmount）；趴下睡觉时也收起来
   const hold = holdAmount(P);
   const heldVis = hold * clamp((0.65 - g.loaf) / 0.3, 0, 1);
-  if (carryLift >= 0 && carryLift < 0.5) {
+  const snack = carryLift < 0 && sp.snack ? clamp(P.snack || 0, 0, 1) : 0;
+  if (snack > 0.02) {
+    // 招牌动作"抱着零食啃"：零食比衣柜里拿着的东西优先（那些先收起来）。零食本身画在下巴前面，见下面
+  } else if (carryLift >= 0 && carryLift < 0.5) {
     // 信抱在胸前（在头的后面）。趴着睡觉时信放在身边的地上；正往上举的时候（showMail）也一直看得见
     const vis = g.loaf > 0.5 ? 1 : Math.max(hold, clamp(carryLift / 0.12, 0, 1));
     if (vis > 0.02) drawCarried(ctx, sp, P, g, carryLift, opts.carryGold, vis);
@@ -820,8 +878,16 @@ export function drawPet(ctx, sp, P, opts = {}) {
     ctx.restore();
   }
 
-  drawHead(ctx, sp, P, g, time, look, outfit);
+  drawHead(ctx, sp, P, g, time, look, outfit, { birdDir: opts.birdDir });
   drawLookNeck(ctx, look, g); // 围巾、香囊挂在下巴下面
+
+  // 零食捧在下巴前面（啃的时候低头，嘴正好碰到它）；熊猫抱在胸前的爪子还会再画在它前面
+  if (snack > 0.02) {
+    ctx.save();
+    ctx.translate(g.torsoCx, g.torsoCy + 1);
+    withHold(ctx, heldVis * snack, () => drawSnack(ctx, sp.snack, P.bite, time));
+    ctx.restore();
+  }
 
   for (const [side, front] of [[-1, frontL], [1, frontR]]) {
     const alpha = front * keep(side);
@@ -836,6 +902,25 @@ export function drawPet(ctx, sp, P, opts = {}) {
 
   drawLookCover(ctx, look, sp, P, g, opts.sheetLift || 0, time); // 万圣节的白布：盖住全身
 
+  // 纸箱的前墙、木盆的前壁和水面：盖住坐在里面的身子，只露出脑袋和搭在边上的爪子
+  if (box > 0.02 || tub > 0.02) {
+    ctx.save();
+    ctx.setTransform(base);
+    if (box > 0.02) withPop(ctx, P.boxX, box, () => drawBoxFront(ctx));
+    if (tub > 0.02) withPop(ctx, 0, tub, () => drawTubFront(ctx, time));
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/** 纸箱、木盆"啵"地出现：从底边中间放大（k 可以稍微超过 1，弹一下），刚出现时淡一点 */
+function withPop(ctx, x, k, draw) {
+  ctx.save();
+  ctx.translate(x, 0);
+  ctx.globalAlpha *= clamp(k * 3, 0, 1);
+  ctx.scale(k, k);
+  draw();
   ctx.restore();
 }
 
@@ -861,6 +946,14 @@ export function drawHeadOnly(ctx, sp, P, look = null, outfit = null) {
 export function hitTest(sp, P, x, y) {
   const g = getGeometry(sp, P);
   y += P.lift;
+  if (P.roll) {
+    // 正在打滚：把点反着转回去，再按没转的样子判断（和 drawPet 绕同一个点转）
+    const cy = (g.torsoCy + g.headCy) / 2;
+    const c = Math.cos(-P.roll);
+    const s = Math.sin(-P.roll);
+    const dy = y - cy;
+    [x, y] = [x * c - dy * s, cy + x * s + dy * c];
+  }
   const pad = 5;
   const inEllipse = (cx, cy, rx, ry) => {
     const dx = (x - cx) / rx;

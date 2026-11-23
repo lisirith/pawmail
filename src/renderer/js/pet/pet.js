@@ -70,6 +70,8 @@ export class Pet {
     this.carryGold = false; // 没拆的信里有月报或年度回顾：拿的是金色信封
     this.carryLift = 0;
 
+    this.birdDir = 1; // 头顶的小鸟朝哪边（卡皮巴拉的招牌动作，见 tricks.js 的 bird）
+
     this.look = null; // 节日装扮（见 looks.js）；null = 平常的样子
     this.outfit = null; // 穿着的衣服 { hat, glasses, top, bag, held }（衣服编号，见 outfits.js）；null = 什么都没穿
     this.sheetLift = 0;
@@ -687,6 +689,7 @@ export class Pet {
       look: this.look,
       outfit: this.outfit,
       sheetLift: this.sheetLift,
+      birdDir: this.birdDir,
     });
     ctx.restore();
     this.fx.draw(ctx);

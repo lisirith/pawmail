@@ -54,6 +54,21 @@ export const POSE_DEFAULTS = Object.freeze({
   prop: 0, // 0 没有 … 1 看得清清楚楚
   propX: 0, // 离它平时待的位置（头顶正中）往右偏多少（像素，跟着头一起歪）
   propY: 0, // 往上多高（像素）：正数在头顶上方（正往下掉），负数是从头顶滚下去了
+
+  // —— 招牌动作用到的 ——（见 activities.js 里"招牌动作"那一段；画法在 draw.js 和 props.js）
+  roll: 0, // 整个身子绕着身体中间转多少（弧度）：熊猫打滚、打瞌睡歪倒。lean 是绕着脚底转，这个是绕着肚子转
+  snack: 0, // 0 … 1 两只爪子捧着自己爱吃的零食（猫小鱼干、熊猫竹子……，见动物文件里的 snack）
+  bite: 0, // 0 … 1 零食已经吃掉了多少
+  box: 0, // 0 … 1 纸箱（猫钻纸箱）：从没有到"啵"地出现
+  boxX: 0, // 纸箱离脚底中心多远（像素）：猫还没跳进去时，箱子在旁边
+  tub: 0, // 0 … 1 泡澡的小木盆（卡皮巴拉泡温泉），就在脚底下
+  bird: 0, // 0 … 1 头顶落着一只小鸟（卡皮巴拉）
+  birdX: 0, // 小鸟离头顶正中多远（像素）：正在飞来、飞走时离得远
+  birdY: 0, // 小鸟比头顶高多少（像素）
+  birdFly: 0, // 0 站着 … 1 扑腾着翅膀在飞
+  mouthBall: 0, // 0 … 1 嘴里叼着球（柴犬叼球）
+  tailWrap: 0, // 0 … 1 大尾巴绕到身子前面抱着（小熊猫抱着尾巴睡），只有画了这种尾巴的动物才有
+  drape: 0, // 0 … 1 趴在窗口边上，手脚从边上垂下去（小熊猫在树枝上就是这样睡的）
 });
 
 // 表情不是数字，直接切换
@@ -92,6 +107,19 @@ export const HALF_LIFE = Object.freeze({
   prop: 0.05,
   propX: 0.015, // 橘子掉下来、滚下去的位置由动作一帧帧算好，这里几乎不用再平滑
   propY: 0.015,
+  roll: 0.02, // 打滚的角度由动作一帧帧算好
+  snack: 0.08,
+  bite: 0.06,
+  box: 0.06,
+  boxX: 0.015,
+  tub: 0.08,
+  bird: 0.05,
+  birdX: 0.015, // 小鸟的位置也是动作一帧帧算好的
+  birdY: 0.015,
+  birdFly: 0.04,
+  mouthBall: 0.03,
+  tailWrap: 0.25,
+  drape: 0.2,
 });
 
 export const POSE_KEYS = Object.freeze(Object.keys(POSE_DEFAULTS));
@@ -131,6 +159,19 @@ const POSE_PIXELS = Object.freeze({
   prop: 20,
   propX: 1,
   propY: 1,
+  roll: 60,
+  snack: 25,
+  bite: 14,
+  box: 40,
+  boxX: 1,
+  tub: 40,
+  bird: 12,
+  birdX: 1,
+  birdY: 1,
+  birdFly: 6,
+  mouthBall: 12,
+  tailWrap: 60,
+  drape: 20,
 });
 
 /** 两个姿势在画面上最多差了多少像素（按宠物原始大小算） */

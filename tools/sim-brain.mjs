@@ -17,6 +17,7 @@ import { Pet } from '../src/renderer/js/pet/pet.js';
 import { Brain } from '../src/renderer/js/pet/brain.js';
 import { getSpecies } from '../src/renderer/js/pet/species/index.js';
 import { setRng, makeRng } from '../src/renderer/js/util/math.js';
+import { Toy } from '../src/renderer/js/pet/toy.js';
 import ledgeMath from '../src/main/ledges.js';
 
 const hours = Number(process.argv[2]) || 6;
@@ -41,7 +42,10 @@ const world = {
   pointer: { x: 0, y: 0, inside: false, down: false, vx: 0, vy: 0, ax: 0, speed: 0, lastMoveAt: -Infinity },
   system: { idle: 0 },
   ledges: [],
+  toy: new Toy(), // 毛线球、网球（招牌动作用，见 tricks.js）
 };
+let toyEscaped = 0; // 玩具跑出活动范围的帧数（应该一直是 0）
+let clicks = 0; // 模拟你点了几次球（柴犬叼球）
 let escaped = 0; // 宠物跑出活动范围的帧数（应该一直是 0）
 
 // 假窗口，从最前面往后排。用后台真正的 computeLedges 算顶边和侧边哪些地方露在外面，
@@ -136,9 +140,18 @@ for (let t = 0; t < hours * 3600; t += dt) {
     }
   }
 
+  // 柴犬叼球：鼠标在附近晃的时候（mouse），球放到你跟前 1.5 秒后你点一下它
+  const toy = world.toy;
+  if (withMouse && toy.clickable && brain.name === 'fetch' && brain.current.phase === 'wait' && brain.current.pt > 1.5 && world.pointer.inside) {
+    toy.clicked = true;
+    clicks += 1;
+  }
+
   pet.begin(dt);
   brain.update(dt);
   pet.finish(dt);
+  toy.step(dt, world);
+  if (toy.active && !toy.held && (toy.x < area.left || toy.x > area.right || toy.y > world.groundY + 0.5)) toyEscaped += 1;
   if (brain.name !== 'arrive' && (pet.x < area.left || pet.x > area.right || pet.y > world.groundY + 0.5 || pet.y < area.top)) escaped += 1;
   if (pet.mode === 'ground') {
     const L = pet.perch && world.ledges.find((l) => l.id === pet.perch.id);
@@ -191,6 +204,7 @@ for (const [name, s] of Object.entries(stats).sort((a, b) => b[1].time - a[1].ti
 }
 console.log(`\n一共切换动作 ${sequence.length} 次；紧挨着重复同一个动作 ${repeats} 次`);
 console.log(`跑出活动范围的帧数：${escaped}${escaped ? '  ← 有问题！' : '（正常）'}`);
+console.log(`玩具（毛线球、网球）跑出活动范围的帧数：${toyEscaped}${toyEscaped ? '  ← 有问题！' : '（正常）'}${clicks ? `；模拟点了 ${clicks} 次球` : ''}`);
 if (withWindows) {
   console.log(`悬空的帧数（站着却没踩在地面或窗口顶边上）：${floating}${floating ? '  ← 有问题！' : '（正常）'}`);
   console.log(

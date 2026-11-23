@@ -51,6 +51,35 @@ async function inspectArt(poses, guideUrl) {
     ['orange-roll', { crouch: 1, prop: 0.6, propX: 50, propY: -20, headTilt: 0.2 }],
     ['orange-roll-left', { crouch: 1, prop: 0.6, propX: -50, propY: -20, headTilt: -0.2 }],
   ]) cases.push({ name, pose, opts: {} });
+  // 招牌动作（tricks.js）：打滚、歪倒（绕着肚子转）、纸箱、木盆、零食、小鸟、叼球、趴在窗口边、抱尾巴、踩奶、招手
+  const rollLift = (theta) => Math.hypot(46 * Math.sin(theta), (Math.cos(theta) >= 0 ? 47 : 60) * Math.cos(theta)) - 47;
+  const tuck = { crouch: 1, armL: -1, armR: -1, lookY: 0.7, headY: 4, tailCurl: 0.3, eyes: 'squeeze' };
+  for (const roll of [0.8, 1.57, 2.4, Math.PI, -1.57, -2.4]) cases.push({ name: `trick-roll-${roll.toFixed(2)}`, pose: { ...tuck, roll, lift: rollLift(roll) }, opts: {} });
+  for (const roll of [-1.5, 1.5]) cases.push({ name: `trick-topple-${roll}`, pose: { crouch: 1, roll, lift: rollLift(roll), armL: 1.1, armR: 0.2, footLY: 6, eyes: 'wide', mouth: 'o' }, opts: {} });
+  for (const [name, pose] of [
+    ['trick-box-beside', { box: 1, boxX: 80, eyes: 'wide', lookX: 0.8 }],
+    ['trick-box-beside-left', { box: 1, boxX: -80, facing: -0.4 }],
+    ['trick-box-pop', { box: 1.15, boxX: 70 }],
+    ['trick-box-in', { box: 1, crouch: 1, armL: 1.95, armR: 1.95, tailCurl: 1 }],
+    ['trick-box-duck', { box: 1, crouch: 1, loaf: 0.3, headY: 52, tailCurl: 1 }],
+    ['trick-box-hop', { box: 1, boxX: 45, lift: 50, armL: 1.3, armR: 1.3, facing: 0.3 }],
+    ['trick-tub', { tub: 1, crouch: 1, eyeL: 0.35, eyeR: 0.35, prop: 1 }],
+    ['trick-tub-hop', { tub: 1, lift: 38, armL: 1.2, armR: 1.2 }],
+    ['trick-snack-0', { crouch: 1, armL: -0.75, armR: -0.75, snack: 1, bite: 0 }],
+    ['trick-snack-half', { crouch: 1, armL: -0.75, armR: -0.75, snack: 1, bite: 0.5, headY: 4, lookY: 0.8, mouth: 'o', mouthOpen: 0.8 }],
+    ['trick-snack-last', { crouch: 1, armL: -0.75, armR: -0.75, snack: 1, bite: 1 }],
+    ['trick-bird-on', { crouch: 1, bird: 1, lookY: -0.9 }],
+    ['trick-bird-fly', { crouch: 1, bird: 1, birdFly: 1, birdX: 118, birdY: 140 }],
+    ['trick-bird-fly-left', { crouch: 1, bird: 1, birdFly: 1, birdX: -118, birdY: 150 }],
+    ['trick-ball', { mouthBall: 1, facing: 0.8, lookY: 0.4 }],
+    ['trick-ball-sit', { crouch: 1, mouthBall: 1 }],
+    ['trick-drape', { loaf: 1, drape: 1, footLY: -15, footRY: -15, tailHang: 1, tailCurl: 1, headY: 5, headTilt: 0.22, eyes: 'sleep' }],
+    ['trick-tailwrap', { loaf: 1, tailWrap: 1, tailCurl: 0.15, headY: 3, eyes: 'sleep' }],
+    ['trick-tailwrap-left', { loaf: 1, tailWrap: 1, tailCurl: 0.15, tailSide: -1, eyes: 'sleep' }],
+    ['trick-knead', { crouch: 1, armL: 0.34, eyeL: 0.32, eyeR: 0.32, blush: 1 }],
+    ['trick-beckon', { crouch: 1, armR: 1.95, eyes: 'happy', mouth: 'smile' }],
+    ['trick-scratch', { crouch: 0.4, facing: -0.25, lean: 0.04, armL: 0.45, armR: 0.45, eyes: 'happy', mouth: 'smile', mouthOpen: 0.55 }],
+  ]) cases.push({ name, pose, opts: { birdDir: -1 } });
   // 衣柜里的衣服：每件单独穿，在站、坐、趴、走、举手、被拎起、扒墙歪着这些姿势下都画一遍；再加两套全身搭配
   const { OUTFITS } = await import('/src/renderer/js/pet/outfits.js');
   const outfitPoses = [

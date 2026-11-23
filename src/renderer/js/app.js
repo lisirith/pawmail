@@ -9,6 +9,8 @@ import { RIG, drawHeadOnly } from './pet/draw.js';
 import { lookById } from './pet/looks.js';
 import { drawFood, foodOfMime, foodOfName } from './pet/food.js';
 import { makePose, poseDistance, copyPose } from './pet/pose.js';
+import { Toy } from './pet/toy.js';
+import { drawYarn, drawBall } from './pet/props.js';
 import { Bubble } from './ui/bubble.js';
 import { PetMenu } from './ui/menu.js';
 import { AreaEditor } from './ui/area.js';
@@ -84,6 +86,8 @@ async function main() {
     // 别的窗口的顶边，宠物可以站上去：[{ id, x, y, right, bottom, segs: [[左, 右], ...], sideL, sideR }]
     // （只留活动范围里站得下的，见 layoutLedges；各项的意思见 setLedges）
     ledges: [],
+    // 桌面上滚来滚去的玩具（猫的毛线球、柴犬的网球，见 pet/toy.js 和 pet/tricks.js）
+    toy: new Toy(),
   };
   let rawLedges = []; // 后台发来的原样（整个屏幕的）；活动范围、宠物大小变了要重新筛
 
@@ -227,7 +231,7 @@ async function main() {
   // 和画得复杂不复杂、窗口大不大都没关系。所以宠物发呆时那些不到 1 个像素的细微变化
   // （呼吸、尾巴慢慢摆）先攒着，攒够大约 1 个像素再画。动作快的时候自然每帧都画，不受影响。
   const REDRAW_PX = 0.75; // 物理像素
-  const drawn = { pose: makePose(), rot: 0, species: null, mode: '', k: 0, fx: 0, at: 0, transform: '', carry: false, carryLift: 0, look: null, outfit: null, sheetLift: 0 };
+  const drawn = { pose: makePose(), rot: 0, species: null, mode: '', k: 0, fx: 0, at: 0, transform: '', carry: false, carryLift: 0, look: null, outfit: null, sheetLift: 0, birdDir: 1 };
   let redraws = 0;
 
   function render(nowMs) {
@@ -248,6 +252,7 @@ async function main() {
       drawn.carryGold !== pet.carryGold ||
       drawn.look !== pet.look ||
       drawn.outfit !== pet.outfit ||
+      (drawn.birdDir !== pet.birdDir && O.bird > 0.02) ||
       Math.abs(pet.carryLift - drawn.carryLift) * 70 * k > REDRAW_PX ||
       Math.abs(pet.sheetLift - drawn.sheetLift) * 80 * k > REDRAW_PX ||
       poseDistance(O, drawn.pose) * k > REDRAW_PX ||
@@ -271,9 +276,11 @@ async function main() {
       drawn.look = pet.look;
       drawn.outfit = pet.outfit;
       drawn.sheetLift = pet.sheetLift;
+      drawn.birdDir = pet.birdDir;
       drawn.at = nowMs;
       redraws += 1;
     }
+    renderToy();
     // 小画布跟着宠物移动（对齐到物理像素，静止时才不会发虚）。画布放在活动范围的框里，所以要减去框的位置
     const left = Math.round((pet.x - RIG.anchorX * S - arenaX) * dpr) / dpr;
     const top = Math.round((pet.y - RIG.anchorY * S - arenaY) * dpr) / dpr;
@@ -284,6 +291,54 @@ async function main() {
     }
     // 气泡在头顶上方；它把信举起来的时候，气泡再往上让一让，别挡住信
     bubble.update(pet.x, pet.y + (pet.headTop() - 6 - (pet.carry ? pet.carryLift * 32 : 0)) * S, world.width);
+  }
+
+  // ------------------------------------------------------------ 桌面上的玩具（毛线球、网球）
+  //
+  // 玩具会滚得很远（滚出宠物那块小画布），所以单独用一块小画布：样子只在换玩具、换大小时画一次，
+  // 平时只是挪位置、转一转（CSS transform）。和宠物一样：位置没变就不去碰页面（省电）
+  const toyCanvas = document.getElementById('toy');
+  const toyCtx = toyCanvas.getContext('2d');
+  const toyDrawn = { kind: null, k: 0, transform: '', opacity: '', shown: false };
+  const TOY_BOX = 44; // 小画布的边长（按宠物原始大小算）：毛线球拖着的线头也装得下
+  function renderToy() {
+    const toy = world.toy;
+    const shown = toy.active && !toy.held && toy.alpha > 0.01;
+    if (shown !== toyDrawn.shown) {
+      toyDrawn.shown = shown;
+      toyCanvas.hidden = !shown;
+    }
+    if (!shown) return;
+    const S = world.scale;
+    const k = S * dpr;
+    if (toyDrawn.kind !== toy.kind || toyDrawn.k !== k) {
+      toyDrawn.kind = toy.kind;
+      toyDrawn.k = k;
+      const px = Math.round(TOY_BOX * k);
+      toyCanvas.width = px;
+      toyCanvas.height = px;
+      toyCanvas.style.width = `${TOY_BOX * S}px`;
+      toyCanvas.style.height = `${TOY_BOX * S}px`;
+      toyCtx.setTransform(k, 0, 0, k, 0, 0);
+      toyCtx.clearRect(0, 0, TOY_BOX, TOY_BOX);
+      toyCtx.translate(TOY_BOX / 2, TOY_BOX / 2);
+      if (toy.kind === 'yarn') drawYarn(toyCtx, toy.r);
+      else drawBall(toyCtx, toy.r);
+      toyDrawn.transform = '';
+    }
+    const half = (TOY_BOX * S) / 2;
+    const left = Math.round((toy.x - half - arenaX) * dpr) / dpr;
+    const top = Math.round((toy.y - toy.r * S - half - arenaY) * dpr) / dpr;
+    const transform = `translate3d(${left}px, ${top}px, 0) rotate(${toy.rot.toFixed(2)}rad)`;
+    if (transform !== toyDrawn.transform) {
+      toyDrawn.transform = transform;
+      toyCanvas.style.transform = transform;
+    }
+    const opacity = toy.alpha >= 0.99 ? '' : toy.alpha.toFixed(2);
+    if (opacity !== toyDrawn.opacity) {
+      toyDrawn.opacity = opacity;
+      toyCanvas.style.opacity = opacity;
+    }
   }
 
   window.addEventListener('resize', () => {
@@ -430,6 +485,11 @@ async function main() {
     if (areaEditor.isOpen) return; // 正在画活动范围：鼠标归画框用
     if (menu.isOpen) {
       if (!menu.contains(e.target)) menu.close(); // 点菜单外面 = 关闭菜单
+      return;
+    }
+    if (e.button === 0 && world.toy.hit(e.clientX, e.clientY, world.scale)) {
+      world.toy.clicked = true; // 点了球：柴犬会把它扔出去、追过去（见 pet/tricks.js 的 fetch）
+      e.preventDefault();
       return;
     }
     if (e.button !== 0 || !pet.hit(e.clientX, e.clientY)) return;
@@ -600,7 +660,8 @@ async function main() {
   let wasOver = false;
   function updateCapture() {
     const p = world.pointer;
-    const over = p.inside && !!pet.hit(p.x, p.y);
+    // 在宠物身上，或者在等你点的球上（柴犬叼球）：都要接住鼠标
+    const over = p.inside && (!!pet.hit(p.x, p.y) || world.toy.hit(p.x, p.y, world.scale));
     if (over !== wasOver) {
       wasOver = over;
       document.body.classList.toggle('over-pet', over);
@@ -621,7 +682,8 @@ async function main() {
     onChoice: (key, value) => bridge.setSetting(key, value),
     onAction: (id) => {
       menu.close();
-      if (id === 'toggleSleep') brain.command(brain.asleep ? 'wake' : 'sleep');
+      if (id === 'trick') brain.performTrick();
+      else if (id === 'toggleSleep') brain.command(brain.asleep ? 'wake' : 'sleep');
       else if (id === 'mail') bridge.openMail();
       else if (id === 'wardrobe') bridge.openMail('wardrobe');
       else if (id === 'area') openAreaEditor();
@@ -676,6 +738,7 @@ async function main() {
     return [
       { type: 'action', id: 'mail', label: `📬 ${mailLabel}` },
       { type: 'action', id: 'wardrobe', label: `👕 ${t('menu.wardrobe')}` },
+      { type: 'action', id: 'trick', label: `✨ ${t('menu.trick')}` },
       { type: 'separator' },
       {
         type: 'choice',
@@ -847,6 +910,7 @@ async function main() {
     pet.begin(dt);
     brain.update(dt);
     pet.finish(dt);
+    world.toy.step(dt, world);
     // 站上 / 离开了某个窗口：告诉后台（站在窗口上时，后台会更勤快地盯着那个窗口，你拖窗口时它才跟得上）
     const perchId = pet.perch ? pet.perch.id : null;
     if (perchId !== perchSent) {
@@ -865,7 +929,8 @@ async function main() {
    */
   function wantedFps() {
     if (forcedFps) return forcedFps;
-    if (press || menu.isOpen || areaEditor.isOpen || wasOver || pet.busy) return 60;
+    const toyMoving = world.toy.active && (!world.toy.resting || world.toy.fading > 0); // 球还在滚、还在淡出
+    if (press || menu.isOpen || areaEditor.isOpen || wasOver || pet.busy || toyMoving) return 60;
     if (brain.userAway && brain.asleep) return 6; // 你不在、它也睡着了：没人看，几乎不占资源
     return Math.max(pet.style.fps, pet.fx.active ? 20 : 0);
   }

@@ -38,7 +38,13 @@ Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drop
 
 **And also:**
 
-- Each animal has its own temper: the cat is the liveliest, the panda is a big softie, the capybara takes things slowly (sit it down long enough and an orange may land on its head), the Shiba Inu has a mind of its own (now and then it flops down mid-walk and refuses to budge), and the red panda is a bit timid but loves heights (startle it and it stands up tall with its arms raised to look fierce).
+- Each animal has its own temper, and three signature tricks:
+  - Cat: kneads, chases a ball of yarn around (on a window it bats the ball over the edge), and squeezes into a cardboard box until only its head shows. The lucky cat also beckons, and little coins pop out.
+  - Panda: tucks into a ball and rolls over, dozes off and topples onto its side, and scratches its back against the wall.
+  - Capybara: takes things slowly. Sit it down long enough and an orange lands on its head; it also soaks in a hot tub and lets a little bird sit on its head.
+  - Shiba Inu: has a mind of its own and sometimes flops down mid-walk and refuses to budge. It brings a ball and drops it by your cursor (click the ball and it chases it), and it spins around chasing its own tail.
+  - Red panda: a bit timid but loves heights. Startle it and it stands up tall with its arms raised to look fierce; it naps draped over a window's edge with its legs and tail hanging down, and sleeps hugging its big tail.
+  - All of them pull out a favorite snack (dried fish, bamboo, watermelon, jerky, an apple) and nibble it bite by bite. To see one right away: right-click → *Do a trick!*
 - Birthdays and festivals: Lunar New Year, Mid-Autumn, Halloween, Christmas and more (you choose which ones you celebrate). On the day it dresses up, sends a festival letter with a festival-only gift, and greets you in its own way.
 - A monthly letter about your month together, and a year in review on New Year's Day.
 - Drop it on top of a window and it perches there: it strolls along the top, naps, peeks over the edge, and rides along when you drag the window. Close the window and down it goes. Sometimes it gets up there by itself, hopping onto a low window or climbing the side of one that reaches down to the taskbar.
@@ -64,7 +70,8 @@ It's about 140 MB to download and uses around 175 MB of memory while running (wh
 | Do this | And |
 |---|---|
 | Click it while it's holding a letter | Open the letter |
-| Right-click it | Menu: mailbox, wardrobe, animal, display, size, language, start at login, perch on windows, play area, sleep, quit |
+| Right-click it | Menu: mailbox, wardrobe, do a trick (it shows off one of its signature tricks right away), animal, display, size, language, start at login, perch on windows, play area, sleep, quit |
+| When the Shiba drops a ball by you, click the ball | The ball flies off, and the Shiba chases it and brings it back |
 | Move the mouse back and forth over it | Pet it |
 | Click it | Poke it |
 | Double-click it | It hops happily |

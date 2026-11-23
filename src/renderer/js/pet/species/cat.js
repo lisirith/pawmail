@@ -472,6 +472,9 @@ function createCat(coatId = 'tabby') {
     drawEar, drawEyeBack: null, drawHeadMarkings, drawTorsoMarkings,
     drawNose: null, drawFaceExtras: drawWhiskers, drawTail,
     drawCollar: lucky ? drawLuckyCollar : null,
+    // 三个招牌动作（见 tricks.js）：踩奶、拍毛线球、钻纸箱。招财猫多一个：招手
+    tricks: lucky ? ['knead', 'yarn', 'box', 'beckon'] : ['knead', 'yarn', 'box'],
+    snack: 'fish', // 爱吃的零食（和信里写的一样）：小鱼干
   };
 }
 

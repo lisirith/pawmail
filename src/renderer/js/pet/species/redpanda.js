@@ -220,7 +220,9 @@ function drawFoot(ctx, P, g, { rx, ry }) {
  * 大尾巴：又粗又蓬松，从屁股一侧往外、往上翘，红棕色和浅橘色一道一道相间，尾巴尖是深一点的红棕色。
  * 和猫尾巴一样**不压扁**：要放低（走路、坐着、睡觉，tailCurl 小）时是整条绕着尾根往下转；
  * 被拎起来（tailHang）再往下垂、短一点。转低以后要是低过了地面，就把整条往上抬，正好搁在地上。
- * 换边（tailSide 过 0）时变窄，像从身子后面绕过去；正好在身子后面时不画
+ * 换边（tailSide 过 0）时变窄，像从身子后面绕过去；正好在身子后面时不画。
+ * 抱着尾巴睡（tailWrap）：尾巴从屁股这边往外、往下绕到身子前面，横着搭在脚前，尾巴尖翘到另一边的脸颊下面
+ * （draw.js 在 tailWrap > 0.5 时把它画在身子前面）。中线从平常的样子一点点变过去，不会突然跳
  */
 function drawTail(ctx, P, g) {
   const side = clamp(P.tailSide, -1, 1);
@@ -229,13 +231,16 @@ function drawTail(ctx, P, g) {
   const s = Math.sign(side);
   const curl = clamp(P.tailCurl + g.sit * 0.2, 0, 1);
   const hang = clamp(P.tailHang || 0, 0, 1);
-  const turn = (1 - curl) * 1.0 + hang * 1.25; // 绕尾根往下转多少（弧度）
+  const wrap = clamp(P.tailWrap || 0, 0, 1);
+  const turn = ((1 - curl) * 1.0 + hang * 1.25) * (1 - wrap); // 绕尾根往下转多少（弧度）
   const keep = 1 - 0.12 * hang; // 垂下来时短一点
-  const sway = P.tail;
+  const sway = P.tail * (1 - 0.8 * wrap);
   const cs = Math.cos(turn);
   const sn = Math.sin(turn);
-  // 尾巴中线（尾根在 0,0；x 往外、y 往上是负数），三次贝塞尔
-  const C = [[0, 0], [15, -2 * keep], [29 * keep, -20 * keep], [28 * keep, -46 * keep]];
+  // 尾巴中线（尾根在 0,0；x 往外、y 往上是负数），三次贝塞尔。抱着尾巴时换成绕到前面的那条
+  const C0 = [[0, 0], [15, -2 * keep], [29 * keep, -20 * keep], [28 * keep, -46 * keep]];
+  const WRAP = [[0, 0], [40, 9], [-24, 15], [-50, -12]];
+  const C = C0.map(([x, y], i) => [x + (WRAP[i][0] - x) * wrap, y + (WRAP[i][1] - y) * wrap]);
   const N = 32;
   const left = [];
   const right = [];
@@ -325,4 +330,8 @@ export const redpanda = {
   likes: { climb: 1.8, climbUp: 1.6, hopUp: 1.5, chase: 0.8, jumpDown: 0.6 },
   // 招牌小动作：受惊了站直、举起双手"吓唬"你（见 activities.js 的 bluff）
   quirk: 'bluff',
+  // 三个招牌动作（见 tricks.js）：吓唬你、趴在窗口边上睡（手脚和尾巴垂下去）、抱着大尾巴睡
+  tricks: ['bluff', 'drapeNap', 'tailHug'],
+  tailWrap: true, // 睡觉时都抱着自己的大尾巴（见 activities.js 的 sleep）
+  snack: 'apple', // 爱吃的零食（和信里写的一样）
 };

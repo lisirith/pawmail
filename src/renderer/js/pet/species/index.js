@@ -2,6 +2,7 @@
 // src/main/store.js 的 SPECIES、托盘菜单（tray.js）、右键菜单（app.js，带小头像）、语言文件的 menu.<编号> 和 say.<编号>、
 // 信里的零食（shared/letters/*.json 的 snack）、activities.js 的 HOP_REACH、开发工具（dev-server、sim-letters、check-art、
 // gallery 的 REFERENCE）、自检里切换动物的那一项，以及 README 和 ASSETS-LICENSE.md。
+// 动物文件里还要写 tricks（三个招牌动作，见 tricks.js）和 snack（抱着啃的零食，画法在 props.js，和信里写的零食一致）。
 
 import { cat, luckyCat } from './cat.js';
 import { panda } from './panda.js';

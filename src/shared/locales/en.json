@@ -4,6 +4,7 @@
     "mailbox": "Mailbox",
     "mailboxUnread": "Mailbox ({n} new)",
     "wardrobe": "Wardrobe",
+    "trick": "Do a trick!",
     "animal": "Animal",
     "cat": "Cat",
     "catCoat": "Cat coat",
@@ -69,6 +70,7 @@
     "area": ["Nice spot~", "My new turf!", "I'll live here then"],
     "outfit": ["Do I look good?", "How do I look?", "Hehe, new clothes!", "Does it suit me?"],
     "outfitOff": ["Ahh, breezy~", "Nothing on feels nice too~"],
+    "snack": ["Snack time!", "Hehe, something tasty~"],
     "feed": {
       "yum": ["Yum!", "Nom nom… *burp*", "Thanks for the snack!", "Another one!"],
       "first": "Yum! It's actually in your Recycle Bin. Changed your mind? Get it back from there~",
@@ -108,25 +110,41 @@
     "cat": {
       "hello": ["Meow~", "Hi!", "I'm here~"],
       "caught": ["Gotcha!", "Meow!"],
-      "held": ["Mrrow~ put me down!", "Where are we going?", "Swing, swing…"]
+      "held": ["Mrrow~ put me down!", "Where are we going?", "Swing, swing…"],
+      "knead": ["Purrr…", "Knead, knead~", "So soft~"],
+      "box": ["This box is mine now!", "If it fits, I sits~", "A box! I'm going in!"],
+      "beckon": ["Good luck, come on in~", "Fortune, this way~", "Come here, come here~"],
+      "snack": ["Dried fish!", "My favorite fishy~"]
     },
     "panda": {
       "hello": ["Hi!", "I'm here~", "Mm-hm~"],
-      "held": ["I'm heavy, you know…", "Where are we going?", "Swing, swing…"]
+      "held": ["I'm heavy, you know…", "Where are we going?", "Swing, swing…"],
+      "roll": ["Roly-poly~", "Hehe, one whole roll!", "Another one?"],
+      "topple": ["…I wasn't sleeping!", "Nothing happened just now!", "Huh? Why am I lying down?"],
+      "scratch": ["Ahh~ right there~", "So itchy~", "That's the spot~"],
+      "snack": ["Mmm, bamboo~", "Crunch crunch!"]
     },
     "capybara": {
       "hello": ["Hi~", "I'm here~", "Mm… hello"],
-      "held": ["No rush, no rush…", "Where are we going?", "Okay… whatever you say"]
+      "held": ["No rush, no rush…", "Where are we going?", "Okay… whatever you say"],
+      "onsen": ["So nice…", "A warm bath~", "I'm never getting out…"],
+      "bird": ["… (not moving)", "Shh, don't scare it", "You came to sunbathe too?"],
+      "snack": ["Watermelon!", "So sweet~"]
     },
     "shiba": {
       "hello": ["Woof!", "Hi!", "I'm here~"],
       "held": ["AAAAH put me down!!", "I can walk by myself!", "Nonononono—"],
-      "stubborn": ["Not moving!", "Nope. Not going.", "Hmph, don't feel like it…"]
+      "stubborn": ["Not moving!", "Nope. Not going.", "Hmph, don't feel like it…"],
+      "fetch": ["Throw it! Throw it!", "Click the ball!", "Again, again!"],
+      "fetchBored": ["Not playing anymore…", "Hmph, fine then"],
+      "chaseTail": ["My tail!", "Come back here!", "Got you… huh?"],
+      "snack": ["Jerky!", "Woof! Smells so good!"]
     },
     "redpanda": {
       "hello": ["Hi!", "I'm here~", "(peeks) Hello"],
       "held": ["P-put me down!", "I'm very fierce, you know!", "Eep… so high"],
-      "bluff": ["I'm VERY fierce!", "Rawr!", "Stay back! I bite!"]
+      "bluff": ["I'm VERY fierce!", "Rawr!", "Stay back! I bite!"],
+      "snack": ["Apple~", "Crunch, crunch~"]
     }
   },
   "mail": {

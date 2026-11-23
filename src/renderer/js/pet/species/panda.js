@@ -264,4 +264,7 @@ export const panda = {
   paw: { pads: 4, sitHeight: 3.4, sitLift: 3.5 },
   drawEar, drawEyeBack, drawHeadMarkings, drawTorsoMarkings,
   drawNose, drawFaceExtras: null, drawTail,
+  // 三个招牌动作（见 tricks.js）：缩成一团打个滚、打瞌睡歪倒、靠着墙蹭背挠痒痒
+  tricks: ['roll', 'topple', 'backScratch'],
+  snack: 'bamboo', // 爱吃的零食（和信里写的一样）：竹子
 };

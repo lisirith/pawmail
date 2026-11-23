@@ -14,7 +14,7 @@ import { getGeometry } from './draw.js';
 import { GRAVITY } from './pet.js';
 
 /** 嘴在哪里（宠物坐标）：喂给它的文件飞到这里就算进了嘴 */
-function mouthPoint(pet) {
+export function mouthPoint(pet) {
   const g = getGeometry(pet.sp, pet.pose);
   const face = pet.sp.face || {};
   return { x: g.headCx + pet.pose.lookX * 6, y: g.headCy + (face.noseY ?? 12) + 5 - pet.pose.lift };
@@ -58,14 +58,14 @@ const CLIMB_MID = 1.4;
 const CLIMB_AMP = 0.45;
 
 // 走路的几种步态。speed 是每秒走多少像素，stride 是一步的长度（脚才不会打滑）
-const GAITS = {
+export const GAITS = {
   walk: { speed: 46, stride: 15, lift: 4.5, bob: 1.8, lean: 0.03, sway: 0.03, arm: 0.3 },
   trot: { speed: 95, stride: 20, lift: 6, bob: 3.4, lean: 0.08, sway: 0.05, arm: 0.45 },
   run: { speed: 150, stride: 24, lift: 8, bob: 4.5, lean: 0.13, sway: 0.04, arm: 0.6 },
 };
 
 /** 朝 tx 走一步，并摆出走路的姿势。走到了返回 true。 */
-function locomote(b, st, dt, tx, gait, speedMul = 1) {
+export function locomote(b, st, dt, tx, gait, speedMul = 1) {
   const pet = b.pet;
   const T = pet.target;
   const S = b.world.scale;
@@ -105,7 +105,7 @@ function locomote(b, st, dt, tx, gait, speedMul = 1) {
 }
 
 /** 挑一个要走去的地方：离现在 minDist ~ maxDist，且不出活动范围（站在窗口上时，不出脚下那一段顶边） */
-function pickWalkTarget(b, minDist, maxDist) {
+export function pickWalkTarget(b, minDist, maxDist) {
   const pet = b.pet;
   const S = b.world.scale;
   const [lo, hi] = pet.spanX(56, 24);
@@ -131,7 +131,7 @@ export function wallDistances(b) {
 /** 记住动作开始时是站着还是坐着，这样"被摸""打哈欠"之类的动作不会让它突然站起来 */
 const postureOf = (b) => (b.pet.pose.crouch > 0.5 ? 1 : 0);
 
-const hearts = (pet, n = 1) => {
+export const hearts = (pet, n = 1) => {
   for (let i = 0; i < n; i++) {
     pet.fx.spawn('heart', {
       x: rand(-24, 24),
@@ -146,7 +146,7 @@ const hearts = (pet, n = 1) => {
   }
 };
 
-const sparks = (pet, n = 4) => {
+export const sparks = (pet, n = 4) => {
   for (let i = 0; i < n; i++) {
     const a = rand(0, TAU);
     pet.fx.spawn('spark', {
@@ -749,6 +749,7 @@ export const ACTIVITIES = {
       const s = pet.style;
       const settled = t > 0.7;
       T.loaf = 1;
+      if (pet.sp.tailWrap) T.tailWrap = 1; // 小熊猫睡觉时都抱着自己的大尾巴
       T.eyes = settled ? 'sleep' : 'open';
       if (!settled) T.eyeL = T.eyeR = 0.45;
       T.headTilt += this.side * 0.13;
@@ -789,6 +790,7 @@ export const ACTIVITIES = {
       if (t < 0.9) {
         const u = t / 0.9;
         T.loaf = 1;
+        if (pet.sp.tailWrap) T.tailWrap = 1 - u; // 醒来时慢慢松开抱着的尾巴
         T.headY += 3 * (1 - u);
         T.eyeL = T.eyeR = 0.25 + 0.4 * u;
         T.earDroop = 0.3;
@@ -2116,6 +2118,7 @@ export const ACTIVITIES = {
 };
 
 // 哪些动作可以被"更想做的事"打断（比如发呆时看到鼠标晃动，就去追）
-export const INTERRUPTIBLE = new Set(['idle', 'lookAround', 'sit', 'nap', 'groom', 'walk', 'peekDown', 'orangeNap']);
+// （招牌动作里的踩奶、抱着尾巴睡、趴在窗口边上睡也算：它们和坐着、打盹差不多，见 tricks.js）
+export const INTERRUPTIBLE = new Set(['idle', 'lookAround', 'sit', 'nap', 'groom', 'walk', 'peekDown', 'orangeNap', 'knead', 'tailHug', 'drapeNap']);
 // 这些是对你的操作做出的反应，进行中不会被摸头、戳一下打断
 export const REACTIVE = new Set(['held', 'falling', 'landed', 'dizzy', 'annoyed', 'arrive', 'hungry', 'eat']);
