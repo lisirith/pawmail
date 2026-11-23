@@ -5,7 +5,7 @@
 // 圆滚滚的身子、短短的手；坐下时两只大脚掌朝前，露出粉色肉垫；屁股后面一团棉花糖似的圆尾巴。
 // 骨架、关节和其他动物完全一样，所以所有动作、衣服都能直接用。走路是一蹦一蹦的（gait: 'hop'，见 activities.js 的 locomote）。
 // 耳朵很长（longEars）：戴帽子时不收进帽子里，从帽子后面竖出来（见 draw.js 的 drawHead 和 outfits.js）。
-// 下面的数字是从设定图左边的大坐姿量出来的（以头的中心为原点，头半宽 46、半高 31）。
+// 头、耳朵、五官的数字是在设定图左边的大坐姿上描、量出来的（以头的中心为原点，头半宽 46、半高 30.4）。
 import { clamp, lerp } from '../../util/math.js';
 
 const INK = '#6e4a3a'; // 描边：设定图里暖暖的棕色
@@ -37,73 +37,76 @@ function torsoFill(ctx, g) {
 }
 
 /**
- * 头：圆圆的大脑袋，上半截被两只大耳朵的耳根盖住；从耳根外侧往下斜斜地变宽，
- * 最宽的地方在中线往下一截（脸颊），那儿各有两小撮蓬起来的毛，下巴宽而平。
- * 只写右半边，左半边照镜子画。每段是 [控制点1 x, y, 控制点2 x, y, 终点 x, y]（头半宽 46、半高 29.5 时的坐标，
- * 从设定图左边的大坐姿量的）；只有两个点的是一小撮毛（二次曲线）。
- * 第一段的终点（22.2, -20.1）是耳朵外沿和脸的轮廓接上的地方（设定图里那儿有个小凹口）
+ * 顺着一串点画一条圆滑的曲线（Catmull-Rom：每段的控制点由前后两个点决定，所以经过每个点、拐弯处都是圆的）。
+ * 画笔要先在 pts[0]；prev / next 是曲线两头之外的点，决定两头的走向（不给就当成直直地开始、结束）
  */
-const HEAD_START = [0, -29.5];
-const HEAD_RIGHT = [
-  [12, -29.5, 19, -26, 22.2, -20.1], // 头顶 → 耳根外侧（这一段藏在耳根和卷毛后面）
-  [30, -15.8, 41.5, -6.5, 45.3, 9], // 往外鼓着下来（一开始几乎是横着出去的，越往下越竖）→ 最宽处
-  [48.8, 12.4, 46, 16.2], // 一撮毛
-  [47.8, 20, 42.8, 22.4], // 又一撮
-  [35, 29.5, 18, 29.8, 0, 29.8], // → 平平的下巴
-];
-const HEAD_ENDS = [HEAD_START, ...HEAD_RIGHT.map((s) => s.slice(-2))]; // 第 i 段从 HEAD_ENDS[i] 走到 HEAD_ENDS[i + 1]
+function smoothThrough(ctx, pts, prev = null, next = null) {
+  const P = [prev || pts[0], ...pts, next || pts[pts.length - 1]];
+  for (let i = 1; i < P.length - 2; i++) {
+    const [p0, p1, p2, p3] = [P[i - 1], P[i], P[i + 1], P[i + 2]];
+    ctx.bezierCurveTo(
+      p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6,
+      p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6,
+      p2[0], p2[1],
+    );
+  }
+}
 
-/** 右半边：从第 from 段走到下巴 */
-function headForward(ctx, from) {
-  for (let i = from; i < HEAD_RIGHT.length; i++) {
-    const s = HEAD_RIGHT[i];
-    if (s.length === 4) ctx.quadraticCurveTo(...s);
-    else ctx.bezierCurveTo(...s);
-  }
-}
-/** 左半边：从下巴倒着走回第 to 段的起点（左右翻过来，控制点也倒过来） */
-function headBackward(ctx, to) {
-  for (let i = HEAD_RIGHT.length - 1; i >= to; i--) {
-    const s = HEAD_RIGHT[i];
-    const [ex, ey] = HEAD_ENDS[i];
-    if (s.length === 4) ctx.quadraticCurveTo(-s[0], s[1], -ex, ey);
-    else ctx.bezierCurveTo(-s[2], s[3], -s[0], s[1], -ex, ey);
-  }
-}
+/**
+ * 头：照着设定图左边的大坐姿一点一点描下来的（2026-11-23 用户说脸颊太尖，改成直接描）：
+ * 用脚本在原图上逐行、逐列找出轮廓线的中心，换算成头的坐标（头半宽 46、半高 30.4），这里是左半边从耳根外侧到下巴正中的点，
+ * 右半边照镜子。脸颊外侧只有一团软软的绒毛（往外鼓一点点，不是尖的），下巴的两个角是圆的、底边几乎是平的。
+ * 第一个点是耳朵外沿和脸的轮廓接上的地方（设定图里那儿有个小凹口）；头顶那一段藏在耳根和卷毛后面
+ */
+const HEAD_TOP = [0, -30.15];
+const HEAD_SIDE = [
+  [-22.8, -20.8], [-28, -17.7], [-31.4, -14.8], [-34.2, -12], [-36.4, -9.1], [-38.5, -6.2], [-40, -3.4],
+  [-41.3, -0.5], [-42.3, 2.4], [-43.1, 5.3], [-43.8, 7.8], // 往外鼓着下来，越往下越竖
+  [-45.1, 10.2], [-46, 12.4], [-46.1, 14.2], [-45.4, 15.7], // 脸颊外侧一团软软的绒毛
+  [-44.4, 17.1], [-43.9, 19], [-43.1, 21.1], [-41.6, 22.9], [-38.8, 24.5], [-35.8, 26.2], // 圆圆地拐到下巴
+  [-32, 27.9], [-28.2, 29.1], [-24.4, 29.8], [-18.5, 30.3], [-12.9, 30.6], [-6.4, 30.75], [0, 30.8], // 平平的下巴
+];
+// 左耳根 → 下巴 → 右耳根，一整圈（不含头顶）
+const HEAD_RIM = [...HEAD_SIDE, ...HEAD_SIDE.slice(0, -1).reverse().map(([x, y]) => [-x, y])];
+const DOME_IN = [-17, -26.2]; // 头顶那一段（藏着）往耳根走的方向：让耳根这儿的轮廓顺着头顶接下来
+
 function headPath(ctx, rx, ry) {
   ctx.save();
-  ctx.scale(rx / 46, ry / 29.5);
+  ctx.scale(rx / 46, ry / 30.4);
   ctx.beginPath();
-  ctx.moveTo(...HEAD_START);
-  headForward(ctx, 0);
-  headBackward(ctx, 0);
+  ctx.moveTo(...HEAD_TOP);
+  ctx.bezierCurveTo(-8, -30.15, -15.5, -27.5, ...HEAD_RIM[0]);
+  smoothThrough(ctx, HEAD_RIM, DOME_IN, [-DOME_IN[0], DOME_IN[1]]);
+  ctx.bezierCurveTo(15.5, -27.5, 8, -30.15, ...HEAD_TOP);
   ctx.closePath();
   ctx.restore();
 }
 /** 头的轮廓线只描两边和下巴：头顶那一段在耳根后面，设定图里耳朵和头是连成一片的，中间没有线 */
 function headOutline(ctx, rx, ry) {
   ctx.save();
-  ctx.scale(rx / 46, ry / 29.5);
+  ctx.scale(rx / 46, ry / 30.4);
   ctx.beginPath();
-  ctx.moveTo(...HEAD_ENDS[1]);
-  headForward(ctx, 1);
-  headBackward(ctx, 1);
+  ctx.moveTo(...HEAD_RIM[0]);
+  smoothThrough(ctx, HEAD_RIM, DOME_IN, [-DOME_IN[0], DOME_IN[1]]);
   ctx.restore();
 }
 
 /**
- * 左耳的形状（头的坐标，照设定图描的；右耳左右翻过来画）：外沿往外鼓得很圆，最宽处差不多到头宽的九成，
- * 里沿几乎是直的；外沿的下端正好接到脸的轮廓上（22.2, -20.1）。耳根往头里多铺一块（头后画，平时看不见；
- * 耳朵抖、耷拉时补在缝里）
+ * 左耳的形状（头的坐标，也是在原图上描的；右耳左右翻过来画）：从耳根外侧（和脸的轮廓接上）往上，
+ * 外沿往外鼓得很圆，绕过圆圆的耳尖，里沿几乎是直的，一直往下藏到卷毛和头后面。
+ * 最后两个点是耳根往头里多铺的一块（头后画，平时看不见；耳朵抖、耷拉时补在缝里）
  */
-const EAR_PIVOT = [-13.5, -18]; // 抖耳朵、耷拉都绕着耳根中间转
+const EAR_PIVOT = [-13.5, -22]; // 抖耳朵、耷拉都绕着耳根中间转
+const EAR_RIM = [
+  [-22.8, -20.8], [-26.5, -22.7], [-30, -25.2], [-32.8, -27.9], [-35, -30.8], [-36.6, -33.7], [-37.6, -36.7],
+  [-38.3, -39.6], [-38.8, -42.6], [-38.6, -45.6], [-38.1, -48.7], [-37, -51.8], [-35.3, -54.8], [-32.9, -57.5],
+  [-29.9, -59.6], [-26.3, -60.7], [-22.4, -60.8], [-18.7, -59.9], [-15.3, -58.3], [-12.4, -55.9], [-10.1, -52.9],
+  [-8.2, -49.8], [-6.6, -46.4], [-6, -43], [-5.6, -39.6], [-5, -35.5], [-4.6, -31.5], [-4.4, -27],
+];
 function earPath(ctx) {
   ctx.beginPath();
-  ctx.moveTo(-22.2, -20.1);
-  ctx.bezierCurveTo(-30, -27, -40.5, -33, -39.8, -44); // 外沿往外鼓
-  ctx.bezierCurveTo(-39, -55, -31, -61.5, -23, -61.2); // → 圆圆的耳尖
-  ctx.bezierCurveTo(-15, -61, -8, -55, -6, -47); // → 里沿
-  ctx.bezierCurveTo(-4.5, -40, -4.5, -30, -4.5, -22); // 里沿往下，藏到卷毛和头后面
+  ctx.moveTo(...EAR_RIM[0]);
+  smoothThrough(ctx, EAR_RIM, [-20, -19.6], [-4.4, -22]);
   ctx.lineTo(-6, -8);
   ctx.lineTo(-21, -8);
   ctx.closePath();
@@ -135,7 +138,7 @@ function drawEar(ctx, side, P, lx) {
   ctx.save();
   earPath(ctx);
   ctx.clip();
-  ctx.translate(-19.6, -37.5);
+  ctx.translate(-20, -37.3);
   ctx.rotate(-0.17);
   const pink = ctx.createRadialGradient(0, 0, 1, 0, 0, 14);
   pink.addColorStop(0, 'rgba(245, 160, 152, 0.95)');
@@ -254,7 +257,8 @@ function fluffBall(ctx, puffs, fill) {
 function drawFaceExtras(ctx, lx) {
   ctx.save();
   ctx.translate(lx * 3 - 0.5, -22.5);
-  fluffBall(ctx,[[-5.6, 1.8, 3.7], [-2.2, -2.6, 4.4], [2.8, -3.4, 4.1], [6.2, 0.6, 3.3], [3.6, 4.2, 3.3], [-1.8, 4.6, 3.6], [0.4, 0.4, 4.4]], creamFill(ctx, 0, 0, 10));
+  ctx.scale(1.15, 1.15); // 原图里这撮毛差不多 19 × 17（头的坐标）
+  fluffBall(ctx, [[-5.6, 1.8, 3.7], [-2.2, -2.6, 4.4], [2.8, -3.4, 4.1], [6.2, 0.6, 3.3], [3.6, 4.2, 3.3], [-1.8, 4.6, 3.6], [0.4, 0.4, 4.4]], creamFill(ctx, 0, 0, 10));
   ctx.strokeStyle = 'rgba(190, 150, 120, 0.5)'; // 卷毛的纹路
   ctx.lineWidth = 0.8;
   ctx.beginPath();
@@ -272,7 +276,7 @@ function drawFaceExtras(ctx, lx) {
  */
 function drawHeadAccessory(ctx, P, lx) {
   ctx.save();
-  ctx.translate(29 + lx * 3, -19);
+  ctx.translate(30 + lx * 3, -20);
   ctx.rotate(0.62); // 设定图里蝴蝶结斜着：一个圈朝左上、一个圈朝右下
   ctx.save();
   ctx.scale(1.8, 1.8);
@@ -505,12 +509,13 @@ function drawTail(ctx, P, g) {
 
 export const bunny = {
   id: 'bunny', palette,
-  head: { rx: 46, ry: 29.5 }, headPath, headOutline, headFill, torsoFill, drawFoot, drawArmShape,
+  head: { rx: 46, ry: 30.4 }, headPath, headOutline, headFill, torsoFill, drawFoot, drawArmShape,
   earReach: 32, righting: 0.9, longEars: true,
   // 坐下时两只手往里搭在肚子上（画在头后面），两只大脚掌朝前
   build: { torso: 1.12, arm: 1.08, armLen: 0.84, foot: 1.16, sitSpread: 2.4, frontLegs: false, restArm: -0.7, foldInset: 6, restInFront: false, sitBodyWidth: 1.2, bodyHitWidth: 1.05 },
   // 豆豆眼竖着、不大；嘴就在两眼中间、和眼睛下沿一样高（设定图里没有画鼻子）；腮红在眼睛外下方
-  face: { eyeX: 15.1, eyeY: 4.4, eyeRx: 3.3, eyeRy: 4.75, shine: false, noseY: 5, mouthDy: 0.2, mouthW: 5.8, blushX: 25, blushY: 11.6 },
+  // （都是在原图上量的：两只眼睛的中心和大小、嘴的上沿和张开时的下沿、腮红的中心）
+  face: { eyeX: 15.4, eyeY: 3.6, eyeRx: 3.4, eyeRy: 4.55, shine: false, noseY: 3.3, mouthDy: 0, mouthW: 6, blushX: 25, blushY: 10.9 },
   paw: { lines: 0, sitHeight: 4, sitLift: 3 },
   drawEar, drawEyeBack: null, drawHeadMarkings: () => {}, drawTorsoMarkings: () => {},
   drawNose: null, drawFaceExtras, drawHeadAccessory, drawHeadFront, drawCollar, drawTail,

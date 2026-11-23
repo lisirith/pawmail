@@ -104,7 +104,7 @@ const REFERENCE = {
   ],
   bunny: [
     // 左边的大图：坐着、张嘴笑
-    { src: BUNNY_SHEET, head: [293.5, 272.5], rx: 193.5, pose: { crouch: 1, headTilt: -0.04, mouth: 'smile', mouthOpen: 0.8, blush: 1 } },
+    { src: BUNNY_SHEET, head: [293.75, 276], rx: 192.25, pose: { crouch: 1, headTilt: -0.07, lookX: 0.2, mouth: 'smile', mouthOpen: 0.85, blush: 1 } },
     // 最下面一排第一个：正面站着
     { src: BUNNY_SHEET, head: [110.5, 765], rx: 52.5, pose: {} },
   ],
