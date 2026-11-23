@@ -9,7 +9,7 @@
 import { TAU, clamp } from '../util/math.js';
 import { drawLookHead, drawLookNeck, drawHeldItem, drawLookCover } from './looks.js';
 import { resolveOutfit } from './outfits.js';
-import { drawOrange, drawSnack, drawBoxBack, drawBoxFront, drawTubBack, drawTubFront, drawBird, drawBall, drawReminderSign, BOX, TUB } from './props.js';
+import { drawOrange, drawSnack, drawBoxBack, drawBoxFront, drawTubBack, drawTubFront, drawBird, drawBall, drawReminderSign, drawPillow, BOX, TUB } from './props.js';
 
 export const RIG = Object.freeze({
   // 宠物所在的小画布的大小，以及"脚底中心"在这块画布里的位置
@@ -858,8 +858,9 @@ export function drawPet(ctx, sp, P, opts = {}) {
   const hold = holdAmount(P);
   const heldVis = hold * clamp((0.65 - g.loaf) / 0.3, 0, 1);
   const snack = carryLift < 0 && sp.snack ? clamp(P.snack || 0, 0, 1) : 0;
-  if (snack > 0.02) {
-    // 招牌动作"抱着零食啃"：零食比衣柜里拿着的东西优先（那些先收起来）。零食本身画在下巴前面，见下面
+  const pillow = carryLift < 0 ? clamp(P.pillow || 0, 0, 1) : 0;
+  if (snack > 0.02 || pillow > 0.02) {
+    // 招牌动作"抱着零食啃"、深夜抱着小枕头：比衣柜里拿着的东西优先（那些先收起来）。画在下巴前面，见下面
   } else if (carryLift >= 0 && carryLift < 0.5) {
     // 信抱在胸前（在头的后面）。趴着睡觉时信放在身边的地上；正往上举的时候（showMail）也一直看得见
     const vis = g.loaf > 0.5 ? 1 : Math.max(hold, clamp(carryLift / 0.12, 0, 1));
@@ -886,6 +887,11 @@ export function drawPet(ctx, sp, P, opts = {}) {
     ctx.save();
     ctx.translate(g.torsoCx, g.torsoCy + 1);
     withHold(ctx, heldVis * snack, () => drawSnack(ctx, sp.snack, P.bite, time));
+    ctx.restore();
+  } else if (pillow > 0.02) {
+    ctx.save();
+    ctx.translate(g.torsoCx, g.torsoCy + 4);
+    withHold(ctx, heldVis * pillow, () => drawPillow(ctx));
     ctx.restore();
   }
 

@@ -70,6 +70,7 @@ export const POSE_DEFAULTS = Object.freeze({
   tailWrap: 0, // 0 … 1 大尾巴绕到身子前面抱着（小熊猫抱着尾巴睡），只有画了这种尾巴的动物才有
   drape: 0, // 0 … 1 趴在窗口边上，手脚从边上垂下去（小熊猫在树枝上就是这样睡的）
   sign: 0, // 0 … 1 把提醒的小牌子举过头顶（待办到点了，见 activities.js 的 remind）
+  pillow: 0, // 0 … 1 抱着小枕头（深夜催你睡觉，见 activities.js 的 bedtime）
 });
 
 // 表情不是数字，直接切换
@@ -122,6 +123,7 @@ export const HALF_LIFE = Object.freeze({
   tailWrap: 0.25,
   drape: 0.2,
   sign: 0.07,
+  pillow: 0.08,
 });
 
 export const POSE_KEYS = Object.freeze(Object.keys(POSE_DEFAULTS));
@@ -175,6 +177,7 @@ const POSE_PIXELS = Object.freeze({
   tailWrap: 60,
   drape: 20,
   sign: 35,
+  pillow: 25,
 });
 
 /** 两个姿势在画面上最多差了多少像素（按宠物原始大小算） */

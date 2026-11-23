@@ -75,6 +75,11 @@
     "remind": ["Reminder: {text}", "It's time: {text}", "Don't forget: {text}"],
     "remindOk": ["Okay~ you got this!", "Got it, off you go!"],
     "todoDone": ["Done! Great job!", "One more down!", "Nice work~"],
+    "bedtime": ["It's {time}… time for bed~", "It's already {time}. Get some sleep?", "It's really late. Your eyes need a rest", "It can wait till tomorrow. Bedtime~"],
+    "bedtimeLast": ["I'm going to sleep first… you too, okay? Good night~"],
+    "batteryLow": ["Battery's getting low… plug me in?~", "The battery's running out, and so am I…"],
+    "batteryCritical": ["Almost out of battery!! Plug in, quick!", "Only a tiny bit of battery left!"],
+    "charged": ["Charging! I feel much better~", "Power's back!"],
     "feed": {
       "yum": ["Yum!", "Nom nom… *burp*", "Thanks for the snack!", "Another one!"],
       "first": "Yum! It's actually in your Recycle Bin. Changed your mind? Get it back from there~",

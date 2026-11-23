@@ -190,6 +190,20 @@ async function main() {
   const say = (key, seconds, params) => bubble.say(fill(i18n.line(key, pet.sp.id), params), seconds);
   const brain = new Brain({ pet, world, say, saved: init.pet, stat: (kind) => bridge.stat(kind), onAck: (id) => bridge.todoAck(id) });
 
+  // 笔记本的电量（浏览器自带的电池接口，只在本机看，不联网，也不记录）：快没电时它也蔫了，插上电又精神了。
+  // 台式机没有电池，接口会说"插着电、满格"，什么都不会发生
+  if (navigator.getBattery) {
+    navigator
+      .getBattery()
+      .then((battery) => {
+        const report = () => brain.onBattery({ level: battery.level, charging: battery.charging });
+        report();
+        battery.addEventListener('levelchange', report);
+        battery.addEventListener('chargingchange', report);
+      })
+      .catch(() => {});
+  }
+
   // 待办（见 src/main/todos.js）：到点了它举牌子提醒你；你在信纸窗口里勾掉一件，它替你高兴
   bridge.on('remind', (r) => brain.onRemind(r));
   bridge.on('todo-done', () => brain.onTodoDone());

@@ -81,6 +81,7 @@ async function inspectArt(poses, guideUrl) {
     ['trick-scratch', { crouch: 0.4, facing: -0.25, lean: 0.04, armL: 0.45, armR: 0.45, eyes: 'happy', mouth: 'smile', mouthOpen: 0.55 }],
     ['todo-sign', { armL: 2.15, armR: 2.15, sign: 1, lift: 7, eyes: 'wide', mouth: 'o' }], // 待办提醒：举着便签
     ['todo-sign-perch', { armL: 2.15, armR: 2.15, sign: 0.5 }],
+    ['bedtime-pillow', { crouch: 1, pillow: 1, armL: -0.75, armR: -0.75, mouth: 'yawn', mouthOpen: 1, eyes: 'sleep' }], // 深夜催睡：抱着小枕头
   ]) cases.push({ name, pose, opts: { birdDir: -1 } });
   // 衣柜里的衣服：每件单独穿，在站、坐、趴、走、举手、被拎起、扒墙歪着这些姿势下都画一遍；再加两套全身搭配
   const { OUTFITS } = await import('/src/renderer/js/pet/outfits.js');

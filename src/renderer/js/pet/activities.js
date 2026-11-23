@@ -1000,6 +1000,124 @@ export const ACTIVITIES = {
   }),
 
   /**
+   * 深夜催你睡觉（见 brain.js 的 #bedtime）：跑到你鼠标旁边，抱着小枕头打个大哈欠，
+   * 气泡里说"1:23 了……该睡觉啦～"（p.time），抱着枕头打一会儿瞌睡。
+   * p.last：今晚最后一次劝你了——劝完它自己先去睡
+   */
+  bedtime: (b, p) => ({
+    phase: 'go',
+    pt: 0,
+    said: false,
+    tx: undefined,
+    update(b, dt) {
+      const pet = b.pet;
+      const T = pet.target;
+      const w = b.world;
+      const S = w.scale;
+      const P = w.pointer;
+      this.pt += dt;
+      if (this.phase === 'go') {
+        // 离你远的话先走过来（慢悠悠的，困了嘛）；站在窗口上、鼠标不在屏幕上时就在原地
+        if (this.tx === undefined) {
+          const far = P.inside && !pet.perch && Math.abs(P.x - pet.x) > 220 * S;
+          const side = pet.x < P.x ? -1 : 1;
+          const [lo, hi] = pet.spanX(56, 24);
+          this.tx = far ? clamp(P.x + side * 110 * S, lo, hi) : null;
+        }
+        if (this.tx === null || locomote(b, this, dt, this.tx, GAITS.walk, 0.9) || this.pt > 8) {
+          this.phase = 'show';
+          this.pt = 0;
+        }
+        return false;
+      }
+      const DUR = 7;
+      const s = pet.style;
+      const k = clamp(this.pt / 0.4, 0, 1) * clamp((DUR - this.pt) / 0.5, 0, 1);
+      s.fps = this.pt < 3 ? 60 : 30;
+      s.gaze = this.pt < 3 ? 'cursor' : 'none';
+      s.breathPeriod = 4.4;
+      T.crouch = 1;
+      T.pillow = k;
+      T.armL = T.armR = -0.75 * k;
+      T.blush = 0.7;
+      T.earDroop = 0.35;
+      // 先打个大哈欠，再抱着枕头一点一点地打瞌睡
+      if (this.pt > 0.4 && this.pt < 2.2) {
+        const y = clamp((this.pt - 0.4) / 0.4, 0, 1) * clamp((2.2 - this.pt) / 0.4, 0, 1);
+        T.mouth = 'yawn';
+        T.mouthOpen = y;
+        if (y > 0.3) T.eyes = 'sleep';
+      } else {
+        T.eyeL = T.eyeR = 0.35;
+      }
+      if (this.pt > 3) {
+        const u = ((this.pt - 3) % 2.2) / 2.2;
+        T.headY += (u < 0.8 ? easeInOut(u / 0.8) : 1 - (u - 0.8) / 0.2) * 4;
+        T.eyes = 'sleep';
+      }
+      if (!this.said && this.pt > 0.6) {
+        this.said = true;
+        b.say(p.last ? 'bedtimeLast' : 'bedtime', 4.5, { time: p.time || '' });
+      }
+      if (this.pt < DUR) return false;
+      if (p.last) b.queue.unshift(['sleep', { forced: true, minDur: 300 }]); // 那我先睡啦
+      return true;
+    },
+  }),
+
+  /**
+   * 笔记本快没电了（见 brain.js 的 onBattery）：头顶冒出一个红红的电池，坐下来、耳朵耷拉着，
+   * 说一句"电量不多了，插上电源吧"。p.critical：电量 10% 以下，急一点
+   */
+  lowBattery: (b, p) => ({
+    update(b, dt, t) {
+      const pet = b.pet;
+      const T = pet.target;
+      const s = pet.style;
+      if (!this.started) {
+        this.started = true;
+        // 电池冒在耳朵旁边（正上方是说话的气泡，会挡住它）
+        pet.fx.spawn('battery', { x: 44, y: pet.headTop() + 14, vy: -3, life: 3.4, level: p.level ?? 0.15 });
+        if (p.critical) pet.fx.spawn('bang', { x: -34, y: pet.headTop() + 6, life: 0.8 });
+        b.say(p.critical ? 'batteryCritical' : 'batteryLow', 3.4);
+      }
+      s.fps = 30;
+      s.gaze = 'cursor';
+      s.tailAmp = 0.1;
+      T.crouch = 1;
+      T.earDroop = 0.6;
+      T.eyeL = T.eyeR = 0.45;
+      T.mouth = 'wavy';
+      T.headY += 2;
+      T.lean += Math.sin(t * 2) * 0.01;
+      return t >= 3.6;
+    },
+  }),
+
+  /** 插上电源了（之前抱怨过没电）：一下子精神了，蹦一下 */
+  charged: () => ({
+    update(b, dt, t) {
+      const pet = b.pet;
+      const T = pet.target;
+      pet.style.fps = 60;
+      pet.style.gaze = 'none';
+      if (!this.started) {
+        this.started = true;
+        sparks(pet, 5);
+        b.say('charged', 2.4);
+      }
+      const u = clamp(t / 0.45, 0, 1);
+      T.lift = bell(u) * 20;
+      T.armL = T.armR = 0.4 + bell(u) * 1.3;
+      T.eyes = 'happy';
+      T.mouth = 'smile';
+      T.mouthOpen = 0.6;
+      T.earDroop = -0.2;
+      return t >= 1.1;
+    },
+  }),
+
+  /**
    * 过节那天第一次见到你：打个节日招呼。
    * style：bow 作揖拜年 | cheer 欢呼蹦跳 | gaze 坐下抬头看月亮（星星） | boo 吓你一下（万圣节）
    */

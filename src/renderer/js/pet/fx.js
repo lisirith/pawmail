@@ -3,7 +3,7 @@
 
 import { TAU, clamp, easeOutBack } from '../util/math.js';
 import { drawFood } from './food.js';
-import { drawOrange, drawCoin, drawYarn } from './props.js';
+import { drawOrange, drawCoin, drawYarn, drawLowBattery } from './props.js';
 
 const MAX_ITEMS = 48;
 const FONT = '"Segoe UI", "Microsoft YaHei UI", sans-serif';
@@ -213,6 +213,13 @@ const DRAW = {
     ctx.translate(it.x, it.y);
     ctx.rotate(it.rot);
     drawYarn(ctx, 8 * it.size);
+  },
+  /** 笔记本快没电了：头顶冒出一个红红的电池，一闪一闪 */
+  battery(ctx, it, u, pop) {
+    ctx.translate(it.x, it.y);
+    ctx.scale(pop, pop);
+    ctx.globalAlpha *= 0.55 + 0.45 * Math.abs(Math.cos(it.age * 5));
+    drawLowBattery(ctx, it.level ?? 0.15);
   },
   /** "啵"的一下：一圈小泡泡散开（纸箱、木盆收起来的时候） */
   puff(ctx, it, u) {

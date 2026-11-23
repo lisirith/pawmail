@@ -96,6 +96,11 @@ export class Brain {
     this.rushArmed = true; // 鼠标离开远一点以后才算"新的一次冲过来"
     this.lastRushBluff = -Infinity;
     this.lastTrick = null; // 上次"来一个！"表演的是哪个（下次尽量换一个）
+    this.bedtimeCheck = 5; // 深夜催睡：过多久再看一次几点了
+    this.bedtimeCount = 0; // 今晚已经劝过几次了（一晚最多 3 次）
+    this.lastBedtime = -Infinity; // 上次劝是什么时候（world.time）
+    this.lowPower = false; // 笔记本快没电了（20% 以下、没插电）：精神差一点
+    this.batteryWarned = 0; // 这次没电已经说过几回：0 没说 | 1 说过"不多了" | 2 说过"快没了"
 
     if (saved) this.restore(saved);
     pet.onLand = (impact, dizzy, leapt) => this.onLand(impact, dizzy, leapt);
@@ -179,6 +184,7 @@ export class Brain {
   update(dt) {
     this.#needs(dt);
     this.#senses(dt);
+    this.#bedtime(dt);
     if (!this.current) this.start(...this.#next());
     this.t += dt;
     let done = false;
@@ -212,6 +218,7 @@ export class Brain {
       let drain = 1 / 9000; // 白天大约能精神 1~1.5 小时
       drain *= 1 + night * 1.5; // 深夜困得快：大约半小时就想睡
       if (ENERGETIC.has(name)) drain *= 3;
+      if (this.lowPower) drain *= 1.4; // 笔记本快没电了：它也没什么精神
       n.energy -= dt * drain;
     }
     if (name === 'idle' || name === 'sit' || name === 'lookAround' || name === 'orangeNap') n.boredom += dt / 300;
@@ -230,7 +237,7 @@ export class Brain {
 
     // 眼皮有多重：精力低时下垂；深夜即使精力还行，也会带一点困意
     const awake = name !== 'sleep' && !NAPPING.has(name) && name !== 'wake';
-    this.pet.sleepy = awake ? clamp(Math.max((0.3 - n.energy) / 0.3, night * 0.3), 0, 1) : 0;
+    this.pet.sleepy = awake ? clamp(Math.max((0.3 - n.energy) / 0.3, night * 0.3, this.lowPower ? 0.3 : 0), 0, 1) : 0;
   }
 
   /** 感知周围：鼠标在干嘛？你在摸它吗？你还在电脑前吗？ */
@@ -457,6 +464,15 @@ export class Brain {
       s.peekDown = 0.6;
       s.jumpDown = (0.03 + up / 240 + 0.35 * bo) * (this.userAway ? 0.2 : 1);
     }
+    if (this.lowPower) {
+      // 笔记本快没电了：不怎么跑跳，多坐会儿、多打盹
+      s.run *= 0.3;
+      s.chase *= 0.4;
+      s.hop *= 0.4;
+      s.climb *= 0.3;
+      s.nap *= 1.5;
+      s.sit *= 1.2;
+    }
     // 各自的喜好（动物文件里的 likes：某个动作的分数乘多少）。比如柴犬不太黏人、爱自己溜达，
     // 小熊猫爱爬高、在窗口上待得久（jumpDown 小一点）。放在"站在窗口上"那段后面，那里会重新算 jumpDown
     const likes = this.pet.sp.likes;
@@ -592,6 +608,60 @@ export class Brain {
     this.start('hop', { count: 1 });
     this.say('remindOk', 2.4);
     return true;
+  }
+
+  /**
+   * 深夜催你睡觉：凌晨 0:30 到 5:00 之间你还在用电脑，它隔一会儿就抱着小枕头跑来劝你睡觉。
+   * 一晚最多 3 次、每次至少隔 25 分钟；第 3 次劝完它自己先去睡了。早上 8 点以后次数清零。
+   * 只在它闲着的时候来（发呆、坐着、走路……），刚开程序的头一分半钟不来
+   */
+  #bedtime(dt) {
+    this.bedtimeCheck -= dt;
+    if (this.bedtimeCheck > 0) return;
+    this.bedtimeCheck = 5;
+    const d = this.clock();
+    const m = d.getHours() * 60 + d.getMinutes();
+    if (!(m >= 30 && m < 5 * 60)) {
+      if (m >= 8 * 60) this.bedtimeCount = 0;
+      return;
+    }
+    if (this.userAway || this.bedtimeCount >= 3 || this.world.time < 90) return;
+    if (this.world.time - this.lastBedtime < 25 * 60) return;
+    if (this.pet.mode !== 'ground' || !INTERRUPTIBLE.has(this.name) || this.queue.length) return;
+    this.bedtimeCount += 1;
+    this.lastBedtime = this.world.time;
+    const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    this.start('bedtime', { time, last: this.bedtimeCount >= 3 });
+  }
+
+  /**
+   * 笔记本的电量变了（app.js 用浏览器自带的电池接口看的，不联网；台式机永远是"插着电、满格"，什么都不会发生）。
+   * 没插电、20% 以下：说一次"电量不多了"，之后精神差一点；10% 以下再急一点地说一次；插上电以后蹦一下
+   */
+  onBattery({ level, charging } = {}) {
+    if (!Number.isFinite(level)) return;
+    this.lowPower = !charging && level <= 0.2;
+    if (charging) {
+      if (this.batteryWarned) {
+        this.batteryWarned = 0;
+        this.#soon('charged');
+      }
+      return;
+    }
+    const stage = level <= 0.1 ? 2 : level <= 0.2 ? 1 : 0;
+    if (stage > this.batteryWarned) {
+      this.batteryWarned = stage;
+      this.#soon('lowBattery', { critical: stage === 2, level });
+    }
+  }
+
+  /** 在地上、没在忙要紧的事（被拎着、正吃东西、睡觉……）就马上做，不然先排队 */
+  #soon(name, params = {}) {
+    if (this.pet.mode !== 'ground' || REACTIVE.has(this.name) || this.name === 'sleep') {
+      this.queue.push([name, params]);
+      return;
+    }
+    this.start(name, params);
   }
 
   /** 你在信纸窗口里勾掉了一件待办：替你高兴一下（睡着了就先醒） */

@@ -756,6 +756,67 @@ export function drawReminderSign(ctx) {
   ctx.restore();
 }
 
+/** 小枕头（深夜催你睡觉时抱在怀里）：淡蓝色，四个角鼓鼓的，上面几颗小星星。原点在枕头中间 */
+export function drawPillow(ctx) {
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  const pillow = () => {
+    ctx.beginPath();
+    ctx.moveTo(-20, -11);
+    ctx.quadraticCurveTo(0, -15, 20, -11);
+    ctx.quadraticCurveTo(24, 0, 20, 11);
+    ctx.quadraticCurveTo(0, 15, -20, 11);
+    ctx.quadraticCurveTo(-24, 0, -20, -11);
+    ctx.closePath();
+  };
+  pillow();
+  const grad = ctx.createLinearGradient(0, -13, 0, 13);
+  grad.addColorStop(0, '#eef6ff');
+  grad.addColorStop(1, '#c8dcf5');
+  fillStroke(ctx, grad, 1.4);
+  ctx.save();
+  pillow();
+  ctx.clip();
+  ctx.fillStyle = '#ffe58a'; // 小星星
+  for (const [x, y, r] of [[-9, -3, 2.6], [6, 4, 2.2], [12, -5, 1.7], [-3, 6, 1.6]]) {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * TAU - Math.PI / 2;
+      const rr = i % 2 === 0 ? r : r * 0.45;
+      if (i === 0) ctx.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+      else ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(122, 74, 44, 0.35)'; // 中间那道缝
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-16, 0.5);
+  ctx.quadraticCurveTo(0, 2.5, 16, 0.5);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 快没电的电池（笔记本电量低时冒在头顶）：红色的一小截电，旁边一个感叹号。原点在电池中间 */
+export function drawLowBattery(ctx, level = 0.15) {
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.roundRect(-12, -7, 22, 14, 3);
+  fillStroke(ctx, '#ffffff', 1.6);
+  ctx.beginPath();
+  ctx.roundRect(10.5, -3, 3.2, 6, 1.2);
+  fillStroke(ctx, '#ffffff', 1.3);
+  ctx.beginPath();
+  ctx.roundRect(-9.5, -4.5, Math.max(2.5, 17 * clamp(level, 0, 1)), 9, 1.5);
+  ctx.fillStyle = '#ff5a4d';
+  ctx.fill();
+  ctx.restore();
+}
+
 /** 铜钱（招财猫招手时冒出来）：原点在中间，r 半径 */
 export function drawCoin(ctx, r = 6) {
   ctx.save();
