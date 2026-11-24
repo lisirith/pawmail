@@ -348,7 +348,8 @@ function drawCollar(ctx, P, g, look) {
   if (look?.neck) return;
   const chinY = g.headCy + Math.cos(P.headTilt) * g.head.ry;
   const x = g.torsoCx + g.facing * 2.4 - Math.sin(P.headTilt) * 20;
-  const y = Math.max(chinY + 0.5, g.torsoCy - g.torsoRy * 0.9);
+  // 设定图里项圈在下巴下面一点、蝴蝶结和铃铛整个露在胸前（太靠上会被大脑袋挡住一半）
+  const y = Math.max(chinY + 3.2, g.torsoCy - g.torsoRy * 0.9);
   const w = g.torsoRxBot * 1.4;
   ctx.save();
   ctx.translate(x, y);
@@ -410,6 +411,26 @@ function drawCollar(ctx, P, g, look) {
   ctx.strokeStyle = INK;
   ctx.lineWidth = 1;
   ctx.stroke();
+  ctx.restore();
+}
+
+/** 肚子：前面一大块更白、更软的毛（设定图的正面站姿里看得出来），边上淡淡化开 */
+function drawTorsoMarkings(ctx, P, g) {
+  const x = g.torsoCx + g.facing * 2;
+  const y = g.torsoCy + g.torsoRy * 0.22;
+  const rx = g.torsoRxBot * 0.58;
+  const ry = g.torsoRy * 0.66;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(1, ry / rx);
+  const belly = ctx.createRadialGradient(0, 0, rx * 0.15, 0, 0, rx);
+  belly.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+  belly.addColorStop(0.65, 'rgba(255, 253, 250, 0.55)');
+  belly.addColorStop(1, 'rgba(255, 253, 250, 0)');
+  ctx.fillStyle = belly;
+  ctx.beginPath();
+  ctx.arc(0, 0, rx, 0, TAU);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -496,7 +517,8 @@ function drawTail(ctx, P, g) {
   const curl = clamp(P.tailCurl + g.sit * 0.2, 0, 1);
   const hang = clamp(P.tailHang || 0, 0, 1);
   const r = 8.8;
-  const x = s * (g.torsoRxBot * (0.72 + 0.28 * k) + 2) + P.tail * 2.5;
+  // 站着从正面几乎看不见尾巴（设定图的正面站姿就看不见），只露出一点点绒毛；坐下时搁在身子旁边，露出一大团
+  const x = s * (g.torsoRxBot * (0.42 + 0.28 * k + 0.28 * g.sit * (1 - g.loaf)) + 2) + P.tail * 2.5;
   let y = g.tailBaseY + 2 - curl * 4 + hang * 7;
   y = Math.min(y, P.lift - r - 0.5); // 别钻到地面下面去
   const puffs = [[x, y, r * 0.72]];
@@ -512,12 +534,12 @@ export const bunny = {
   head: { rx: 46, ry: 30.4 }, headPath, headOutline, headFill, torsoFill, drawFoot, drawArmShape,
   earReach: 32, righting: 0.9, longEars: true,
   // 坐下时两只手往里搭在肚子上（画在头后面），两只大脚掌朝前
-  build: { torso: 1.12, arm: 1.08, armLen: 0.84, foot: 1.16, sitSpread: 2.4, frontLegs: false, restArm: -0.7, foldInset: 6, restInFront: false, sitBodyWidth: 1.2, bodyHitWidth: 1.05 },
+  build: { torso: 1.12, arm: 1.08, armLen: 0.84, foot: 1.16, sitSpread: 2.4, frontLegs: false, restArm: -0.7, foldInset: 6, restInFront: false, restShorten: 0.45, sitBodyWidth: 1.2, bodyHitWidth: 1.05 },
   // 豆豆眼竖着、不大；嘴就在两眼中间、和眼睛下沿一样高（设定图里没有画鼻子）；腮红在眼睛外下方
   // （都是在原图上量的：两只眼睛的中心和大小、嘴的上沿和张开时的下沿、腮红的中心）
   face: { eyeX: 15.4, eyeY: 3.6, eyeRx: 3.4, eyeRy: 4.55, shine: false, noseY: 3.3, mouthDy: 0, mouthW: 6, blushX: 25, blushY: 10.9 },
   paw: { lines: 0, sitHeight: 4, sitLift: 3 },
-  drawEar, drawEyeBack: null, drawHeadMarkings: () => {}, drawTorsoMarkings: () => {},
+  drawEar, drawEyeBack: null, drawHeadMarkings: () => {}, drawTorsoMarkings,
   drawNose: null, drawFaceExtras, drawHeadAccessory, drawHeadFront, drawCollar, drawTail,
   gait: 'hop', // 走路是一蹦一蹦的（见 activities.js 的 locomote）
   // 性格：爱蹦、爱跳上窗口，不太爱追鼠标（见 brain.js 的 scores）

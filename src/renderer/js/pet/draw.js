@@ -209,7 +209,10 @@ function drawArm(ctx, sp, P, g, s, top = null, swap = null) {
   const rest = (b.restArm || 0) * g.sit * (1 - g.loaf) * hang * hang;
   const fold = g.sit * (1 - g.loaf) * clamp(-(a + rest), 0, 1) * clamp((a + 1.8) / 0.55, 0, 1);
   const legs = b.frontLegs ? g.sit * (1 - g.loaf) * hang : 0;
-  const len = 20 * (b.armLen || 1) * (1 - g.loaf * 0.75 * (1 - drape)) + legs * 7;
+  // 坐下歇着（手垂着或抱在胸前）时，手缩短一截收在胸前：build.restShorten 缩短多少（兔子：设定图里坐着几乎看不见手）。
+  // 袖子用的也是这个长度，所以穿着衣服时袖子跟着一起短
+  const tuck = (b.restShorten || 0) * g.sit * (1 - g.loaf) * Math.max(0, 1 - Math.max(0, Math.abs(a + 0.45) - 0.55) * 1.3);
+  const len = (20 * (b.armLen || 1) * (1 - g.loaf * 0.75 * (1 - drape)) + legs * 7) * (1 - tuck);
   const r = 6.3 * b.arm;
   const px = s * ((20.5 + g.loaf * 3 + g.sit * 1.5) * b.torso - legs * (b.frontLegInset ?? 9.5) - fold * (b.foldInset || 0) - drape * 4) + g.facing * 2.5;
   const py = g.torsoCy - g.torsoRy * 0.42 + drape * (g.torsoBottom - 5 - (g.torsoCy - g.torsoRy * 0.42));
