@@ -48,6 +48,10 @@ export class Pet {
     this.onSlip = null; // 脚下的窗口没了 / 被挡住了 / 被晃得站不住：通知大脑
 
     this.squashSpring = new Spring(260, 14); // 落地时"压扁再弹回"
+    // 长耳朵（兔子）跟着身子晃（见 #earBounce）：spread 两只一起往外摊 / 往里收，swing 两只一起往一边甩
+    this.earSpread = new Spring(70, 6.5);
+    this.earSwing = new Spring(70, 6.5);
+    this.earTrack = null; // 上一帧头在哪、多快（算加速度用）
     this.fx = new Fx();
     this.time = 0;
     this.seed = random() * 1000; // 每只宠物的小晃动节奏都不一样
@@ -87,6 +91,9 @@ export class Pet {
 
   setSpecies(species) {
     this.sp = species;
+    this.earTrack = null;
+    this.earSpread.set(0);
+    this.earSwing.set(0);
   }
 
   /** 换上（或脱下）节日装扮 */
@@ -179,7 +186,51 @@ export class Pet {
       else O.earR -= flick;
     }
 
+    if (this.sp.earSpring) this.#earBounce(dt, O);
+
     this.fx.update(dt);
+  }
+
+  /**
+   * 长耳朵（动物文件里 earSpring: true，兔子）跟着身子晃一晃、弹一下：两只耳朵当成挂在头上的软东西，
+   * 头一加速，耳朵就慢半拍地往反方向甩，再被"弹簧"拉回来，来回弹两下才停。
+   *   spread：两只一起往外摊（正数）/ 往里收（负数）。头往上加速（起跳、落地被地面刹住）时往外摊，
+   *           在空中往下落时收拢竖起来
+   *   swing：两只一起往一边歪（正数 = 顺时针、往右）。头往右加速（起步、被拖着跑）时往左甩；跑起来顺着风往后飘一点；
+   *          身子转（被拎着荡、扭身子）时慢半拍
+   * 加速度按这一帧和上一帧头的位置算：一下挪得太远（换活动范围、跟着窗口挪）就当作瞬移、不算；力也有上限，免得耳朵甩飞
+   */
+  #earBounce(dt, O) {
+    if (dt <= 0) return;
+    const S = this.world.scale || 1;
+    const hx = this.x / S;
+    const hy = this.y / S - O.lift; // y 往下是正数
+    const rot = this.rot + O.lean + O.roll + O.headTilt;
+    const tr = this.earTrack;
+    if (!tr || Math.abs(hx - tr.x) > 40 || Math.abs(hy - tr.y) > 40) {
+      this.earTrack = { x: hx, y: hy, r: rot, vx: 0, vy: 0, vr: 0 };
+      return;
+    }
+    const vx = (hx - tr.x) / dt;
+    const vy = (hy - tr.y) / dt;
+    const vr = (rot - tr.r) / dt;
+    const ax = (vx - tr.vx) / dt;
+    const ay = (vy - tr.vy) / dt;
+    const ar = (vr - tr.vr) / dt;
+    tr.x = hx;
+    tr.y = hy;
+    tr.r = rot;
+    tr.vx = vx;
+    tr.vy = vy;
+    tr.vr = vr;
+    // 往上加速 = ay 是负数 → 往外摊；往右加速、往右跑、顺时针转 → 往左（逆时针）甩
+    this.earSpread.kick(clamp(-ay * 0.036, -40, 40) * dt);
+    this.earSwing.kick(clamp(-ax * 0.012 - vx * 0.1 - ar * 0.55, -40, 40) * dt);
+    // 甩得再厉害也有个限度（不然开心扭跳落地、被拎着使劲晃的时候，耳朵会倒过头、扫到脸上）
+    const spread = clamp(this.earSpread.step(0, dt), -0.4, 0.55);
+    const swing = clamp(this.earSwing.step(0, dt), -0.5, 0.5);
+    O.earL += clamp(swing - spread, -0.6, 0.6);
+    O.earR += clamp(swing + spread, -0.6, 0.6);
   }
 
   /**
@@ -219,7 +270,9 @@ export class Pet {
       Math.abs(this.rot - this.style.tilt) > 0.01 ||
       Math.abs(this.vx) > 1 ||
       Math.abs(this.squashSpring.x) > 0.004 ||
-      Math.abs(this.squashSpring.v) > 0.05
+      Math.abs(this.squashSpring.v) > 0.05 ||
+      Math.abs(this.earSpread.v) > 0.05 || // 长耳朵还在弹
+      Math.abs(this.earSwing.v) > 0.05
     );
   }
 

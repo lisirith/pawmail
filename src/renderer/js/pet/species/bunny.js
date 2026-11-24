@@ -533,6 +533,7 @@ export const bunny = {
   id: 'bunny', palette,
   head: { rx: 46, ry: 30.4 }, headPath, headOutline, headFill, torsoFill, drawFoot, drawArmShape,
   earReach: 32, righting: 0.9, longEars: true,
+  earSpring: true, // 长耳朵跟着身子晃一晃、弹一下（见 pet.js 的 #earBounce）
   // 坐下时两只手往里搭在肚子上（画在头后面），两只大脚掌朝前
   build: { torso: 1.12, arm: 1.08, armLen: 0.84, foot: 1.16, sitSpread: 2.4, frontLegs: false, restArm: -0.7, foldInset: 6, restInFront: false, restShorten: 0.45, sitBodyWidth: 1.2, bodyHitWidth: 1.05 },
   // 豆豆眼竖着、不大；嘴就在两眼中间、和眼睛下沿一样高（设定图里没有画鼻子）；腮红在眼睛外下方

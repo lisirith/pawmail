@@ -1400,8 +1400,8 @@ export const TRICKS = {
           T.footRY = 4 * bell(u);
           T.armL = 1.05 + 0.4 * tw;
           T.armR = 1.05 - 0.4 * tw;
-          T.earL = -0.45 * tw;
-          T.earR = 0.45 * tw;
+          T.earL = -0.25 * tw; // 耳朵自己还会跟着跳和扭甩起来（pet.js 的 #earBounce），这里只给一点点
+          T.earR = 0.25 * tw;
           T.earDroop = 0.2;
           if (u >= 1) {
             pet.squashSpring.kick(1.6);
