@@ -14,13 +14,15 @@
 //   --x-feeddry           喂它吃文件时只演习：照常检查、照常演"吃"，但不真的放进回收站
 //   --x-allclothes        衣柜里的衣服全部解锁（不用等信）
 
-const { app, ipcMain, powerMonitor, screen, shell } = require('electron');
+const { app, ipcMain, nativeImage, powerMonitor, screen, shell } = require('electron');
+const fs = require('node:fs');
 const path = require('node:path');
 const { Store, LANGUAGES, isValidSetting, sanitizePet } = require('./store');
 const { Overlay } = require('./overlay');
 const { PetTray } = require('./tray');
 const { Mail } = require('./mail');
 const { Todos, TODO_ID } = require('./todos');
+const { TodoNotes, registerApp } = require('./todo-notify');
 const { Feeder, buildRules } = require('./feed');
 const { logicalDay, festivalToday } = require('./letters');
 const F = require('../shared/festivals/catalog');
@@ -28,6 +30,9 @@ const O = require('../shared/outfits/catalog');
 const native = require('./native');
 const { setupLog } = require('./log');
 const { LedgeWatch } = require('./ledges');
+
+// 程序在 Windows 里的 ID：开机启动项的名字、任务栏分组、通知都用它（和 electron-builder.yml 的 appId 一样）
+const APP_ID = 'app.pawmail.desktop';
 
 // 托盘菜单「帮助与反馈」里打开的网页。只是用浏览器打开，程序自己不联网
 const LINKS = {
@@ -60,6 +65,8 @@ let overlay = null;
 let tray = null;
 let mail = null;
 let todos = null; // 待办事项（见 todos.js）
+let notes = null; // 待办的 Windows 通知（见 todo-notify.js）
+let trayIcon = null; // 托盘图标（宠物的头，画面画好传过来的 PNG）：{ dataUrl, image }，通知上也用它
 let feeder = null; // 喂它吃文件（见 feed.js）
 let logFiles = null; // 日志文件在哪儿（见 log.js）
 let ledgeWatch = null; // 看着屏幕上的窗口：宠物可以站到窗口顶上（见 ledges.js）
@@ -127,9 +134,11 @@ function setSetting(key, value) {
   if (key === 'autoStart') applyAutoStart(value);
   if (key === 'hideOnFullscreen' && !value) showAfterFullscreen(); // 关掉"全屏时躲起来"：正躲着的话马上出来
   if ((key === 'windowPerch' || key === 'displayMode') && ledgeWatch) ledgeWatch.refresh(); // 能不能站到窗口上变了
+  if (key === 'todoNotify' && !value && notes) notes.closeAll(); // 关掉待办通知：还挂着的也收起来
+  if (key === 'language') registerNotifyApp(); // 通知左上角的程序名跟着语言走
   overlay.send('settings', effectiveSettings());
   if (tray) tray.refresh();
-  if (mail && ['language', 'species', 'catCoat', 'petName', 'birthday', 'cultures', 'profileAsked', 'outfit'].includes(key)) mail.refresh();
+  if (mail && ['language', 'species', 'catCoat', 'petName', 'birthday', 'cultures', 'profileAsked', 'outfit', 'todoNotify'].includes(key)) mail.refresh();
   if (['language', 'birthday', 'cultures'].includes(key)) refreshFestival();
   return true;
 }
@@ -163,11 +172,56 @@ function refreshFestival() {
   overlay.send('festival', today);
 }
 
+// ---------------------------------------------------------------- 待办的提醒（见 todos.js、todo-notify.js）
+
+/** 还有多久，写成人话：15 分钟 / 1 小时 / 1 小时 30 分钟 / 1 天 */
+function leftText(ms) {
+  const min = Math.max(1, Math.ceil(ms / 60000));
+  if (min < 60) return t('notify.min', { n: min });
+  if (min < 24 * 60) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m ? t('notify.hourMin', { h, m }) : t('notify.hour', { n: h });
+  }
+  return t('notify.day', { n: Math.round(min / (24 * 60)) });
+}
+
+/** 通知上的字：一件事的话，标题就是那件事；几件同时到点，标题写"3 件待办到点了"、下面列出来 */
+function noteTexts(kind, list) {
+  const name = store.data.settings.petName;
+  const done = t('notify.done');
+  if (list.length > 1) {
+    const all = list.map((todo) => todo.text).join(t('notify.join'));
+    return { title: t(kind === 'due' ? 'notify.many' : 'notify.manySoon', { n: list.length }), body: all.length > 120 ? `${all.slice(0, 119)}…` : all, done };
+  }
+  const todo = list[0];
+  const key = kind === 'due' ? 'notify.due' : 'notify.soon';
+  return { title: todo.text, body: t(name ? `${key}From` : key, { name, left: leftText(todo.due - nowMs()) }), done };
+}
+
+/** 通知的左上角写着程序名、带个小图标：告诉 Windows 我们叫什么（见 todo-notify.js 开头）。测试存档不碰注册表 */
+function registerNotifyApp() {
+  if (TEST_PROFILE) return;
+  registerApp({ appId: APP_ID, name: t('appName'), iconFile: path.join(app.getPath('userData'), 'notify-icon.png'), log: (m) => console.log(m) });
+}
+
+/** 画面画好了新的托盘图标（宠物的头）：通知上也用它；存一份 PNG 给 Windows 当通知左上角的小图标 */
+function setTrayIcon(dataUrl) {
+  if (trayIcon && trayIcon.dataUrl === dataUrl) return;
+  const image = nativeImage.createFromDataURL(dataUrl);
+  if (image.isEmpty()) return;
+  trayIcon = { dataUrl, image };
+  if (tray) tray.setIcon(image);
+  if (TEST_PROFILE) return;
+  fs.promises.writeFile(path.join(app.getPath('userData'), 'notify-icon.png'), image.toPNG()).catch((err) => console.log(`[待办] 存通知图标失败：${err.message}`));
+}
+
 // ---------------------------------------------------------------- 退出
 
 function quit() {
   if (quitting) return;
   quitting = true;
+  if (notes) notes.closeAll(); // 程序退出以后，留在通知中心里的待办通知点了也没反应，先收起来
   overlay.send('save-now'); // 让画面把宠物最后的状态交上来
   setTimeout(() => {
     store.saveNow();
@@ -366,9 +420,9 @@ function registerIpc() {
   });
 
   ipcMain.on('pawmail:tray-icon', (event, dataUrl) => {
-    if (!fromOverlay(event) || !tray) return;
+    if (!fromOverlay(event)) return;
     if (typeof dataUrl === 'string' && dataUrl.startsWith('data:image/png;base64,') && dataUrl.length < 300000) {
-      tray.setIcon(dataUrl);
+      setTrayIcon(dataUrl);
     }
   });
 
@@ -434,12 +488,28 @@ function registerIpc() {
 // ---------------------------------------------------------------- 启动
 
 function start() {
-  app.setAppUserModelId('app.pawmail.desktop');
+  app.setAppUserModelId(APP_ID);
 
   store = new Store(path.join(app.getPath('userData'), 'save.json'));
   store.load();
+  registerNotifyApp();
 
-  // 待办事项：到点了让宠物提醒你；勾掉一件，宠物替你高兴，今天的记录 +1（第二天的信里会提）
+  // 待办的 Windows 通知（自检时换成假的，不在你的屏幕上真的弹出来，见 selftest.js 的 FakeNote）
+  notes = new TodoNotes({
+    texts: noteTexts,
+    icon: () => (trayIcon ? trayIcon.image : null),
+    persist: () => !(overlay && overlay.hidden), // 全屏的程序在最前面（打游戏）时，到点的那条也不一直挡在屏幕上
+    onOpen: () => mail.open({ view: 'todos' }),
+    onAck: (ids) => {
+      for (const id of ids) todos.ack(id);
+      overlay.send('remind-off', { ids }); // 宠物要是正举着牌子，就放下
+    },
+    onDone: (id) => todos.setDone(id, true),
+    log: (message) => console.log(message),
+    Note: SELFTEST_DIR ? require('./selftest').FakeNote : undefined,
+  });
+
+  // 待办事项：到点了发通知、让宠物提醒你；勾掉一件，宠物替你高兴，今天的记录 +1（第二天的信里会提）
   todos = new Todos({
     store,
     now: nowMs,
@@ -447,13 +517,17 @@ function start() {
       store.saveSoon();
       if (mail) mail.refresh();
     },
-    onRemind: (todo) => {
-      console.log('[待办] 提醒一件');
-      overlay.send('remind', { id: todo.id, text: todo.text });
+    onRemind: (todo, kind) => {
+      console.log(kind === 'soon' ? '[待办] 提前提醒一件' : '[待办] 提醒一件'); // 日志里不写是什么事
+      overlay.send('remind', { id: todo.id, text: todo.text, kind, left: kind === 'soon' ? leftText(todo.due - nowMs()) : null });
     },
+    onNotify: (kind, list) => {
+      if (store.data.settings.todoNotify) notes.show(kind, list);
+    },
+    onSettled: (ids) => notes.settle(ids),
     onDone: (todo) => {
       todayRecord(nowMs()).todosDone += 1;
-      overlay.send('todo-done', { text: todo.text });
+      overlay.send('todo-done', { id: todo.id, text: todo.text });
     },
   });
 
@@ -465,12 +539,13 @@ function start() {
       const lang = currentLanguage();
       const s = store.data.settings;
       const today = festivalToday(logicalDay(nowMs()), store.data.mail, profile()); // 过节的话，衣柜里要说一声"今天帽子先用节日的"
-      return { lang, name: s.petName, species: s.species, catCoat: s.catCoat, outfit: s.outfit, festivalLook: today ? today.look : null, ui: STRINGS[lang].mail };
+      return { lang, name: s.petName, species: s.species, catCoat: s.catCoat, outfit: s.outfit, festivalLook: today ? today.look : null, todoNotify: s.todoNotify, ui: STRINGS[lang].mail };
     },
     setName: (name) => setSetting('petName', name),
     getProfile: profile,
     setProfile,
     setOutfit: (outfit) => setSetting('outfit', outfit),
+    setTodoNotify: (on) => setSetting('todoNotify', on),
     allClothes: ALL_CLOTHES,
     now: nowMs,
     onChange: () => {
@@ -546,6 +621,7 @@ function start() {
     onQuit: quit,
   });
   tray.create();
+  if (trayIcon) tray.setIcon(trayIcon.image); // 画面比托盘先画好了宠物的头
 
   // 窗口顶边：宠物可以站上去（见 ledges.js）。只在"始终在最前面"模式、宠物露着的时候看
   ledgeWatch = new LedgeWatch({

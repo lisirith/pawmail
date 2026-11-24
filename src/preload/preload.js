@@ -5,8 +5,9 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 // 后台 → 画面 允许的消息种类
-// remind：有一件待办到点了，宠物提醒你；todo-done：你在信纸窗口里勾掉了一件待办（见 src/main/todos.js）
-const INBOUND = new Set(['cursor', 'settings', 'command', 'system', 'save-now', 'mail', 'festival', 'ledges', 'remind', 'todo-done']);
+// remind：有一件待办到点了（或者快到点了），宠物提醒你；remind-off：你在 Windows 通知上点了"知道了"，宠物不用再举牌子了；
+// todo-done：你勾掉了一件待办（见 src/main/todos.js）
+const INBOUND = new Set(['cursor', 'settings', 'command', 'system', 'save-now', 'mail', 'festival', 'ledges', 'remind', 'remind-off', 'todo-done']);
 
 contextBridge.exposeInMainWorld('pawmail', {
   /** 启动时取一次：设置、存档、所有语言的文字 */

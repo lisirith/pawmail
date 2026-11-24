@@ -204,9 +204,11 @@ async function main() {
       .catch(() => {});
   }
 
-  // 待办（见 src/main/todos.js）：到点了它举牌子提醒你；你在信纸窗口里勾掉一件，它替你高兴
+  // 待办（见 src/main/todos.js）：到点了（或者提前一会儿）它举牌子提醒你；你在通知上点了"知道了"，它把牌子放下；
+  // 你勾掉一件，它替你高兴
   bridge.on('remind', (r) => brain.onRemind(r));
-  bridge.on('todo-done', () => brain.onTodoDone());
+  bridge.on('remind-off', (r) => brain.reminderOff(r && r.ids));
+  bridge.on('todo-done', (d) => brain.onTodoDone(d));
 
   // 来信：后台告诉我们还有几封没拆。有没拆的信时，它会把信抱在手里。
   let mail = { unread: 0, total: 0, special: false, ...(init.mail || {}) };

@@ -30,7 +30,7 @@ Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drop
 
 <p align="center"><img src="docs/images/wardrobe-en.png" width="320" alt="The wardrobe: the pet on the left, clothes by type on the right, unreceived ones as grey silhouettes"></p>
 
-**To-do reminders.** Write down what you need to do on the *To-dos* page of the letter window, and have it remind you when it's time (in 30 minutes, tonight at 8, tomorrow at 9, or any time you pick). When it's time, it runs over to your cursor holding up a little note with an alarm clock on it; click it to say you got it. Every time you tick one off, it's happy for you, and the next day's letter mentions it.
+**To-do reminders.** Write down what you need to do on the *To-dos* page of the letter window, and have it remind you when it's time (in 30 minutes, tonight at 8, tomorrow at 9, or any time you pick), with an optional heads-up from 5 minutes to a day before. When it's time, it runs over to your cursor holding up a little note with an alarm clock on it; click it to say you got it. A Windows notification with a sound pops up at the same time, even when you're away from the computer, and you can tick the to-do off right from it. Every time you tick one off, it's happy for you, and the next day's letter mentions it.
 
 **It eats your files.** Drag files you don't need onto it and it gobbles them up. They really go to the Recycle Bin, so you can always get them back. It won't eat anything that can't be recovered (USB drives, network drives) or anything important (whole drives, Windows, your Desktop or Documents folders themselves).
 
@@ -77,6 +77,7 @@ It's about 140 MB to download and uses around 175 MB of memory while running (wh
 | Click it while it's holding a letter | Open the letter |
 | Right-click it | Menu: mailbox, wardrobe, do a trick (it shows off one of its signature tricks right away), play fetch (Shiba), to-dos, animal, display, size, language, start at login, perch on windows, play area, sleep, quit |
 | When it holds up a note to remind you of a to-do, click it | Got it (that one won't remind you again) |
+| The Windows notification for a due to-do | *Close* or click the notification = got it; *Done* = tick it off |
 | When the Shiba drops a ball or bone by you, drag it and let go (or just click it) | It flies off, and the Shiba chases it and brings it back |
 | Move the mouse back and forth over it | Pet it |
 | Click it | Poke it |
@@ -98,6 +99,7 @@ In the letter window: drag the top bar to move it, click the pet's name to chang
 - Your birthday (month and day only) and your festivals are stored in the same file.
 - Files you feed it go to the Recycle Bin. It only counts how many; it doesn't record names or look inside.
 - Your to-dos are kept in the same file too (finished ones are cleared after 30 days). The log only notes that a reminder went off, never what you wrote.
+- To-do notifications are shown by Windows itself, on your computer; nothing goes over the internet. So that Windows will show them, Pawmail registers its name and icon in the registry (`HKCU\Software\Classes\AppUserModelId\app.pawmail.desktop`). If you don't want the notifications, untick the box at the bottom of the *To-dos* page.
 - To hide during full-screen apps, it checks twice a second whether the frontmost window exactly covers the screen. It looks only at the window's size, never at which program it is, and records nothing.
 - To perch on windows, it checks twice a second where the windows on your screen are: their position, size and which one is in front. It never looks at window titles or which program a window belongs to, and records nothing. You can turn this off in the menu (*Perch on windows*).
 - To tell you when your laptop battery is low, it checks the battery level and whether you're plugged in. It only looks; nothing is recorded.
@@ -108,7 +110,7 @@ In the letter window: drag the top bar to move it, click the pet's name to chang
 ## Uninstall
 
 - Installed with the installer: *Settings → Apps → Installed apps → Pawmail → Uninstall*.
-- The zip version: if you turned on *Start at login*, turn it off first (right-click → *Start at login → Off*). Then quit Pawmail (right-click → *Quit Pawmail*) and delete its folder.
+- The zip version: if you turned on *Start at login*, turn it off first (right-click → *Start at login → Off*). Then quit Pawmail (right-click → *Quit Pawmail*) and delete its folder. A small registry entry for notifications stays behind (see *Privacy*); it takes no space and never runs anything. To remove it too, delete `HKCU\Software\Classes\AppUserModelId\app.pawmail.desktop`.
 
 Uninstalling keeps your letters and gifts, so they're still there if you reinstall. To remove them too, delete the folder `%APPDATA%\Pawmail`.
 

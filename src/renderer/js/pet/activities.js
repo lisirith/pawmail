@@ -938,6 +938,7 @@ export const ACTIVITIES = {
   /**
    * 待办到点了（见 src/main/todos.js）：跑到你鼠标旁边，把画着小闹钟的便签举过头顶，一蹦一蹦地晃，
    * 气泡里写着你要做的事（p.text，你自己写的）。点它一下 = 知道了（见 brain.ackReminder）。
+   * p.kind = 'soon' 是提前说一声（"还有 15 分钟：交作业"，p.left 是还有多久）：笑眯眯的，蹦得轻一点。
    * 站在窗口上、鼠标不在屏幕上时，就在原地举
    */
   remind: (b, p) => ({
@@ -970,6 +971,7 @@ export const ACTIVITIES = {
         return false;
       }
       const SHOW = 7;
+      const soon = p.kind === 'soon';
       const k = clamp(this.pt / 0.3, 0, 1) * clamp((SHOW - this.pt) / 0.4, 0, 1);
       pet.style.fps = 60;
       pet.style.gaze = 'cursor';
@@ -978,15 +980,15 @@ export const ACTIVITIES = {
       T.facing = 0;
       T.sign = k;
       T.armL = T.armR = 2.15 * k;
-      T.mouth = 'o';
+      T.mouth = soon ? 'smile' : 'o';
       T.mouthOpen = 0.4;
-      T.eyes = 'wide';
+      if (!soon) T.eyes = 'wide';
       T.earDroop = -0.2;
       const hop = this.pt % 1.4;
-      if (hop < 0.3) T.lift += bell(hop / 0.3) * 7 * k;
+      if (hop < 0.3) T.lift += bell(hop / 0.3) * (soon ? 4 : 7) * k;
       if (!this.said && this.pt > 0.2) {
         this.said = true;
-        b.say('remind', SHOW, { text: p.text || '' });
+        b.say(soon ? 'remindSoon' : 'remind', SHOW, { text: p.text || '', left: p.left || '' });
       }
       return this.pt >= SHOW;
     },

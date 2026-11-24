@@ -9,6 +9,9 @@
 ;   - 升级（新版本装在旧版本上面）时也会先跑一遍卸载，这时不删：新版本第一次启动会自己重新登记。
 ;   - 只删指向"这次卸载的这个文件夹"的那一项：如果你同时还在用免安装版，开机启动指着免安装版，就留着不动。
 ;   - 任务管理器里关掉过开机启动的话，Windows 会在 StartupApproved 里另外记一笔，一起删掉。
+;
+; 还有待办通知用的登记（src/main/todo-notify.js 的 registerApp）：程序每次启动都把名字和图标写进
+; HKCU\Software\Classes\AppUserModelId\${APP_ID}，Windows 才肯显示它的通知。卸载时（不是升级）一起删掉。
 
 !macro customUnInstall
   ${ifNot} ${isUpdated}
@@ -17,5 +20,6 @@
       DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_ID}"
       DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "${APP_ID}"
     ${endIf}
+    DeleteRegKey HKCU "Software\Classes\AppUserModelId\${APP_ID}"
   ${endIf}
 !macroend

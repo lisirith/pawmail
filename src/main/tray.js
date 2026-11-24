@@ -47,10 +47,9 @@ class PetTray {
     this.refresh();
   }
 
-  setIcon(dataUrl) {
-    if (!this.tray || this.tray.isDestroyed()) return;
-    const image = nativeImage.createFromDataURL(dataUrl);
-    if (image.isEmpty()) return;
+  /** image：宠物的头（main.js 从画面传来的 PNG 做成的 NativeImage） */
+  setIcon(image) {
+    if (!this.tray || this.tray.isDestroyed() || !image || image.isEmpty()) return;
     this.tray.setImage(image.resize({ width: 32, height: 32, quality: 'best' }));
   }
 

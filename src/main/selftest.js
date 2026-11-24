@@ -13,10 +13,35 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { EventEmitter } = require('node:events');
 const { screen } = require('electron');
 const native = require('./native');
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * 自检用的假通知（代替 Electron 的 Notification，见 todo-notify.js）：不在屏幕上真的弹出来，只记下弹了什么。
+ * 自检可以假装你点了它（emit('click')）、点了按钮（emit('action', { actionIndex })）、关掉了它（emit('close', { reason: 'userCanceled' })）
+ */
+class FakeNote extends EventEmitter {
+  static shown = [];
+  static isSupported() {
+    return true;
+  }
+  constructor(options) {
+    super();
+    this.options = options;
+    this.closed = false;
+  }
+  show() {
+    FakeNote.shown.push(this);
+  }
+  close() {
+    if (this.closed) return;
+    this.closed = true;
+    this.emit('close', { reason: 'applicationHidden' });
+  }
+}
 
 async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
   fs.mkdirSync(outDir, { recursive: true });
@@ -799,10 +824,16 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
 
   async function testTodos() {
     const L = require('./letters');
+    const { FakeNote: Note } = module.exports;
     const todos = mail.todos;
     store.data.todos = [];
+    setSetting('todoNotify', true);
+    Note.shown.length = 0;
+    const lastNote = () => Note.shown[Note.shown.length - 1] || null;
+    const petState = () =>
+      js(`const P = window.__pawmail; P.run(0.5); return { name: P.brain.name, queued: P.brain.queue.map((q) => q[0]), reminder: P.brain.reminder && { text: P.brain.reminder.text, kind: P.brain.reminder.kind }, said: P.bubble.textEl.textContent };`);
     await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.2); return true;`);
-    // 在信纸窗口的「待办」页里写一件事，选"30 分钟后"，点"加上"
+    // 在信纸窗口的「待办」页里写一件事，选"30 分钟后"、提前 15 分钟，点"加上"
     const win = mail.open({ view: 'todos' });
     await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
     await wait(800);
@@ -813,30 +844,60 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
       input.dispatchEvent(new Event('input'));
       [...document.querySelectorAll('.todo-when button')][1].click();
       await new Promise((r) => setTimeout(r, 50));
+      const lead = document.querySelector('.todo-lead-select');
+      lead.value = '15';
+      lead.dispatchEvent(new Event('change'));
       document.querySelector('.todo-add').click();
       return true;`);
     await wait(500);
     const added = store.data.todos[0];
     const soon = Date.now() + 30 * 60000;
-    check('在信纸窗口的「待办」页写下一件事、选"30 分钟后"提醒：存进存档', !!added && added.text === '自检的待办' && Math.abs(added.due - soon) < 120000, added);
+    check(
+      '在信纸窗口的「待办」页写下一件事、选"30 分钟后"提醒、提前 15 分钟：存进存档',
+      !!added && added.text === '自检的待办' && Math.abs(added.due - soon) < 120000 && added.lead === 15 && !added.soonNote,
+      added
+    );
     const rows = await mjs(`return document.querySelectorAll('.todo-row').length;`);
     const bad = await mjs(`return [
       await window.pawmailMail.todo({ type: 'add', text: '   ' }),
       await window.pawmailMail.todo({ type: 'explode' }),
       await window.pawmailMail.todo({ type: 'done', id: '../../x', done: true }),
+      await window.pawmailMail.todo({ type: 'add', text: '提前太久', due: Date.now() + 60000, lead: 99999 }),
     ];`);
-    check('空的待办、不认识的操作、不存在的编号都会被拒绝；清单上只有那一件', rows === 1 && bad.every((r) => r && r.ok === false) && store.data.todos.length === 1, { rows, bad });
+    check('空的待办、不认识的操作、不存在的编号、提前太久都会被拒绝；清单上只有那一件', rows === 1 && bad.every((r) => r && r.ok === false) && store.data.todos.length === 1, { rows, bad });
 
-    // 到点了（把提醒时间改到刚刚过去）：宠物举着牌子提醒你
+    // 提前提醒（把提醒时间改到 10 分钟后：提前 15 分钟的那一刻刚过）：弹一条普通的通知，宠物也先说一声
+    added.due = Date.now() + 10 * 60000;
+    const early = todos.check(true);
+    await wait(300);
+    const soonNote = lastNote();
+    const petSoon = await petState();
+    await js(`const P = window.__pawmail; P.brain.ackReminder(); P.run(0.2); return true;`); // 提前的那次点它：只是它自己应一声
+    await wait(300);
+    check(
+      '提前提醒：弹一条"还有…"的通知，宠物也先说一声；这时点宠物不算"知道了"，到点还会提醒',
+      early === added && Note.shown.length === 1 && soonNote.options.title === '自检的待办' && soonNote.options.timeoutType === 'default' && /10 (分钟|min)/.test(soonNote.options.body) &&
+        petSoon.name === 'remind' && petSoon.reminder.kind === 'soon' && petSoon.said.includes('自检的待办') && /10 (分钟|min)/.test(petSoon.said) && added.reminded === 0,
+      { notes: Note.shown.map((n) => n.options.body), petSoon, reminded: added.reminded }
+    );
+
+    // 到点了（把提醒时间改到刚刚过去）：宠物举着牌子提醒你，到点的通知一直留着、带"做完了"按钮
     added.due = Date.now() - 1000;
     const reminded = todos.check(true);
     await wait(300);
-    const pet = await js(`const P = window.__pawmail; P.run(0.5); return { name: P.brain.name, reminder: P.brain.reminder && P.brain.reminder.text };`);
-    check('待办到点了：宠物跑过来举着牌子提醒你', !!reminded && pet.name === 'remind' && pet.reminder === '自检的待办', pet);
-    check('刚提醒过的那件，10 分钟之内不会再提醒；你不在电脑前时不提醒', todos.check(true) === null && todos.check(false) === null);
+    const pet = await petState();
+    const dueNote = lastNote();
+    check('待办到点了：宠物跑过来举着牌子提醒你', !!reminded && pet.name === 'remind' && pet.reminder.text === '自检的待办' && pet.reminder.kind === 'due', pet);
+    const doneLabels = ['zh', 'en'].map((lang) => require(`../shared/locales/${lang}.json`).notify.done);
+    check(
+      '到点的通知一直留在屏幕上、带"做完了"按钮；"还有…"那条收起来了',
+      Note.shown.length === 2 && dueNote.options.timeoutType === 'never' && dueNote.options.actions.length === 1 && doneLabels.includes(dueNote.options.actions[0].text) && soonNote.closed,
+      { options: dueNote.options && { ...dueNote.options, icon: !!dueNote.options.icon }, soonClosed: soonNote.closed }
+    );
+    check('刚提醒过的那件，10 分钟之内不会再提醒、不会再弹通知；你不在电脑前时宠物不提醒', todos.check(true) === null && todos.check(false) === null && Note.shown.length === 2);
     await js(`const P = window.__pawmail; P.brain.ackReminder(); P.run(0.2); return true;`);
     await wait(300);
-    check('点它一下就算"知道了"：这件不再提醒', added.reminded >= 3, { reminded: added.reminded });
+    check('点它一下就算"知道了"：这件不再提醒，到点的通知也收起来', added.reminded >= 3 && dueNote.closed, { reminded: added.reminded, noteClosed: dueNote.closed });
 
     // 在信纸窗口里勾掉：存档里标成做完，今天的记录 +1（第二天的信里会提），宠物替你高兴
     const day = L.logicalDay(Date.now());
@@ -849,6 +910,40 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
     await mjs(`document.querySelector('.todo-row .todo-delete').click(); return true;`);
     await wait(400);
     check('删掉一件', store.data.todos.length === 0);
+
+    // 在到点的通知上点"做完了"：勾掉，宠物替你高兴（它正举着这件的牌子的话，直接放下来欢呼）
+    const second = todos.add({ text: '自检的第二件', due: Date.now() - 1000 });
+    todos.check(true);
+    await wait(300);
+    lastNote().emit('action', { actionIndex: 0 }, 0);
+    await wait(300);
+    const afterDone = await petState();
+    check('在通知上点"做完了"：这件勾掉了，宠物替你高兴', second.done === true && (afterDone.name === 'cheer' || afterDone.queued.includes('cheer')) && !afterDone.reminder, afterDone);
+
+    // 关掉到点的通知（Windows 的"关闭"、右上角的叉）= 知道了：不再提醒，宠物把牌子放下
+    const third = todos.add({ text: '自检的第三件', due: Date.now() - 1000 });
+    todos.check(true);
+    await wait(300);
+    const holding = await petState();
+    lastNote().emit('close', { reason: 'userCanceled' });
+    await wait(300);
+    const afterClose = await petState();
+    check('关掉到点的通知就算"知道了"：不再提醒，宠物把牌子放下', holding.name === 'remind' && third.reminded >= 3 && !afterClose.reminder && afterClose.name !== 'remind', { holding: holding.name, after: afterClose, reminded: third.reminded });
+    todos.remove(third.id);
+    todos.remove(second.id);
+
+    // 待办页最下面的勾：关掉以后，到点只有宠物提醒，不弹通知
+    await mjs(`document.querySelector('.todo-notify input').click(); return true;`);
+    await wait(400);
+    const off = store.data.settings.todoNotify;
+    const shownBefore = Note.shown.length;
+    const fourth = todos.add({ text: '自检的第四件', due: Date.now() - 1000 });
+    todos.check(true);
+    await wait(200);
+    check('待办页最下面的勾能关掉通知：关掉以后到点不弹通知，宠物照样提醒', off === false && Note.shown.length === shownBefore && fourth.reminded === 1, { off, shown: Note.shown.length - shownBefore });
+    todos.remove(fourth.id);
+    setSetting('todoNotify', true);
+    await js(`const P = window.__pawmail; P.brain.reminder = null; return true;`);
 
     mail.close();
     await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.2); return true;`);
@@ -1052,4 +1147,4 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
   }
 }
 
-module.exports = { run };
+module.exports = { run, FakeNote };

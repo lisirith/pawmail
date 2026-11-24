@@ -1062,6 +1062,25 @@ button.wardrobe-item:hover {
   font: inherit;
   font-size: 13px;
 }
+/* 提前提醒：选了提醒时间才出现，在"什么时候提醒"那一排下面 */
+.todo-lead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 12px;
+  color: #7a5a3d;
+  font-size: 13px;
+}
+.todo-lead-select {
+  padding: 3px 8px;
+  border: 1.5px solid #5b3a24;
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
 .todo-list {
   display: flex;
   flex-direction: column;
@@ -1161,6 +1180,26 @@ button.wardrobe-item:hover {
   padding: 34px 20px 10px;
   color: #9a7b5a;
   text-align: center;
+}
+/* 最下面的勾：到点时也弹 Windows 通知 */
+.todo-notify {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 2px 0;
+  color: #7a5a3d;
+  font-size: 13px;
+  cursor: pointer;
+}
+.todo-notify input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #f5a652;
+  cursor: pointer;
+}
+.todo-notify + .todo-hint {
+  margin-top: 8px;
 }
 .todo-hint {
   margin: 16px 2px 0;

@@ -28,8 +28,9 @@ class Mail {
    * @param dev         开发模式
    * @param allClothes  开发时：衣柜里的衣服全部解锁（--x-allclothes）
    * @param todos       待办事项（见 todos.js），信纸窗口的「待办」页用
+   * @param setTodoNotify (on) => void  待办到点时要不要也弹 Windows 通知（「待办」页最下面的勾）
    */
-  constructor({ store, todos = null, getContext, onChange, setName, getProfile, setProfile, setOutfit, now = Date.now, dev = false, allClothes = false }) {
+  constructor({ store, todos = null, getContext, onChange, setName, getProfile, setProfile, setOutfit, setTodoNotify = () => {}, now = Date.now, dev = false, allClothes = false }) {
     this.store = store;
     this.todos = todos;
     this.getContext = getContext;
@@ -38,6 +39,7 @@ class Mail {
     this.getProfile = getProfile;
     this.setProfile = setProfile;
     this.setOutfit = setOutfit;
+    this.setTodoNotify = setTodoNotify;
     this.now = now;
     this.allClothes = allClothes;
     this.dev = dev;
@@ -161,6 +163,7 @@ class Mail {
       wardrobe: W.wardrobeView(this.data.outfits, ctx.outfit, ctx.lang, { all: this.allClothes }),
       festivalLook: ctx.festivalLook || null, // 今天的节日装扮（会盖住你选的帽子或手里拿的）
       todos: this.todos ? this.todos.view() : [], // 待办事项
+      todoNotify: ctx.todoNotify !== false, // 待办到点时也弹 Windows 通知
       profile: { birthday: profile.birthday, cultures: profile.cultures, asked: profile.asked },
       groups: F.GROUPS.map((g) => ({ id: g.id, emoji: g.emoji, name: T.groups[g.id].name, examples: T.groups[g.id].examples })),
       next: next ? { name: T.festivals[next.id].name, day: next.day } : null,
@@ -304,16 +307,21 @@ class Mail {
       return { ok: this.wear(outfit) };
     });
 
-    // 待办事项：加一件、改、勾上 / 取消、删掉、清掉做完的。每一项都在 todos.js 里再检查一遍
+    // 待办事项：加一件、改、勾上 / 取消、删掉、清掉做完的、开关 Windows 通知。每一项都在 todos.js 里再检查一遍
     ipcMain.handle('pawmail-mail:todo', (event, action) => {
       if (!mine(event) || !this.todos || !action || typeof action !== 'object') return { ok: false };
       const due = action.due === null || Number.isFinite(action.due) ? action.due : undefined;
+      const lead = Number.isInteger(action.lead) ? action.lead : undefined; // 提前几分钟（范围在 todos.js 里查）
       const T = this.todos;
       switch (action.type) {
         case 'add':
-          return { ok: !!T.add({ text: action.text, due: due ?? null }) };
+          return { ok: !!T.add({ text: action.text, due: due ?? null, lead: lead ?? 0 }) };
         case 'update':
-          return { ok: T.update(action.id, { text: typeof action.text === 'string' ? action.text : undefined, due }) };
+          return { ok: T.update(action.id, { text: typeof action.text === 'string' ? action.text : undefined, due, lead }) };
+        case 'notify':
+          if (typeof action.on !== 'boolean') return { ok: false };
+          this.setTodoNotify(action.on);
+          return { ok: true };
         case 'done':
           return { ok: T.setDone(action.id, action.done === true) };
         case 'remove':

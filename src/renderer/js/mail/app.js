@@ -22,20 +22,29 @@ function createMockApi() {
   // 预览时的待办（只在这个页面里，刷新就没了）。?todos=1 先放几件示例
   let todos = [];
   let seq = 0;
+  let todoNotify = params.get('notify') !== '0'; // 预览：?notify=0 看关掉通知的样子
   if (params.get('todos')) {
     const now = Date.now();
     todos = [
-      { id: 'tdemo1', text: '交高数作业', createdAt: now - 3e5, due: now - 6e4, done: false },
-      { id: 'tdemo2', text: '给妈妈打电话', createdAt: now - 2e5, due: now + 3 * 3600e3, done: false },
-      { id: 'tdemo3', text: '买牛奶', createdAt: now - 1e5, due: null, done: false },
-      { id: 'tdemo4', text: '洗衣服', createdAt: now - 4e5, due: null, done: true, doneAt: now - 5e4 },
+      { id: 'tdemo1', text: '交高数作业', createdAt: now - 3e5, due: now - 6e4, lead: 0, done: false },
+      { id: 'tdemo2', text: '给妈妈打电话', createdAt: now - 2e5, due: now + 3 * 3600e3, lead: 15, done: false },
+      { id: 'tdemo3', text: '买牛奶', createdAt: now - 1e5, due: null, lead: 0, done: false },
+      { id: 'tdemo4', text: '洗衣服', createdAt: now - 4e5, due: null, lead: 0, done: true, doneAt: now - 5e4 },
     ];
   }
   const todoView = () => {
     const now = Date.now();
     const open = todos.filter((t) => !t.done).sort((a, b) => (a.due ?? Infinity) - (b.due ?? Infinity) || a.createdAt - b.createdAt);
     const done = todos.filter((t) => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
-    return [...open, ...done].map((t) => ({ id: t.id, text: t.text, due: t.due, done: t.done, overdue: !t.done && t.due !== null && t.due <= now }));
+    return [...open, ...done].map((t) => ({
+      id: t.id,
+      text: t.text,
+      due: t.due,
+      lead: t.lead,
+      soon: !t.done && t.lead > 0 && t.due !== null && t.due - t.lead * 60000 > now,
+      done: t.done,
+      overdue: !t.done && t.due !== null && t.due <= now,
+    }));
   };
   const load = async () => {
     // 网址上的参数原样转给预览服务器（from、days、cultures、birthday、ask……见 tools/dev-server.js）
@@ -49,6 +58,7 @@ function createMockApi() {
     data.letters = data.letters.filter((l) => !deleted.has(l.id));
     for (const letter of data.letters) if (opened.has(letter.id)) letter.opened = true;
     data.todos = todoView();
+    data.todoNotify = todoNotify;
     if (params.get('view')) data.nav = { view: params.get('view'), id: params.get('id') || undefined };
     return data;
   };
@@ -75,7 +85,10 @@ function createMockApi() {
       if (action.type === 'add') {
         const text = String(action.text || '').trim().slice(0, 80);
         if (!text) return { ok: false };
-        todos.push({ id: `tpreview${(seq += 1)}`, text, createdAt: Date.now(), due: Number.isFinite(action.due) ? action.due : null, done: false });
+        const due = Number.isFinite(action.due) ? action.due : null;
+        todos.push({ id: `tpreview${(seq += 1)}`, text, createdAt: Date.now(), due, lead: due === null ? 0 : action.lead || 0, done: false });
+      } else if (action.type === 'notify') {
+        todoNotify = action.on === true;
       } else if (action.type === 'done' && find()) {
         Object.assign(find(), { done: !!action.done, doneAt: action.done ? Date.now() : null });
       } else if (action.type === 'remove') {
@@ -200,6 +213,19 @@ function toast(message) {
 
 // ---------------------------------------------------------------- 状态
 
+const LEADS = [0, 5, 10, 15, 30, 60, 1440]; // 「提前提醒」能选的分钟数（最多一天，和 src/main/todos.js 的 MAX_LEAD 一致）
+const LEAD_KEY = 'pawmail.todoLead';
+
+/** 上次选的"提前几分钟"（存在这个窗口自己的小仓库里；读不到就是不提前） */
+function savedLead() {
+  try {
+    const n = Number(localStorage.getItem(LEAD_KEY));
+    return LEADS.includes(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
 const state = {
   data: null,
   view: 'letter', // letter 读信 | box 信箱 | album 图鉴 | wardrobe 衣柜 | todos 待办
@@ -207,6 +233,7 @@ const state = {
   todoDraft: '', // 待办：正在打的字（后台推来新清单、整页重画时原样放回去）
   todoWhen: 'none', // 待办：选的提醒时间（none 不提醒 | in30 | in60 | tonight | tomorrow | pick 自己选）
   todoPick: '', // 待办：自己选的时间（datetime-local 的格式）
+  todoLead: savedLead(), // 待办：提前几分钟先提醒一次（0 = 不提前）。记住上次选的，下次打开窗口还是它
   todoFocus: false, // 待办：输入框是不是正在打字（重画后接着打）
   id: null, // 正在看哪一封信
   opening: null, // 正在播放拆信动画的那封
@@ -892,6 +919,14 @@ function dueText(ts) {
   return fillText(ui.todoRemindAt, { when });
 }
 
+/** 提前多久写成人话：15 分钟 / 1 小时 / 1 天 */
+function leadText(min) {
+  const { ui } = state.data;
+  if (min % 1440 === 0) return fillText(ui.todoDay, { n: min / 1440 });
+  if (min % 60 === 0) return fillText(ui.todoHour, { n: min / 60 });
+  return fillText(ui.todoMin, { n: min });
+}
+
 async function todoAction(action) {
   const result = await api.todo(action);
   if (!result || !result.ok) toast(state.data.ui.failed);
@@ -906,7 +941,8 @@ async function addTodo() {
     toast(ui.todoFull);
     return;
   }
-  const result = await todoAction({ type: 'add', text, due: quickDue(state.todoWhen) });
+  const due = quickDue(state.todoWhen);
+  const result = await todoAction({ type: 'add', text, due, lead: due === null ? 0 : state.todoLead });
   if (result && result.ok) {
     state.todoDraft = '';
     state.todoFocus = true;
@@ -920,7 +956,11 @@ function todoRow(todo) {
   const check = button('todo-check', todo.done ? '✓' : '', () => todoAction({ type: 'done', id: todo.id, done: !todo.done }));
   const body = el('div', 'todo-body');
   body.append(el('div', 'todo-text', todo.text));
-  if (todo.due && !todo.done) body.append(el('div', 'todo-due', todo.overdue ? ui.todoOverdue : dueText(todo.due)));
+  if (todo.due && !todo.done) {
+    // 今天 20:00 提醒 · 提前 15 分钟（提前的那一刻已经过了就不写）
+    const due = todo.overdue ? ui.todoOverdue : dueText(todo.due);
+    body.append(el('div', 'todo-due', todo.soon ? `${due} · ${fillText(ui.todoLeadNote, { left: leadText(todo.lead) })}` : due));
+  }
   const del = button('todo-delete', '×', () => todoAction({ type: 'remove', id: todo.id }));
   del.title = ui.todoDelete;
   row.append(check, body, del);
@@ -980,6 +1020,28 @@ function todosView() {
   }
   view.append(form, when);
 
+  // 提前提醒：选了提醒时间才有。到了提前的那一刻，它先说一声"还有 15 分钟"
+  if (state.todoWhen !== 'none') {
+    const lead = el('label', 'todo-lead');
+    const select = el('select', 'todo-lead-select');
+    for (const min of LEADS) {
+      const option = el('option', '', min ? leadText(min) : ui.todoLeadNone);
+      option.value = String(min);
+      option.selected = min === state.todoLead;
+      select.append(option);
+    }
+    select.addEventListener('change', () => {
+      state.todoLead = Number(select.value);
+      try {
+        localStorage.setItem(LEAD_KEY, String(state.todoLead));
+      } catch {
+        // 存不了也没关系：只是下次打开窗口要重新选
+      }
+    });
+    lead.append(el('span', '', ui.todoLead), select);
+    view.append(lead);
+  }
+
   // 清单：没做完的在前，做完的在后面单独一栏
   const open = todos.filter((t) => !t.done);
   const done = todos.filter((t) => t.done);
@@ -996,7 +1058,15 @@ function todosView() {
     for (const todo of done) list.append(todoRow(todo));
     view.append(head, list);
   }
-  view.append(el('div', 'todo-hint', ui.todoHint));
+
+  // 到点时也弹 Windows 通知（开着的时候，提前提醒的那一刻也弹一条）
+  const notify = el('label', 'todo-notify');
+  const box = el('input');
+  box.type = 'checkbox';
+  box.checked = state.data.todoNotify !== false;
+  box.addEventListener('change', () => todoAction({ type: 'notify', on: box.checked }));
+  notify.append(box, el('span', '', ui.todoNotify));
+  view.append(notify, el('div', 'todo-hint', ui.todoHint));
   if (state.todoFocus) {
     requestAnimationFrame(() => {
       input.focus();

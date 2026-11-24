@@ -580,34 +580,51 @@ export class Brain {
   }
 
   /**
-   * 有一件待办到点了（后台发来的 { id, text }）：跑到你跟前举牌子提醒你。
+   * 有一件待办该提醒了（后台发来的 { id, text, kind, left }）：跑到你跟前举牌子提醒你。
+   * kind：'due' 到点了 | 'soon' 提前说一声（left 是还有多久，比如"15 分钟"）。
    * 睡着了也会马上爬起来；正被拎着、在空中的话，落地以后再提醒
    */
   onRemind(r) {
     if (!r || typeof r.id !== 'string') return;
     const text = String(r.text || '').slice(0, 80);
-    this.reminder = { id: r.id, text, until: this.world.time + 60 };
+    const kind = r.kind === 'soon' ? 'soon' : 'due';
+    const p = { text, kind, left: String(r.left || '').slice(0, 30) };
+    this.reminder = { id: r.id, text, kind, until: this.world.time + 60 };
     this.queue = this.queue.filter(([name]) => name !== 'remind');
     if (this.pet.mode !== 'ground' || (REACTIVE.has(this.name) && this.name !== 'remind')) {
-      this.queue.unshift(['remind', { text }]);
+      this.queue.unshift(['remind', p]);
       return;
     }
-    this.start('remind', { text });
+    this.start('remind', p);
   }
 
   /**
    * 点了它一下：正在提醒待办的话（举着牌子，或者刚提醒完不到一分钟），就算"知道了"。
+   * 提前说的那次只是它自己高兴一下，不告诉后台：到点了还是照常提醒。
    * 返回 true = 这一下是"知道了"（app.js 就不再把它当成戳一下 / 拆信）
    */
   ackReminder() {
     const r = this.reminder;
     if (!r || this.world.time > r.until || this.pet.mode !== 'ground') return false;
     this.reminder = null;
-    this.onAck(r.id);
+    if (r.kind !== 'soon') this.onAck(r.id);
     this.queue = this.queue.filter(([name]) => name !== 'remind');
     this.start('hop', { count: 1 });
     this.say('remindOk', 2.4);
     return true;
+  }
+
+  /**
+   * 你在 Windows 通知上说了"知道了"（关掉了、点了到点的那条）：它正在提醒这几件的话，把牌子放下、应一声
+   */
+  reminderOff(ids) {
+    const r = this.reminder;
+    if (!r || !Array.isArray(ids) || !ids.includes(r.id)) return;
+    this.reminder = null;
+    this.queue = this.queue.filter(([name]) => name !== 'remind');
+    if (this.name !== 'remind') return; // 已经提醒完了：不用再说什么
+    this.start('hop', { count: 1 });
+    this.say('remindOk', 2.4);
   }
 
   /**
@@ -691,8 +708,17 @@ export class Brain {
   }
 
   /** 你在信纸窗口里勾掉了一件待办：替你高兴一下（睡着了就先醒） */
-  onTodoDone() {
+  onTodoDone(d) {
     const pet = this.pet;
+    // 勾掉的正是它在提醒的那件（比如在通知上点了"做完了"）：牌子不用举了，直接替你高兴
+    if (this.reminder && d && d.id === this.reminder.id) {
+      this.reminder = null;
+      this.queue = this.queue.filter(([name]) => name !== 'remind');
+      if (this.name === 'remind' && pet.mode === 'ground') {
+        this.start('cheer');
+        return;
+      }
+    }
     if (pet.mode !== 'ground' || REACTIVE.has(this.name)) {
       this.queue.push(['cheer', {}]);
       return;

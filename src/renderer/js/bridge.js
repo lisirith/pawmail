@@ -60,7 +60,10 @@ function createMockBridge() {
       console.log(`[预览] 这里会打开信纸窗口${page ? `的 ${page}` : ''}（预览地址：mail.html${page ? `?view=${page}` : ''}）`);
       if (!page) emit('mail', { unread: 0, total: 1 });
     },
-    /** 预览：模拟后台发来一个待办提醒用 emit('remind', { id, text }) */
+    /**
+     * 预览：模拟后台发来一个待办提醒用 emit('remind', { id, text })；
+     * 提前说一声用 emit('remind', { id, text, kind: 'soon', left: '15 分钟' })，通知上点了"知道了"用 emit('remind-off', { ids: [id] })
+     */
     todoAck(id) {
       console.log('[预览] 待办提醒知道了：', id);
     },
