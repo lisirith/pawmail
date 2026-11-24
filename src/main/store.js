@@ -12,6 +12,7 @@ const { MAX_LETTERS } = require('./letters');
 const F = require('../shared/festivals/catalog');
 const O = require('../shared/outfits/catalog');
 const { sanitizeTodos } = require('./todos');
+const { sanitizePhone } = require('./phone');
 
 const SCALES = [0.8, 1, 1.3];
 const LANGUAGES = ['zh', 'en'];
@@ -281,7 +282,7 @@ function sanitizeMail(raw) {
 class Store {
   constructor(file) {
     this.file = file;
-    this.data = { version: 2, settings: { ...DEFAULT_SETTINGS }, pet: null, usage: {}, mail: sanitizeMail(null), todos: [] };
+    this.data = { version: 2, settings: { ...DEFAULT_SETTINGS }, pet: null, usage: {}, mail: sanitizeMail(null), todos: [], phone: sanitizePhone(null) };
     this.timer = null;
   }
 
@@ -307,6 +308,8 @@ class Store {
         usage: sanitizeUsage(raw.usage),
         mail: sanitizeMail(raw.mail),
         todos: sanitizeTodos(raw.todos), // 待办事项（见 todos.js）
+        // 手机提醒（见 phone.js）。不放在 settings 里：settings 会整份发给宠物画面，频道名、key 不该给它
+        phone: sanitizePhone(raw.phone),
       };
     }
     return this.data;

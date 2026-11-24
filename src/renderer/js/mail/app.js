@@ -9,6 +9,7 @@ import { makePose } from '../pet/pose.js';
 import { lookById } from '../pet/looks.js';
 import { drawPhoto, renderPostcard, capitalize } from './postcard.js';
 import { drawGift } from './gifts.js';
+import { makeQr, drawQr } from '../util/qr.js';
 
 // ---------------------------------------------------------------- 和后台说话
 
@@ -23,6 +24,17 @@ function createMockApi() {
   let todos = [];
   let seq = 0;
   let todoNotify = params.get('notify') !== '0'; // 预览：?notify=0 看关掉通知的样子
+  // 预览时的手机提醒（?phone=ntfy 或 ?phone=serverchan 直接看设置好的样子；不会真的联网）
+  const phone = { service: params.get('phone') || 'off', topic: 'pawmail-preview2345678', sct: null, hideText: false, skipPresent: false };
+  const phoneView = () => ({
+    service: phone.service,
+    topic: phone.service === 'ntfy' ? phone.topic : null,
+    link: phone.service === 'ntfy' ? `ntfy://ntfy.sh/${phone.topic}?display=Pawmail` : null,
+    sctHint: phone.sct ? `${phone.sct.slice(0, 6)}…${phone.sct.slice(-3)}` : null,
+    hideText: phone.hideText,
+    skipPresent: phone.skipPresent,
+    canSave: true,
+  });
   if (params.get('todos')) {
     const now = Date.now();
     todos = [
@@ -59,6 +71,7 @@ function createMockApi() {
     for (const letter of data.letters) if (opened.has(letter.id)) letter.opened = true;
     data.todos = todoView();
     data.todoNotify = todoNotify;
+    data.phone = phoneView();
     if (params.get('view')) data.nav = { view: params.get('view'), id: params.get('id') || undefined };
     return data;
   };
@@ -100,6 +113,24 @@ function createMockApi() {
       }
       push();
       return { ok: true };
+    },
+    async phone(action) {
+      console.log('[预览] 手机提醒：', JSON.stringify(action));
+      let result = { ok: true };
+      if (action.type === 'service') phone.service = action.service;
+      else if (action.type === 'newTopic') phone.topic = `pawmail-preview${Math.random().toString(36).slice(2, 9)}`;
+      else if (action.type === 'sctKey') {
+        if (/^(SCT|sctp)\w{8,}$/.test(String(action.key).trim())) phone.sct = String(action.key).trim();
+        else result = { ok: false };
+      } else if (action.type === 'options') {
+        if (typeof action.hideText === 'boolean') phone.hideText = action.hideText;
+        if (typeof action.skipPresent === 'boolean') phone.skipPresent = action.skipPresent;
+      } else if (action.type === 'test') {
+        await new Promise((r) => setTimeout(r, 600));
+        result = params.get('phonefail') ? { ok: false, error: params.get('phonefail'), code: 400 } : { ok: true }; // ?phonefail=network 看失败的提示
+      }
+      push();
+      return result;
     },
     async setOutfit(next) {
       console.log('[预览] 换衣服：', JSON.stringify(next));
@@ -235,6 +266,8 @@ const state = {
   todoPick: '', // 待办：自己选的时间（datetime-local 的格式）
   todoLead: savedLead(), // 待办：提前几分钟先提醒一次（0 = 不提前）。记住上次选的，下次打开窗口还是它
   todoFocus: false, // 待办：输入框是不是正在打字（重画后接着打）
+  sctDraft: '', // 手机提醒：正在粘贴的 Server酱 SendKey（还没点保存）
+  phoneTesting: false, // 手机提醒：「发一条试试」正在发
   id: null, // 正在看哪一封信
   opening: null, // 正在播放拆信动画的那封
   justOpened: null, // 刚拆开的那封（播放一次展开的动画）
@@ -967,6 +1000,161 @@ function todoRow(todo) {
   return row;
 }
 
+// ---------------------------------------------------------------- 手机提醒（「待办」页最下面，见 src/main/phone.js）
+//
+// 选一家推送服务（ntfy / Server酱），照着三步设置好：装 App（或者登录网站拿 key）→ 扫码订阅（或者粘贴 key）→ 发一条试试。
+
+let qrCache = { link: null, canvas: null }; // 二维码画一次就留着（后台每次推新数据都整页重画）
+
+/** ntfy 的订阅链接画成二维码（每格整数个像素，边缘才清楚，手机好认） */
+function qrCanvas(link) {
+  if (qrCache.link === link) return qrCache.canvas;
+  const qr = makeQr(link);
+  const dpr = window.devicePixelRatio || 1;
+  const cell = Math.max(2, Math.floor((132 * dpr) / (qr.size + 8)));
+  const side = (qr.size + 8) * cell;
+  const canvas = el('canvas', 'phone-qr');
+  canvas.width = side;
+  canvas.height = side;
+  canvas.style.width = `${side / dpr}px`;
+  canvas.style.height = `${side / dpr}px`;
+  drawQr(canvas.getContext('2d'), qr, cell);
+  qrCache = { link, canvas };
+  return canvas;
+}
+
+async function phoneAction(action) {
+  const result = await api.phone(action);
+  if (!result || !result.ok) toast(state.data.ui.failed);
+  return result;
+}
+
+/** 「发一条试试」没发出去的原因写成人话 */
+function phoneWhy(result) {
+  const { ui, phone } = state.data;
+  const code = result && result.code !== undefined ? result.code : '?';
+  switch (result && result.error) {
+    case 'network':
+      return ui.whyNetwork;
+    case 'limit':
+      return ui.whyLimit;
+    case 'server':
+      return fillText(ui.whyServer, { code });
+    case 'rejected':
+      return fillText(phone.service === 'serverchan' ? ui.whyRejectedSct : ui.whyRejected, { code });
+    default:
+      return ui.whySetup;
+  }
+}
+
+function phoneStep(text, ...children) {
+  const step = el('div', 'phone-step');
+  step.append(el('p', '', text), ...children);
+  return step;
+}
+
+function phoneSection() {
+  const { ui, phone } = state.data;
+  const box = el('section', 'phone');
+  if (!phone) return box;
+  const head = el('div', 'phone-head');
+  const select = el('select', 'phone-service');
+  for (const [id, label] of [
+    ['off', ui.phoneOff],
+    ['ntfy', ui.phoneNtfy],
+    ['serverchan', ui.phoneSct],
+  ]) {
+    const option = el('option', '', label);
+    option.value = id;
+    option.selected = phone.service === id;
+    select.append(option);
+  }
+  select.disabled = !phone.canSave && phone.service === 'off';
+  select.addEventListener('change', () => phoneAction({ type: 'service', service: select.value }));
+  head.append(el('span', 'phone-title', ui.phoneTitle), select);
+  box.append(head, el('p', 'phone-intro', phone.canSave ? ui.phoneIntro : ui.phoneNoCrypto));
+
+  if (phone.service === 'ntfy' && phone.link) {
+    box.append(phoneStep(ui.ntfyStep1, button('phone-link', ui.ntfyGet, () => phoneAction({ type: 'open', which: 'ntfyApp' }))));
+    const row = el('div', 'phone-qr-row');
+    const side = el('div', 'phone-topic');
+    side.append(
+      el('div', 'phone-topic-label', ui.ntfyTopic),
+      el('code', 'phone-topic-name', phone.topic),
+      button('phone-small', ui.phoneCopy, async () => {
+        if ((await phoneAction({ type: 'copyTopic' })).ok) toast(ui.phoneCopied);
+      }),
+      button('phone-small', ui.ntfyNew, async () => {
+        if ((await phoneAction({ type: 'newTopic' })).ok) toast(ui.ntfyNewDone);
+      })
+    );
+    row.append(qrCanvas(phone.link), side);
+    box.append(phoneStep(ui.ntfyStep2, row));
+  }
+
+  if (phone.service === 'serverchan') {
+    box.append(phoneStep(ui.sctStep1, button('phone-link', ui.sctOpen, () => phoneAction({ type: 'open', which: 'serverchan' }))));
+    const form = el('div', 'phone-key');
+    const input = el('input', 'phone-key-input');
+    input.type = 'password'; // 别让旁边的人看见
+    input.spellcheck = false;
+    input.autocomplete = 'off';
+    input.placeholder = ui.sctPlaceholder;
+    input.value = state.sctDraft;
+    const save = async () => {
+      const key = state.sctDraft.trim();
+      if (!key) return;
+      const result = await api.phone({ type: 'sctKey', key });
+      if (result && result.ok) {
+        state.sctDraft = '';
+        toast(ui.sctSaveOk);
+      } else {
+        toast(ui.sctBad);
+      }
+    };
+    input.addEventListener('input', () => (state.sctDraft = input.value));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing) {
+        e.preventDefault();
+        save();
+      }
+    });
+    form.append(input, button('btn phone-save', ui.sctSave, save));
+    const step = phoneStep(ui.sctStep2, form);
+    if (phone.sctHint) step.append(el('div', 'phone-saved', fillText(ui.sctSaved, { hint: phone.sctHint })));
+    box.append(step);
+  }
+
+  if (phone.service !== 'off') {
+    // 发一条试试：按钮在发的时候变成"发送中…"，发完告诉你结果
+    const test = button('btn primary phone-test', state.phoneTesting ? ui.phoneTesting : ui.phoneTest, async () => {
+      if (state.phoneTesting) return;
+      state.phoneTesting = true;
+      renderMain();
+      const result = await api.phone({ type: 'test' });
+      state.phoneTesting = false;
+      renderMain();
+      toast(result && result.ok ? ui.phoneTestOk : fillText(ui.phoneTestFail, { why: phoneWhy(result) }));
+    });
+    test.disabled = state.phoneTesting;
+    box.append(phoneStep(ui.phoneStepTest, test));
+    for (const [key, label] of [
+      ['hideText', ui.phoneHide],
+      ['skipPresent', ui.phoneSkipPresent],
+    ]) {
+      const option = el('label', 'phone-option');
+      const check = el('input');
+      check.type = 'checkbox';
+      check.checked = !!phone[key];
+      check.addEventListener('change', () => phoneAction({ type: 'options', [key]: check.checked }));
+      option.append(check, el('span', '', label));
+      box.append(option);
+    }
+    box.append(el('p', 'phone-note', phone.service === 'ntfy' ? ui.phoneNoteNtfy : ui.phoneNoteSct));
+  }
+  return box;
+}
+
 function todosView() {
   const { ui, todos } = state.data;
   const view = el('section', 'view todos');
@@ -1066,7 +1254,7 @@ function todosView() {
   box.checked = state.data.todoNotify !== false;
   box.addEventListener('change', () => todoAction({ type: 'notify', on: box.checked }));
   notify.append(box, el('span', '', ui.todoNotify));
-  view.append(notify, el('div', 'todo-hint', ui.todoHint));
+  view.append(notify, el('div', 'todo-hint', ui.todoHint), phoneSection());
   if (state.todoFocus) {
     requestAnimationFrame(() => {
       input.focus();

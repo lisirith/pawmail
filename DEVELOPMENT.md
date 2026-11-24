@@ -129,6 +129,7 @@ src/
     feed.js          喂它吃文件：检查能不能吃、放进回收站
     todos.js         待办：什么时候提醒、提醒哪件（提前一次、到点、10 分钟后再来；纯数据）
     todo-notify.js   待办的 Windows 通知：弹出来、点了 / 关掉 / "做完了"以后怎么办；向 Windows 登记程序名
+    phone.js         手机提醒（默认关）：发到 ntfy 或 Server酱；频道名、SendKey 加密存。整个程序只有这里会联网
     ledges.js        窗口顶边：宠物能站上去的地方
     wardrobe.js      衣柜：信里捎哪件衣服、衣柜里显示什么（纯计算）
     letters.js       写信：按规则把句子拼成一封信（纯计算，可单独测试）
@@ -141,6 +142,7 @@ src/
     js/pet/          宠物：怎么画、动作、大脑、特效、衣服、节日装扮
     js/mail/         信纸窗口：读信、信箱、图鉴、衣柜、待办、风景、明信片
     js/ui/           气泡、右键菜单、画活动范围
+    js/util/         小工具：数学（math.js）、二维码（qr.js，手机提醒扫码订阅用）
   shared/
     locales/       界面文字（zh.json / en.json）
     letters/       信的内容：地点和礼物目录（catalog.js），以及中英文的全部句子

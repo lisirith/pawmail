@@ -30,7 +30,7 @@ Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drop
 
 <p align="center"><img src="docs/images/wardrobe-en.png" width="320" alt="The wardrobe: the pet on the left, clothes by type on the right, unreceived ones as grey silhouettes"></p>
 
-**To-do reminders.** Write down what you need to do on the *To-dos* page of the letter window, and have it remind you when it's time (in 30 minutes, tonight at 8, tomorrow at 9, or any time you pick), with an optional heads-up from 5 minutes to a day before. When it's time, it runs over to your cursor holding up a little note with an alarm clock on it; click it to say you got it. A Windows notification with a sound pops up at the same time, even when you're away from the computer, and you can tick the to-do off right from it. Every time you tick one off, it's happy for you, and the next day's letter mentions it.
+**To-do reminders.** Write down what you need to do on the *To-dos* page of the letter window, and have it remind you when it's time (in 30 minutes, tonight at 8, tomorrow at 9, or any time you pick), with an optional heads-up from 5 minutes to a day before. When it's time, it runs over to your cursor holding up a little note with an alarm clock on it; click it to say you got it. A Windows notification with a sound pops up at the same time, even when you're away from the computer, and you can tick the to-do off right from it. Want your phone to buzz too? Turn on *Phone reminders* (off by default): install the free ntfy app and scan the QR code on the to-dos page, or use ServerChan to get it in WeChat. Every time you tick one off, it's happy for you, and the next day's letter mentions it.
 
 **It eats your files.** Drag files you don't need onto it and it gobbles them up. They really go to the Recycle Bin, so you can always get them back. It won't eat anything that can't be recovered (USB drives, network drives) or anything important (whole drives, Windows, your Desktop or Documents folders themselves).
 
@@ -94,7 +94,8 @@ In the letter window: drag the top bar to move it, click the pet's name to chang
 
 ## Privacy
 
-- Everything is saved only on your computer, in `%APPDATA%\Pawmail\save.json`. Pawmail never connects to the internet.
+- Everything is saved only on your computer, in `%APPDATA%\Pawmail\save.json`. By default, Pawmail never connects to the internet.
+- The only thing that goes online is *Phone reminders*, which is off by default. Once you turn it on at the bottom of the *To-dos* page, Pawmail sends a reminder to the push service you picked, ntfy.sh (which keeps it on its server for 12 hours) or ServerChan, only at the moment it goes off (or when you press *Send a test*), and nothing else. With *Don't send what the to-do says* ticked, all that's sent is "A to-do is due". Your ntfy channel name and ServerChan SendKey are stored encrypted with Windows' own encryption and never written to the log.
 - To write its letters, it notes a few things each day: when you first and last used the computer, for how many minutes, and how many times you petted, poked or threw it. Only the last 60 days are kept.
 - Your birthday (month and day only) and your festivals are stored in the same file.
 - Files you feed it go to the Recycle Bin. It only counts how many; it doesn't record names or look inside.

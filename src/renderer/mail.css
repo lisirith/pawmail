@@ -1207,3 +1207,130 @@ button.wardrobe-item:hover {
   font-size: 12px;
   line-height: 1.5;
 }
+
+/* ---------- 手机提醒（待办页最下面，见 src/main/phone.js） ---------- */
+
+.phone {
+  margin: 18px 0 4px;
+  padding: 12px 12px 10px;
+  border: 2px solid #ead7ba;
+  border-radius: 14px;
+  background: #fffdf8;
+  color: #5b3a24;
+  font-size: 13px;
+}
+.phone-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.phone-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+.phone-service {
+  margin-left: auto;
+  padding: 3px 8px;
+  border: 1.5px solid #5b3a24;
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.phone-intro,
+.phone-note {
+  margin: 8px 0 0;
+  color: #9a7b5a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.phone-step {
+  margin-top: 12px;
+}
+.phone-step p {
+  margin: 0 0 6px;
+  line-height: 1.5;
+}
+.phone-link,
+.phone-small {
+  padding: 2px 10px;
+  border: 1.5px solid #5b3a24;
+  border-radius: 9px;
+  background: #fff;
+  font-size: 12.5px;
+}
+.phone-link:hover,
+.phone-small:hover {
+  background: #f3e6d3;
+}
+.phone-qr-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.phone-qr {
+  flex: none;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1.5px #ead7ba;
+}
+.phone-topic {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.phone-topic-label {
+  color: #9a7b5a;
+  font-size: 12px;
+}
+.phone-topic-name {
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: #f3e6d3;
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  user-select: all;
+  -webkit-user-select: all;
+}
+.phone-key {
+  display: flex;
+  gap: 8px;
+}
+.phone-key-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 2px solid #5b3a24;
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  outline: none;
+  user-select: text;
+}
+.phone-key-input:focus {
+  border-color: #f5a652;
+}
+.phone-saved {
+  margin-top: 6px;
+  color: #5f8f3e;
+  font-size: 12px;
+}
+.phone-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: #7a5a3d;
+  cursor: pointer;
+}
+.phone-option input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #f5a652;
+  cursor: pointer;
+}

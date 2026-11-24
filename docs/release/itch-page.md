@@ -29,7 +29,7 @@ A tiny desktop pet that writes you a letter every day. 每天给你写一封信�
 
 **Install:** download the installer or the zip. The first time you run it, Windows may say *"Windows protected your PC"*. Click **More info**, then **Run anyway** (Pawmail isn't code-signed yet).
 
-**Privacy:** everything stays on your computer. Pawmail never connects to the internet, and it never records your keystrokes, programs or websites.
+**Privacy:** everything stays on your computer. Pawmail doesn't connect to the internet unless you turn on phone reminders (off by default), and then only to send a to-do reminder to the push service you picked. It never records your keystrokes, programs or websites.
 
 Windows 10 / 11, 64-bit. Free. This is a beta, so please tell us about anything odd in the comments.
 
@@ -50,6 +50,6 @@ Windows 10 / 11, 64-bit. Free. This is a beta, so please tell us about anything 
 
 **安装：** 下载安装程序或压缩包。第一次运行时，Windows 可能提示"Windows 已保护你的电脑"，点 **更多信息**，再点 **仍要运行**（爪爪来信暂时还没有代码签名）。
 
-**隐私：** 所有数据只存在你的电脑上。爪爪来信从不联网，也不记录你的按键、程序或网页。
+**隐私：** 所有数据只存在你的电脑上。爪爪来信默认不联网；只有你打开了手机提醒（默认关着），才会在提醒的那一刻把这条待办提醒发给你选的推送服务。它也不记录你的按键、程序或网页。
 
 支持 Windows 10 / 11（64 位）。免费。这是测试版，遇到奇怪的地方欢迎在评论里告诉我们。

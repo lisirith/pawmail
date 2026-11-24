@@ -14,6 +14,11 @@ const ID = L.LETTER_ID;
 const PNG_PREFIX = 'data:image/png;base64,';
 const isReport = (letter) => letter.kind === 'monthly' || letter.kind === 'yearly';
 const WINDOW_SIZE = { width: 472, height: 700 };
+// 「待办」页的手机提醒那一段里能打开的网页（只用浏览器打开，只认这几个）
+const PHONE_LINKS = {
+  ntfyApp: 'https://docs.ntfy.sh/subscribe/phone/', // ntfy 官方说明：Google Play、F-Droid、GitHub 三个下载地址都在这一页
+  serverchan: 'https://sct.ftqq.com/sendkey', // Server酱：微信扫码登录后，这一页就是你的 SendKey
+};
 
 class Mail {
   /**
@@ -29,10 +34,12 @@ class Mail {
    * @param allClothes  开发时：衣柜里的衣服全部解锁（--x-allclothes）
    * @param todos       待办事项（见 todos.js），信纸窗口的「待办」页用
    * @param setTodoNotify (on) => void  待办到点时要不要也弹 Windows 通知（「待办」页最下面的勾）
+   * @param phone       手机提醒（见 phone.js），「待办」页最下面那一段用
    */
-  constructor({ store, todos = null, getContext, onChange, setName, getProfile, setProfile, setOutfit, setTodoNotify = () => {}, now = Date.now, dev = false, allClothes = false }) {
+  constructor({ store, todos = null, phone = null, getContext, onChange, setName, getProfile, setProfile, setOutfit, setTodoNotify = () => {}, now = Date.now, dev = false, allClothes = false }) {
     this.store = store;
     this.todos = todos;
+    this.phone = phone;
     this.getContext = getContext;
     this.onChange = onChange;
     this.setName = setName;
@@ -164,6 +171,7 @@ class Mail {
       festivalLook: ctx.festivalLook || null, // 今天的节日装扮（会盖住你选的帽子或手里拿的）
       todos: this.todos ? this.todos.view() : [], // 待办事项
       todoNotify: ctx.todoNotify !== false, // 待办到点时也弹 Windows 通知
+      phone: this.phone ? this.phone.view() : null, // 手机提醒：选了哪一家、频道名（给你看、做成二维码）、SendKey 只露头尾
       profile: { birthday: profile.birthday, cultures: profile.cultures, asked: profile.asked },
       groups: F.GROUPS.map((g) => ({ id: g.id, emoji: g.emoji, name: T.groups[g.id].name, examples: T.groups[g.id].examples })),
       next: next ? { name: T.festivals[next.id].name, day: next.day } : null,
@@ -328,6 +336,39 @@ class Mail {
           return { ok: T.remove(action.id) };
         case 'clearDone':
           return { ok: true, removed: T.clearDone() };
+        default:
+          return { ok: false };
+      }
+    });
+
+    // 手机提醒（见 phone.js）：选哪一家、换频道名、填 SendKey、两个勾、发一条试试、复制频道名、打开下载页 / Server酱 网站。
+    // 每一项都在 phone.js 里再检查一遍
+    ipcMain.handle('pawmail-mail:phone', async (event, action) => {
+      if (!mine(event) || !this.phone || !action || typeof action !== 'object') return { ok: false };
+      const P = this.phone;
+      switch (action.type) {
+        case 'service':
+          return { ok: P.setService(action.service) };
+        case 'newTopic':
+          return { ok: P.newTopic() };
+        case 'sctKey':
+          return { ok: P.setSctKey(action.key) };
+        case 'options':
+          return { ok: P.setOptions({ hideText: action.hideText, skipPresent: action.skipPresent }) };
+        case 'test':
+          return P.test(); // { ok, error, code }：信纸窗口告诉你发出去没有、为什么没发出去
+        case 'copyTopic': {
+          const topic = P.topic();
+          if (!topic) return { ok: false };
+          if (!this.test) clipboard.writeText(topic); // 自检时不动你的剪贴板
+          return { ok: true };
+        }
+        case 'open': {
+          const url = Object.prototype.hasOwnProperty.call(PHONE_LINKS, action.which) ? PHONE_LINKS[action.which] : null;
+          if (!url) return { ok: false };
+          if (!this.test) shell.openExternal(url);
+          return { ok: true };
+        }
         default:
           return { ok: false };
       }

@@ -14,7 +14,7 @@
 //   --x-feeddry           喂它吃文件时只演习：照常检查、照常演"吃"，但不真的放进回收站
 //   --x-allclothes        衣柜里的衣服全部解锁（不用等信）
 
-const { app, ipcMain, nativeImage, powerMonitor, screen, shell } = require('electron');
+const { app, ipcMain, nativeImage, net, powerMonitor, safeStorage, screen, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Store, LANGUAGES, isValidSetting, sanitizePet } = require('./store');
@@ -23,6 +23,7 @@ const { PetTray } = require('./tray');
 const { Mail } = require('./mail');
 const { Todos, TODO_ID } = require('./todos');
 const { TodoNotes, registerApp } = require('./todo-notify');
+const { PhonePush } = require('./phone');
 const { Feeder, buildRules } = require('./feed');
 const { logicalDay, festivalToday } = require('./letters');
 const F = require('../shared/festivals/catalog');
@@ -34,7 +35,7 @@ const { LedgeWatch } = require('./ledges');
 // 程序在 Windows 里的 ID：开机启动项的名字、任务栏分组、通知都用它（和 electron-builder.yml 的 appId 一样）
 const APP_ID = 'app.pawmail.desktop';
 
-// 托盘菜单「帮助与反馈」里打开的网页。只是用浏览器打开，程序自己不联网
+// 托盘菜单「帮助与反馈」里打开的网页。只是用浏览器打开，程序自己不联网（唯一会联网的是你自己打开的手机提醒，见 phone.js）
 const LINKS = {
   releases: 'https://github.com/lisirith/pawmail/releases', // 检查新版本：看看有没有比菜单里写的版本号更新的
   issues: 'https://github.com/lisirith/pawmail/issues', // 反馈问题
@@ -66,6 +67,7 @@ let tray = null;
 let mail = null;
 let todos = null; // 待办事项（见 todos.js）
 let notes = null; // 待办的 Windows 通知（见 todo-notify.js）
+let phone = null; // 待办的手机提醒（见 phone.js），默认关着
 let trayIcon = null; // 托盘图标（宠物的头，画面画好传过来的 PNG）：{ dataUrl, image }，通知上也用它
 let feeder = null; // 喂它吃文件（见 feed.js）
 let logFiles = null; // 日志文件在哪儿（见 log.js）
@@ -197,6 +199,26 @@ function noteTexts(kind, list) {
   const todo = list[0];
   const key = kind === 'due' ? 'notify.due' : 'notify.soon';
   return { title: todo.text, body: t(name ? `${key}From` : key, { name, left: leftText(todo.due - nowMs()) }), done };
+}
+
+/**
+ * 发到手机上的字：和 Windows 通知一样。勾了"不发具体内容"的话，只说"有一件待办到点了"，不写是什么事。
+ * kind = 'test'：「发一条试试」那一条
+ */
+function phoneTexts(kind, list, hide) {
+  if (kind === 'test') return { title: t('appName'), body: t('phone.test') };
+  if (hide) {
+    const many = list.length > 1;
+    const key = kind === 'due' ? (many ? 'phone.hiddenDueMany' : 'phone.hiddenDue') : many ? 'phone.hiddenSoonMany' : 'phone.hiddenSoon';
+    return { title: t('appName'), body: t(key, { n: list.length, left: leftText(list[0].due - nowMs()) }) };
+  }
+  const { title, body } = noteTexts(kind, list);
+  return { title, body };
+}
+
+/** 你在电脑前、而且没在全屏打游戏（"我在电脑前时不发到手机"用） */
+function userPresent() {
+  return powerMonitor.getSystemIdleTime() < 120 && !(overlay && overlay.hidden);
 }
 
 /** 通知的左上角写着程序名、带个小图标：告诉 Windows 我们叫什么（见 todo-notify.js 开头）。测试存档不碰注册表 */
@@ -494,6 +516,19 @@ function start() {
   store.load();
   registerNotifyApp();
 
+  // 待办的手机提醒（默认关着；自检时换成假的"发请求"，不真的联网，见 selftest.js 的 fakeFetch）
+  phone = new PhonePush({
+    store,
+    fetch: SELFTEST_DIR ? require('./selftest').fakeFetch : (url, options) => net.fetch(url, options),
+    safeStorage,
+    texts: phoneTexts,
+    onChange: () => {
+      store.saveSoon();
+      if (mail) mail.refresh();
+    },
+    log: (message) => console.log(message),
+  });
+
   // 待办的 Windows 通知（自检时换成假的，不在你的屏幕上真的弹出来，见 selftest.js 的 FakeNote）
   notes = new TodoNotes({
     texts: noteTexts,
@@ -523,6 +558,7 @@ function start() {
     },
     onNotify: (kind, list) => {
       if (store.data.settings.todoNotify) notes.show(kind, list);
+      phone.send(kind, list, { present: userPresent() }); // 没开手机提醒的话什么都不做
     },
     onSettled: (ids) => notes.settle(ids),
     onDone: (todo) => {
@@ -534,6 +570,7 @@ function start() {
   mail = new Mail({
     store,
     todos,
+    phone,
     dev: DEV,
     getContext: () => {
       const lang = currentLanguage();
@@ -595,7 +632,7 @@ function start() {
     if (args.includes('--devtools')) overlay.win.webContents.openDevTools({ mode: 'detach', activate: false });
     if (SELFTEST_DIR) {
       require('./selftest')
-        .run({ overlay, mail, store, feeder, outDir: path.resolve(SELFTEST_DIR), setSetting, ledgeWatch })
+        .run({ overlay, mail, store, feeder, outDir: path.resolve(SELFTEST_DIR), setSetting, ledgeWatch, phone })
         .catch((err) => console.error('[selftest] 出错：', err))
         .finally(quit);
     }

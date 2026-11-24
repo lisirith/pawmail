@@ -43,7 +43,16 @@ class FakeNote extends EventEmitter {
   }
 }
 
-async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
+/**
+ * 自检用的假"发请求"（代替 Electron 的 net.fetch，见 phone.js）：不真的联网，只记下发了什么，假装对方说"收到了"
+ */
+async function fakeFetch(url, options) {
+  fakeFetch.requests.push({ url, body: JSON.parse(options.body) });
+  return { ok: true, status: 200, json: async () => ({ code: 0, message: '' }) };
+}
+fakeFetch.requests = [];
+
+async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch, phone }) {
   fs.mkdirSync(outDir, { recursive: true });
   const wc = overlay.win.webContents;
   const js = (code) => wc.executeJavaScript(`(() => { ${code} })()`, true);
@@ -175,6 +184,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
   await testMail();
   await testWardrobe();
   await testTodos();
+  await testPhone();
   await testReports();
   await testFestivals();
   await testFullscreen();
@@ -950,6 +960,103 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
     await wait(200);
   }
 
+  // ---------------------------------------------------------------- 手机提醒（见 phone.js；用假的"发请求"，不真的联网）
+
+  async function testPhone() {
+    const { app } = require('electron');
+    const F = module.exports.fakeFetch;
+    const todos = mail.todos;
+    const win = mail.open({ view: 'todos' });
+    await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+    await wait(800);
+    const mjs = (code) => win.webContents.executeJavaScript(`(async () => { ${code} })()`, true);
+    const choose = (service) => mjs(`const s = document.querySelector('.phone-service'); s.value = '${service}'; s.dispatchEvent(new Event('change')); return true;`);
+
+    // 选 ntfy：生成一个随机频道名，存档里是加密过的；页面上有二维码和频道名
+    await choose('ntfy');
+    await wait(500);
+    const topic = phone.topic();
+    const saved = JSON.stringify(store.data.phone);
+    const page = await mjs(`return { qr: !!document.querySelector('.phone-qr'), topic: (document.querySelector('.phone-topic-name') || {}).textContent };`);
+    check(
+      '手机提醒选 ntfy：生成一个随机频道名，存档里存的是加密过的；页面上有二维码和频道名',
+      store.data.phone.service === 'ntfy' && /^pawmail-[a-z0-9]{16}$/.test(topic || '') && !saved.includes(topic) && page.qr && page.topic === topic,
+      { service: store.data.phone.service, page: { qr: page.qr, sameTopic: page.topic === topic }, encrypted: !saved.includes(topic) }
+    );
+
+    // 「发一条试试」
+    F.requests.length = 0;
+    await mjs(`document.querySelector('.phone-test').click(); return true;`);
+    await wait(500);
+    const tried = F.requests[0];
+    check(
+      '「发一条试试」：往 ntfy.sh 发了一条（频道名对、普通优先级）',
+      F.requests.length === 1 && tried.url === 'https://ntfy.sh/' && tried.body.topic === topic && tried.body.priority === 3 && !!tried.body.title,
+      { count: F.requests.length, url: tried && tried.url, priority: tried && tried.body.priority }
+    );
+
+    // 待办到点（你不在电脑前：宠物不出来，手机照发）：优先级 4；勾了"不发具体内容"就不带待办写的字
+    F.requests.length = 0;
+    const a = todos.add({ text: '自检的手机提醒', due: Date.now() - 1000 });
+    todos.check(false);
+    await wait(300);
+    phone.setOptions({ hideText: true });
+    const b = todos.add({ text: '自检的秘密待办', due: Date.now() - 1000 });
+    todos.check(false);
+    await wait(300);
+    phone.setOptions({ hideText: false });
+    const [shown, hidden] = F.requests;
+    check(
+      '待办到点：手机上也发一条（优先级 4、写着那件事）；勾了"不发具体内容"就只说"有一件待办到点了"',
+      F.requests.length === 2 && shown.body.priority === 4 && shown.body.title === '自检的手机提醒' && !JSON.stringify(hidden.body).includes('自检的秘密待办'),
+      { count: F.requests.length, shown: shown && shown.body.title, hidden: hidden && [hidden.body.title, hidden.body.message] }
+    );
+    phone.setOptions({ skipPresent: true });
+    const skipped = await phone.send('due', [a], { present: true });
+    const sent = await phone.send('due', [a], { present: false });
+    phone.setOptions({ skipPresent: false });
+    check('勾了"我在电脑前时不发到手机"：你在就不发，不在照发', skipped.skipped === true && sent.ok === true, { skipped, sent });
+
+    // Server酱：不像 SendKey 的不收；像的加密存起来；试发是发到 Server酱 的地址
+    await choose('serverchan');
+    await wait(400);
+    const bad = await mjs(`return await window.pawmailMail.phone({ type: 'sctKey', key: 'hello' });`);
+    const good = await mjs(`return await window.pawmailMail.phone({ type: 'sctKey', key: 'SCT000000TselftestKey123' });`);
+    F.requests.length = 0;
+    const sct = await mjs(`return await window.pawmailMail.phone({ type: 'test' });`);
+    check(
+      'Server酱：不像 SendKey 的不收，像的加密存起来；试发是发到 Server酱 的地址',
+      bad.ok === false && good.ok === true && !JSON.stringify(store.data.phone).includes('SCT000000') && F.requests.length === 1 &&
+        F.requests[0].url === 'https://sctapi.ftqq.com/SCT000000TselftestKey123.send' && sct.ok === true,
+      { bad, good, url: F.requests[0] && F.requests[0].url.replace(/SCT\w+/, 'SCT…') }
+    );
+
+    // 关掉：到点不发；日志里不写频道名、key、待办的字
+    await choose('off');
+    await wait(400);
+    F.requests.length = 0;
+    const c = todos.add({ text: '自检的第三件', due: Date.now() - 1000 });
+    todos.check(false);
+    await wait(700);
+    let log = '';
+    try {
+      const file = path.join(app.getPath('userData'), 'logs', 'pawmail.log');
+      log = fs.readFileSync(file, 'utf8');
+      log = log.slice(log.lastIndexOf('[diag]'));
+    } catch {
+      // 读不到就算了，下面会失败
+    }
+    check(
+      '关掉手机提醒以后到点不发；日志里不写频道名、SendKey 和待办的字',
+      store.data.phone.service === 'off' && F.requests.length === 0 && log.includes('[手机提醒]') && !log.includes(topic) && !log.includes('SCT000000') && !log.includes('自检的秘密待办'),
+      { requests: F.requests.length, logged: log.includes('[手机提醒]') }
+    );
+    for (const t of [a, b, c]) todos.remove(t.id);
+    mail.close();
+    await js(`const P = window.__pawmail; P.brain.reminder = null; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.2); return true;`);
+    await wait(200);
+  }
+
   // ---------------------------------------------------------------- 喂它吃文件
 
   async function testFeed() {
@@ -1147,4 +1254,4 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch }) {
   }
 }
 
-module.exports = { run, FakeNote };
+module.exports = { run, FakeNote, fakeFetch };
