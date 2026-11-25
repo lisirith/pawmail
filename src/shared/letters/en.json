@@ -1,5 +1,5 @@
 {
-  "snack": { "cat": "dried fish", "panda": "bamboo", "capybara": "watermelon", "shiba": "jerky", "redpanda": "apples", "bunny": "carrots" },
+  "snack": { "cat": "dried fish", "panda": "bamboo", "capybara": "watermelon", "shiba": "jerky", "redpanda": "apples", "bunny": "carrots", "fox": "grapes", "penguin": "fish", "otter": "clams" },
 
   "openers": [
     "After you shut the computer yesterday, I snuck off to {place}.",

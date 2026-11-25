@@ -3,6 +3,7 @@
 // 图标是画面那边用宠物的头画出来、再传过来的，所以换动物时图标也会跟着变。
 
 const { Tray, Menu, nativeImage } = require('electron');
+const { SPECIES } = require('./store');
 
 /** 画面还没准备好之前，先用一个橙色小圆点顶着 */
 function fallbackIcon() {
@@ -73,7 +74,7 @@ class PetTray {
         { type: 'separator' },
         {
           label: t('menu.animal'),
-          submenu: [radio('species', 'cat', t('menu.cat')), radio('species', 'panda', t('menu.panda')), radio('species', 'capybara', t('menu.capybara')), radio('species', 'shiba', t('menu.shiba')), radio('species', 'redpanda', t('menu.redpanda')), radio('species', 'bunny', t('menu.bunny'))],
+          submenu: SPECIES.map((id) => radio('species', id, t(`menu.${id}`))), // 顺序见 store.js 的 SPECIES
         },
         ...(settings.species === 'cat' ? [{ label: t('menu.catCoat'), submenu: [radio('catCoat', 'tabby', t('menu.tabby')), radio('catCoat', 'lucky', t('menu.luckyCat'))] }] : []),
         {

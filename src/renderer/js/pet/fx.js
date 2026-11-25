@@ -3,7 +3,7 @@
 
 import { TAU, clamp, easeOutBack } from '../util/math.js';
 import { drawFood } from './food.js';
-import { drawOrange, drawCoin, drawYarn, drawLowBattery } from './props.js';
+import { drawOrange, drawCoin, drawYarn, drawLowBattery, drawSnack, drawPebble, drawDirt } from './props.js';
 
 const MAX_ITEMS = 48;
 const FONT = '"Segoe UI", "Microsoft YaHei UI", sans-serif';
@@ -221,6 +221,48 @@ const DRAW = {
     ctx.globalAlpha *= 0.55 + 0.45 * Math.abs(Math.cos(it.age * 5));
     drawLowBattery(ctx, it.level ?? 0.15);
   },
+  /** 飞在空中的零食（企鹅把小鱼往上一抛、狐狸把葡萄放进坑里）：快到地方时缩小一点，像是钻进嘴里、掉进坑里 */
+  snack(ctx, it, u) {
+    ctx.translate(it.x, it.y);
+    ctx.rotate(it.rot);
+    const k = u > 0.82 ? 1 - ((u - 0.82) / 0.18) * (it.shrink ?? 0.6) : 1;
+    ctx.scale(k, k);
+    drawSnack(ctx, it.kind, 0);
+  },
+  /** 小石子（水獭玩杂耍） */
+  pebble(ctx, it) {
+    ctx.translate(it.x, it.y);
+    ctx.rotate(it.rot);
+    drawPebble(ctx, 3.8 * it.size);
+  },
+  /** 狐狸藏葡萄：地上挖的小坑和旁边的一小堆土。k 土堆多高、hole 坑多大（动作一帧帧改）；dieAt 以后半秒慢慢淡掉 */
+  dirt(ctx, it) {
+    if (it.dieAt != null) ctx.globalAlpha *= clamp(1 - (it.age - it.dieAt) / 0.5, 0, 1);
+    ctx.translate(it.x, it.y);
+    const hole = clamp(it.hole ?? 0, 0, 1);
+    if (hole > 0.02) {
+      ctx.beginPath();
+      ctx.ellipse(it.holeX ?? 0, -0.5, 9 * hole * it.size, 3 * hole * it.size, 0, 0, TAU);
+      ctx.fillStyle = '#5a3a22';
+      ctx.fill();
+    }
+    ctx.scale(it.size, it.size);
+    drawDirt(ctx, it.k ?? 1, 15);
+  },
+  /** 一圈水波纹（水獭仰面漂着打盹）：扁扁的椭圆，慢慢变大、变淡 */
+  ripple(ctx, it, u) {
+    ctx.translate(it.x, it.y);
+    ctx.globalAlpha *= 0.85 * (1 - u);
+    const r = (12 + u * 24) * it.size;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r, r * 0.2, 0, 0, TAU);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 3.2;
+    ctx.stroke();
+    ctx.strokeStyle = '#8fcdec';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+  },
   /** "啵"的一下：一圈小泡泡散开（纸箱、木盆收起来的时候） */
   puff(ctx, it, u) {
     ctx.translate(it.x, it.y);
@@ -312,7 +354,8 @@ export class Fx {
       const u = it.age / it.life;
       const pop = easeOutBack(clamp(it.age / 0.22, 0, 1)); // 出现时"啵"地弹一下
       ctx.save();
-      ctx.globalAlpha = clamp((1 - u) / 0.3, 0, 1); // 最后 30% 的时间渐渐消失
+      // 最后 30% 的时间渐渐消失。solid 的一直不淡（抛在空中的小鱼、杂耍的石子：一落到地方就整个没了）
+      ctx.globalAlpha = it.solid ? 1 : clamp((1 - u) / 0.3, 0, 1);
       draw(ctx, it, u, pop);
       ctx.restore();
     }

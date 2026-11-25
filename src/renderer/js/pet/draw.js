@@ -30,7 +30,8 @@ const LW = 1.45; // 按设定图的线宽比例描边，放大后仍保留轻柔
 //   frontLegs 坐下时手变成"前腿"，直直地撑在两脚中间（猫是这样坐的）
 //   frontLegInset 前腿收进胸前的距离；restArm / foldInset 是熊猫坐下抱爪时的角度和内收量
 //   restInFront: false 坐下时搭在肚子上的手画在头后面（小熊猫；熊猫的爪子要压住下巴，画在前面）
-const DEFAULT_BUILD = Object.freeze({ torso: 1, arm: 1, armLen: 1, foot: 1, sitSpread: 0, frontLegs: false });
+//   headDrop 脑袋往下坐多少（脖子短一点）：企鹅的头和身子圆滚滚地连成一团，整只矮墩墩的。手脚的关节不变
+const DEFAULT_BUILD = Object.freeze({ torso: 1, arm: 1, armLen: 1, foot: 1, sitSpread: 0, frontLegs: false, headDrop: 0 });
 
 // 五官的位置和大小（头的坐标：原点在头的中心）。每种动物在自己的文件里覆盖需要改的几项。
 //   eyeX/eyeY 眼睛中心 · eyeRx/eyeRy 睁眼时的大小 · shine 眼睛里要不要画白色高光
@@ -118,7 +119,7 @@ export function getGeometry(sp, P) {
     torsoRxTop,
     torsoBottom,
     headCx: P.headX + facing * 2.5,
-    headCy: -76 + Math.max(sit * 7, loaf * 22) + P.headY,
+    headCy: -76 + Math.max(sit * 7, loaf * 22) + P.headY + build.headDrop,
     head: sp.head,
     tailBaseY: -15 + drop * 0.8,
   };
@@ -526,7 +527,9 @@ function drawFace(ctx, sp, P, lx, ly, time) {
   ctx.save();
   ctx.translate(lx * 8.5, F.noseY + ly * 4.5);
   if (sp.drawNose) sp.drawNose(ctx);
-  drawMouth(ctx, sp, P);
+  // 嘴：一般是 ω 形的小猫嘴；企鹅自己画（小橘嘴，张嘴时上下两片嘴壳分开，见 species/penguin.js）
+  if (sp.drawMouth) sp.drawMouth(ctx, P);
+  else drawMouth(ctx, sp, P);
   ctx.restore();
 
   if (sp.drawFaceExtras) sp.drawFaceExtras(ctx, lx, ly);
@@ -787,7 +790,8 @@ export function drawPet(ctx, sp, P, opts = {}) {
   ctx.rotate(P.lean);
   ctx.scale(1 + P.squash * 0.55, 1 - P.squash);
 
-  // 小熊猫抱着尾巴（tailWrap）：尾巴绕到身子前面，等身子画完再画
+  // 小熊猫抱着尾巴（tailWrap）：尾巴绕到身子前面，等身子画完再画。
+  // 狐狸（sp.tailOverHead）睡觉时尾巴尖盖住鼻子：头画完以后，再把尾巴尖那一截画一遍，压在脸的下半截上
   const tailFront = (P.tailWrap || 0) > 0.5;
   if (!tailFront) sp.drawTail(ctx, P, g);
 
@@ -842,7 +846,7 @@ export function drawPet(ctx, sp, P, opts = {}) {
   // （以后下装画在这里）
 
   if (feetInFront) drawFeet(ctx, sp, P, g);
-  if (tailFront) sp.drawTail(ctx, P, g);
+  if (tailFront && !sp.tailOverHead) sp.drawTail(ctx, P, g);
 
   // 手臂一律画在头的下面一层：举起来的时候，靠近肩膀那一截会被头挡住，不会盖住脸颊。
   // 往里收到嘴边的手（舔爪子）、熊猫坐下抱在胸前的手，画在脸前面。
@@ -866,6 +870,11 @@ export function drawPet(ctx, sp, P, opts = {}) {
     drawArm(ctx, sp, P, g, side, outfit.top);
     ctx.restore();
   }
+
+  // 脖子上一直戴着的东西（狐狸的围巾）：压住肩膀、在手臂上面，上沿被头盖住。穿上衣、过节戴别的围巾时收起来
+  if (sp.drawNeck && !outfit.top && !(look && look.neck)) sp.drawNeck(ctx, P, g);
+  // 狐狸盖着尾巴睡：绕过来的尾巴压在围巾上面、头的下面（尾巴尖等头画完再补一遍，见下面）
+  if (tailFront && sp.tailOverHead) sp.drawTail(ctx, P, g);
 
   // 手里的东西都画在胸口：得有爪子在胸前拿着才画（见 holdAmount）；趴下睡觉时也收起来
   const hold = holdAmount(P);
@@ -894,12 +903,14 @@ export function drawPet(ctx, sp, P, opts = {}) {
 
   drawHead(ctx, sp, P, g, time, look, outfit, { birdDir: opts.birdDir, mouthToy: opts.mouthToy });
   drawLookNeck(ctx, look, g); // 围巾、香囊挂在下巴下面
+  // （尾巴正在绕过来、还没绕到位的时候不补：那时候尾巴尖还在脸的另一边）
+  if (tailFront && sp.tailOverHead && P.tailWrap > 0.85) sp.drawTail(ctx, P, g, 'tip');
 
   // 零食捧在下巴前面（啃的时候低头，嘴正好碰到它）；熊猫抱在胸前的爪子还会再画在它前面
   if (snack > 0.02) {
     ctx.save();
     ctx.translate(g.torsoCx, g.torsoCy + 1);
-    withHold(ctx, heldVis * snack, () => drawSnack(ctx, sp.snack, P.bite, time));
+    withHold(ctx, heldVis * snack, () => drawSnack(ctx, sp.snack, P.bite, time, P.snackLift));
     ctx.restore();
   } else if (pillow > 0.02) {
     ctx.save();

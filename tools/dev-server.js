@@ -27,7 +27,7 @@ function mockMail(query) {
   const L = require('../src/main/letters');
   const F = require('../src/shared/festivals/catalog');
   const lang = query.get('lang') === 'en' ? 'en' : 'zh';
-  const species = ['panda', 'capybara', 'shiba', 'redpanda', 'bunny'].includes(query.get('species')) ? query.get('species') : 'cat';
+  const species = ['panda', 'capybara', 'shiba', 'redpanda', 'bunny', 'fox', 'penguin', 'otter'].includes(query.get('species')) ? query.get('species') : 'cat';
   const catCoat = query.get('coat') === 'lucky' ? 'lucky' : 'tabby';
   const name = query.get('name') || null;
   const unread = Math.max(0, Number(query.get('unread') || 1));

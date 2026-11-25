@@ -10,9 +10,9 @@ A tiny pet that lives on your Windows desktop. It wanders, naps and chases your 
 
 ## What it does
 
-**It lives on your desktop.** An orange cat, a panda, a capybara, a Shiba Inu, a red panda or a bunny walks along your taskbar. It breathes, blinks, twitches its ears, follows your cursor with its eyes, and decides for itself what to do next: nap, groom, wander, climb, or come say hi. Your clicks go straight through it to the windows behind, unless you're pointing at the pet itself.
+**It lives on your desktop.** An orange cat, a Shiba Inu, a fox, a red panda, a panda, a bunny, a capybara, an otter or a penguin walks along your taskbar. It breathes, blinks, twitches its ears, follows your cursor with its eyes, and decides for itself what to do next: nap, groom, wander, climb, or come say hi. Your clicks go straight through it to the windows behind, unless you're pointing at the pet itself.
 
-<p align="center"><img src="docs/images/lineup.png" width="720" alt="The six pets in a row: a capybara with an orange on its head, a panda, an orange cat holding a letter, a bunny hugging a carrot, a Shiba Inu and a red panda"></p>
+<p align="center"><img src="docs/images/lineup.png" width="810" alt="The nine pets in a row: a capybara with an orange on its head, a panda, an orange cat holding a letter, a fox in a red scarf, a bunny hugging a carrot, a Shiba Inu, an otter rubbing its paws, a penguin flapping its flippers and a red panda"></p>
 
 Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drops back down.
 
@@ -47,7 +47,10 @@ Pick it up by the scruff and it dangles, swings and wriggles. Let go and it drop
   - Shiba Inu: has a mind of its own and sometimes flops down mid-walk and refuses to budge. It brings a ball or a bone and drops it by your cursor; drag it and let go to throw it (or just click it), and the Shiba runs after it and brings it back. Right-click → *Play fetch* starts a game any time. It also spins around chasing its own tail.
   - Red panda: a bit timid but loves heights. Startle it and it stands up tall with its arms raised to look fierce; it naps draped over a window's edge with its legs and tail hanging down, and sleeps hugging its big tail.
   - Bunny: hops everywhere and jumps the highest. When it's really happy it leaps up and twists in mid-air; it washes its face and pulls a long ear down to lick it clean, and when it feels safe it flops onto its side for a nap.
-  - All of them pull out a favorite snack (dried fish, bamboo, watermelon, jerky, an apple, a carrot) and nibble it bite by bite. To see one right away: right-click → *Do a trick!*
+  - Fox: curious and bouncy, never without its red scarf. It cocks its head to listen for something under the ground, leaps high and dives in head first, tail waving in the air; it digs a little hole to hide its grapes for later; and it naps curled up with its big tail over its nose.
+  - Penguin: slow and waddly. It doesn't climb walls, but it can hop onto a low window. It belly-slides across the desktop, flaps its little flippers and hops (it still can't fly), and sometimes slips mid-walk and lands on its bottom.
+  - Otter: clingy and playful, it comes looking for you more often than the others. It juggles pebbles (and sometimes bonks itself on the head), rubs its paws together, and naps floating on its back.
+  - All of them pull out a favorite snack (dried fish, bamboo, watermelon, jerky, an apple, a carrot, grapes) and nibble it bite by bite. The penguin tosses a whole fish in the air and swallows it in one gulp, and the otter lies on its back and cracks a clam on a stone on its belly. To see one right away: right-click → *Do a trick!*
 - Birthdays and festivals: Lunar New Year, Mid-Autumn, Halloween, Christmas and more (you choose which ones you celebrate). On the day it dresses up, sends a festival letter with a festival-only gift, and greets you in its own way.
 - A monthly letter about your month together, and a year in review on New Year's Day.
 - Drop it on top of a window and it perches there: it strolls along the top, naps, peeks over the edge, and rides along when you drag the window. Close the window and down it goes. Sometimes it gets up there by itself, hopping onto a low window or climbing the side of one that reaches down to the taskbar.

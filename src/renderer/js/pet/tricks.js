@@ -6,7 +6,10 @@
 //   柴犬     赖着不走 stubborn（在 activities.js）、叼球给你 fetch、转圈追尾巴 chaseTail
 //   小熊猫   举手吓唬人 bluff（在 activities.js）、趴在窗口边上睡 drapeNap、抱着尾巴睡 tailHug
 //   兔子     开心扭跳 binky、洗脸洗耳朵 faceWash、摊成兔饼 flop
-//   大家都会 抱着自己爱吃的零食啃 snack（零食见动物文件里的 snack）
+//   狐狸     扑雪捕鼠 pounce、藏葡萄 buryGrapes、大尾巴盖着鼻子睡 tailNap
+//   企鹅     肚皮着地往前滑 bellySlide、拍着翅膀原地蹦 flapHop、滑一跤摔个屁股墩 slipFall
+//   水獭     抛小石子玩杂耍 juggle、搓手手 pawRub、仰面漂着打盹 floatNap
+//   大家都会 抱着自己爱吃的零食啃 snack（零食见动物文件里的 snack；企鹅一口吞、水獭仰面躺着敲贝壳，见 snackStyle）
 //
 // 写法和 activities.js 里的动作一样（工厂函数 → { update, exit }），大脑会把两边合在一起用。
 // TRICK_INFO 是每个招牌动作"什么时候能做、平常想不想做、做完隔多久再做"，brain.js 按它打分。
@@ -68,6 +71,333 @@ function rollLift(theta) {
 
 /** 箱子、木盆收起来以后要不要等一下（还没完全消失时别结束动作，不然位置会跳） */
 const gone = (v) => v < 0.03;
+
+/**
+ * 身子上的一个点（身子自己的坐标，和 draw.js 一样：先抬高 lift、再绕身子中间转 roll）在宠物坐标里的位置。
+ * 特效不跟着身子转，所以仰面躺着、侧躺着的时候，要用它算嘴、肚子在哪儿
+ */
+function bodyPoint(pet, x, y) {
+  const P = pet.pose;
+  if (P.roll) {
+    const g = getGeometry(pet.sp, P);
+    const cy = (g.torsoCy + g.headCy) / 2;
+    const c = Math.cos(P.roll);
+    const s = Math.sin(P.roll);
+    const dy = y - cy;
+    [x, y] = [x * c - dy * s, cy + x * s + dy * c];
+  }
+  return { x, y: y - P.lift };
+}
+
+/** 头上的一个点（原点在头的中心，跟着歪头 headTilt 一起转）在宠物坐标里的位置 */
+function headPoint(pet, hx, hy) {
+  const P = pet.pose;
+  const g = getGeometry(pet.sp, P);
+  const c = Math.cos(P.headTilt);
+  const s = Math.sin(P.headTilt);
+  return bodyPoint(pet, g.headCx + hx * c - hy * s, g.headCy + hx * s + hy * c);
+}
+
+/**
+ * 躺下（roll 转了 theta）时身子要抬多高（负数是往下放），身子最低的地方才正好贴着地。
+ * 按这种动物自己的头、身子有多大来算（rollLift 是照着熊猫缩成一团的样子量的，企鹅、水獭伸直了躺用这个）。
+ * tilt：躺着时脑袋自己又歪了多少（水獭仰面躺着时把脸转过来朝着你）
+ */
+function lieLift(pet, theta, tilt = 0) {
+  const g = getGeometry(pet.sp, pet.pose);
+  const cy = (g.torsoCy + g.headCy) / 2;
+  const c = Math.cos(theta);
+  const at = (y) => cy + (y - cy) * c; // 身子中线上的一点转过去以后有多高
+  const ext = (rx, ry, a) => Math.hypot(rx * Math.sin(a), ry * Math.cos(a)); // 转了 a 的椭圆，最低的地方比中心低多少
+  const head = at(g.headCy) + ext(g.head.rx, g.head.ry, theta + tilt);
+  const body = at(g.torsoCy) + ext(g.torsoRxBot, g.torsoRy, theta);
+  const feet = at(-4) + ext(14, 4, theta);
+  return Math.max(head, body, feet);
+}
+
+/** 掏出来抱在胸前的零食在宠物坐标里的位置（往外扔、放进坑里的时候，特效从这里出发） */
+function snackPoint(pet) {
+  const g = getGeometry(pet.sp, pet.pose);
+  return bodyPoint(pet, g.torsoCx, g.torsoCy + 1);
+}
+
+// ------------------------------------------------------------ 零食的另外两种吃法（动物文件里的 snackStyle）
+
+/**
+ * 企鹅：一口吞（snackStyle: 'gulp'）。掏出一整条小蓝鱼，看一眼，身子往下一沉、往上一抛，
+ * 仰起头张大嘴，小鱼在空中转一圈、头朝下正好掉进嘴里，"咕咚"一口吞下去，拍拍肚子
+ */
+function gulpSnack(b) {
+  const FLY = 0.95; // 小鱼在空中飞多久（抛得比头顶高出一大截）
+  const G = 900;
+  return {
+    kind: b.pet.sp.snack,
+    phase: 'take',
+    pt: 0,
+    said: false,
+    loved: false,
+    next(p) {
+      this.phase = p;
+      this.pt = 0;
+    },
+    update(b, dt) {
+      const pet = b.pet;
+      const T = pet.target;
+      const s = pet.style;
+      if (!this.kind) return true;
+      this.pt += dt;
+      s.fps = 60;
+      s.gaze = 'none';
+      s.tailAmp = 0.5;
+      const hold = () => {
+        T.snack = 1;
+        T.armL = T.armR = -0.75;
+      };
+      switch (this.phase) {
+        case 'take': // 掏出来
+          hold();
+          T.eyes = 'wide';
+          T.lookY = 0.55;
+          if (this.pt - dt <= 0) sparks(pet, 3);
+          if (this.pt > 0.55) this.next('admire');
+          return false;
+        case 'admire':
+          hold();
+          T.eyes = 'happy';
+          T.mouth = 'smile';
+          T.mouthOpen = 0.4;
+          T.lookY = 0.5;
+          T.blush = 0.9;
+          if (!this.said) {
+            this.said = true;
+            if (chance(0.5)) b.say('snack', 2.2);
+          }
+          if (this.pt > 0.8) this.next('wind');
+          return false;
+        case 'wind': // 往下一沉，攒劲
+          hold();
+          T.squash += 0.1 * clamp(this.pt / 0.2, 0, 1);
+          T.headY += 2;
+          T.lookY = 0.3;
+          if (this.pt > 0.28) this.next('toss');
+          return false;
+        case 'toss': {
+          // 往上一抛：小鱼飞起来转一圈，头朝下落进嘴里。它仰着头、嘴越张越大
+          if (this.pt - dt <= 0) {
+            const from = snackPoint(pet);
+            pet.pose.snack = 0; // 手里那条马上收起来（换成飞在空中的这条）
+            const m = mouthPoint(pet);
+            const to = { x: m.x, y: m.y - 6 };
+            pet.fx.spawn('snack', {
+              kind: this.kind,
+              x: from.x,
+              y: from.y,
+              vx: (to.x - from.x) / FLY,
+              vy: (to.y - from.y) / FLY - 0.5 * G * FLY,
+              ay: G,
+              life: FLY,
+              solid: true,
+              shrink: 0.75,
+              rot: 0,
+              vrot: (-2.5 * Math.PI) / FLY, // 转一圈多一点，落下来时鱼头正好朝下
+            });
+          }
+          const u = clamp(this.pt / FLY, 0, 1);
+          T.armL = T.armR = this.pt < 0.2 ? 1.2 : 0.35;
+          T.lookY = -0.9;
+          T.headY -= 2.5;
+          T.eyes = 'wide';
+          T.mouth = 'yawn';
+          T.mouthOpen = clamp(u * 1.5, 0, 1);
+          if (this.pt >= FLY) {
+            pet.squashSpring.kick(1.1);
+            this.next('gulp');
+          }
+          return false;
+        }
+        case 'gulp': // 咕咚：嘴一闭，身子一抖
+          T.mouth = 'cat';
+          T.eyes = this.pt < 0.35 ? 'squeeze' : 'happy';
+          T.headY += 2.5 * bell(this.pt / 0.35);
+          T.squash -= 0.05 * bell(this.pt / 0.35);
+          T.armL = T.armR = 0.3;
+          T.blush = 1;
+          if (this.pt > 0.6) this.next('done');
+          return false;
+        default:
+          // 吃完了，拍拍肚子
+          T.armL = T.armR = -0.85 + Math.sin(this.pt * 9) * 0.14;
+          T.eyes = 'happy';
+          T.mouth = 'smile';
+          T.mouthOpen = 0.45;
+          T.blush = 1;
+          if (this.pt > 0.3 && !this.loved) {
+            this.loved = true;
+            hearts(pet, 2);
+            b.reward({ mood: 0.06 });
+          }
+          return this.pt > 1.5;
+      }
+    },
+  };
+}
+
+/**
+ * 水獭：仰面躺着敲贝壳（snackStyle: 'clam'）。翻过身仰面躺下，肚子上放一块小石头，两只爪子捧着蛤蜊
+ * 举起来、往石头上一敲（"咚"地冒个小火星），敲几下壳就裂开了，捧着一点点吃掉，拍拍肚子，再翻回来坐好。
+ * 它肚子朝着你，所以"举起来"画成离你近一点（大一点），见 props.js 的 snackClam
+ */
+function clamSnack(b) {
+  const pet = b.pet;
+  const [lo, hi] = pet.spanX(40, 20);
+  const side = hi - pet.x >= pet.x - lo ? 1 : -1; // 脑袋朝空的那一边躺
+  const LIE = 1.4;
+  return {
+    kind: pet.sp.snack,
+    phase: 'lie',
+    pt: 0,
+    bite: 0,
+    said: false,
+    loved: false,
+    next(p) {
+      this.phase = p;
+      this.pt = 0;
+    },
+    update(b, dt) {
+      const T = pet.target;
+      const s = pet.style;
+      if (!this.kind) return true;
+      this.pt += dt;
+      s.fps = 60;
+      s.gaze = 'none';
+      s.tailAmp = 0.4;
+      T.crouch = 0.2;
+      T.bite = this.bite;
+      const lying = (k = 1) => {
+        // 仰面躺着：脸转过来朝着你、脑袋离身子远一点（肚子露出来），尾巴顺着身子伸到脚那头
+        T.roll = side * LIE * k;
+        T.headTilt += -side * 1.0 * k;
+        T.headY -= 6 * k;
+        T.lift = lieLift(pet, T.roll, -side * 1.0 * k);
+        T.tailHang = 0.8 * k;
+        T.tailCurl = 1 - k;
+        T.footLY = T.footRY = -4 * k;
+      };
+      const hold = () => {
+        T.snack = 1;
+        T.armL = T.armR = -0.75;
+      };
+      const clamAt = () => snackPoint(pet);
+      switch (this.phase) {
+        case 'lie': {
+          // 慢慢仰面躺下
+          const u = clamp(this.pt / 0.7, 0, 1);
+          lying(easeInOut(u));
+          if (u >= 1) this.next('take');
+          return false;
+        }
+        case 'take': // 肚子上摆好石头，掏出蛤蜊
+          lying();
+          hold();
+          T.eyes = 'wide';
+          if (this.pt - dt <= 0) sparks(pet, 3);
+          if (this.pt > 0.5) this.next('admire');
+          return false;
+        case 'admire':
+          lying();
+          hold();
+          T.eyes = 'happy';
+          T.mouth = 'smile';
+          T.mouthOpen = 0.4;
+          T.blush = 0.9;
+          if (!this.said) {
+            this.said = true;
+            if (chance(0.5)) b.say('snack', 2.2);
+          }
+          if (this.pt > 0.7) this.next('raise');
+          return false;
+        case 'raise': // 举起来
+          lying();
+          hold();
+          T.snackLift = 1;
+          T.armL = T.armR = -0.9;
+          T.eyes = 'wide';
+          if (this.pt > 0.24) this.next('smash');
+          return false;
+        case 'smash': {
+          // 往石头上一敲
+          lying();
+          hold();
+          T.snackLift = 0;
+          T.eyes = this.pt < 0.15 ? 'squeeze' : 'wide';
+          if (!this.hit && this.pt > 0.06) {
+            this.hit = true;
+            const p = clamAt();
+            pet.fx.spawn('spark', { x: p.x + rand(-4, 4), y: p.y - 4, vx: rand(-25, 25), vy: -rand(20, 40), life: 0.4, size: 0.75, vrot: rand(-3, 3) });
+            pet.squashSpring.kick(0.5);
+            this.bite = Math.min(0.4, this.bite + 0.1);
+          }
+          if (this.pt > 0.2) {
+            this.hit = false;
+            if (this.bite >= 0.4) {
+              sparks(pet, 3);
+              this.next('eat');
+            } else {
+              this.next('raise');
+            }
+          }
+          return false;
+        }
+        case 'eat': {
+          // 打开了：一点一点吃掉
+          lying();
+          hold();
+          const c = Math.sin(this.pt * 15);
+          T.mouth = c > 0.1 ? 'wavy' : 'o';
+          T.mouthOpen = 0.5;
+          T.eyes = 'happy';
+          T.blush = 1;
+          if (this.pt > 0.8) {
+            this.bite = Math.min(1, this.bite + 0.2);
+            const m = headPoint(pet, 0, (pet.sp.face?.noseY ?? 12) + 5);
+            for (let i = 0; i < 2; i++) {
+              pet.fx.spawn('crumb', { x: m.x + rand(-5, 5), y: m.y, vx: rand(-25, 25), vy: -rand(10, 40), ay: 260, life: 0.7, size: rand(0.7, 1.2), color: SNACK_CRUMB[this.kind] });
+            }
+            pet.squashSpring.kick(0.4);
+            this.pt = 0;
+            if (this.bite >= 0.999) this.next('done');
+          }
+          return false;
+        }
+        case 'done':
+          // 吃完了，拍拍肚子
+          lying();
+          T.snack = 0;
+          T.armL = T.armR = -0.85 + Math.sin(this.pt * 9) * 0.14;
+          T.eyes = 'happy';
+          T.mouth = 'smile';
+          T.mouthOpen = 0.45;
+          T.blush = 1;
+          if (this.pt > 0.3 && !this.loved) {
+            this.loved = true;
+            hearts(pet, 2);
+            b.reward({ mood: 0.06 });
+          }
+          if (this.pt > 1.3) this.next('up');
+          return false;
+        default: {
+          // 翻回来坐好
+          const u = clamp(this.pt / 0.6, 0, 1);
+          lying(1 - easeInOut(u));
+          T.crouch = 1;
+          return u >= 1;
+        }
+      }
+    },
+  };
+}
+
+const SNACK_STYLES = { gulp: gulpSnack, clam: clamSnack };
 
 // ------------------------------------------------------------ 动作
 
@@ -1623,13 +1953,995 @@ export const TRICKS = {
     };
   },
 
+  // ============================================================ 狐狸
+
+  /**
+   * 扑雪捕鼠：听见地底下有小动静——竖起耳朵、歪着头左听右听，压低身子扭一扭屁股，高高跳起来，
+   * 在空中翻过身、一头扎进地里（地面以下在活动范围外面，被裁掉，看起来就是脑袋扎进了雪里），
+   * 屁股和后腿露在外面蹬两下，再把脑袋拔出来、甩掉头上的雪。多半什么也没抓到（冒个问号），有时得意地冒星星。
+   * 站在窗口上不做：窗口顶边下面是看得见的，脑袋会露在窗口里
+   */
+  pounce: (b) => {
+    const pet = b.pet;
+    const S = b.world.scale;
+    const [lo, hi] = pet.spanX(40, 20);
+    const dir = hi - pet.x >= pet.x - lo ? 1 : -1;
+    const reach = clamp((dir > 0 ? hi - pet.x : pet.x - lo) / S - 10, 0, 70); // 往前扑多远（按宠物原始大小算的像素）
+    const DIVE = -44; // 扎进去多深：两只眼睛都在地面以下
+    const TURN = 2.9; // 翻过去多少（弧度）：差不多倒立，稍微往前斜，屁股和尾巴高高地翘在外面
+    return {
+      phase: 'listen',
+      pt: 0,
+      listen: rand(1.3, 2.1),
+      stuck: rand(0.8, 1.2),
+      caught: chance(0.35),
+      said: false,
+      next(p) {
+        this.phase = p;
+        this.pt = 0;
+      },
+      update(b, dt) {
+        const T = pet.target;
+        const s = pet.style;
+        this.pt += dt;
+        s.gaze = 'none';
+        // 扎下去、拔出来的地方溅起来的雪
+        const snowAt = (n) => {
+          const x = dir * 14;
+          for (let i = 0; i < n; i++) {
+            pet.fx.spawn('puff', { x: x + rand(-16, 16), y: -rand(0, 5), vx: rand(-45, 45), vy: -rand(20, 55), life: rand(0.45, 0.7), size: rand(0.8, 1.3) });
+          }
+          for (let i = 0; i < Math.ceil(n / 2); i++) {
+            pet.fx.spawn('snow', { x: x + rand(-12, 12), y: -rand(2, 8), vx: rand(-60, 60), vy: -rand(80, 140), ay: 300, life: rand(0.7, 1), size: rand(0.6, 0.9), rot: rand(0, 3) });
+          }
+        };
+        switch (this.phase) {
+          case 'listen': {
+            // 竖起耳朵，歪着头听，眼睛盯着前面的地
+            s.fps = 30;
+            const tilt = Math.sin(this.pt * 2.6);
+            T.facing = dir * 0.55;
+            T.earDroop = -0.35;
+            T.earL = tilt > 0.7 ? 0.18 : 0;
+            T.earR = tilt < -0.7 ? -0.18 : 0;
+            T.headTilt += tilt * 0.22;
+            T.lookX = dir * 0.6;
+            T.lookY = 0.8;
+            T.eyes = 'wide';
+            T.tailCurl = 0.8;
+            s.tailAmp = 0.12;
+            if (!this.said && this.pt > 0.5) {
+              this.said = true;
+              if (chance(0.5)) b.say('pounce', 2);
+            }
+            if (this.pt > this.listen) this.next('crouch');
+            return false;
+          }
+          case 'crouch': {
+            // 压低身子，屁股扭一扭，攒劲
+            s.fps = 60;
+            const u = clamp(this.pt / 0.45, 0, 1);
+            T.facing = dir;
+            T.crouch = 0.45 * u;
+            T.squash += 0.12 * u;
+            T.lean += dir * 0.1 * u + Math.sin(this.pt * 28) * 0.035 * u;
+            T.earDroop = -0.3;
+            T.lookX = dir * 0.7;
+            T.lookY = 0.85;
+            T.eyes = 'wide';
+            T.tailCurl = 0.95;
+            if (this.pt > 0.6) this.next('leap');
+            return false;
+          }
+          case 'leap': {
+            // 高高跳起来，在空中翻过身：先仰着头往上蹿，过了最高点一头往下栽，两只前爪伸在前面
+            s.fps = 60;
+            const D = 0.62;
+            const u = clamp(this.pt / D, 0, 1);
+            const [a, c] = pet.spanX(34, 14);
+            pet.x = clamp(pet.x + dir * (dt / D) * reach * S, a, c);
+            T.facing = dir;
+            T.lift = 72 * 4 * u * (1 - u) + DIVE * u * u;
+            T.roll = dir * (TURN * easeInOut((u - 0.15) / 0.85) - 0.3 * bell(u / 0.4));
+            T.armL = T.armR = 1.25;
+            T.footLY = T.footRY = 4 * u;
+            T.earDroop = -0.25;
+            T.eyes = 'wide';
+            T.mouth = 'o';
+            T.mouthOpen = 0.5;
+            T.tailCurl = 1 - clamp((u - 0.35) / 0.4, 0, 1); // 翻过来以后尾巴"垂下来"，倒立着看就是翘向天
+            if (u >= 1) {
+              pet.squashSpring.kick(1.2);
+              snowAt(9);
+              this.next('stuck');
+            }
+            return false;
+          }
+          case 'stuck': {
+            // 脑袋扎在地里，屁股和后腿露在外面蹬一蹬，尾巴甩来甩去
+            s.fps = 60;
+            const k = Math.sin(this.pt * 17);
+            T.facing = dir;
+            T.roll = dir * (TURN + Math.sin(this.pt * 11) * 0.035);
+            T.lift = DIVE + Math.abs(Math.sin(this.pt * 9)) * 1.2;
+            T.armL = T.armR = 1.25;
+            // 倒立着：脚往身子"下面"伸（看起来是朝天蹬），尾巴"垂下来"（看起来是朝天翘着甩）
+            T.footLY = -3 + 4 * k;
+            T.footRY = -3 - 4 * k;
+            T.tailCurl = 0;
+            s.tailAmp = 1;
+            s.tailSpeed = 6;
+            if (chance(dt * 3)) snowAt(1);
+            if (this.pt > this.stuck) this.next('pull');
+            return false;
+          }
+          case 'pull': {
+            // 把脑袋拔出来：往后一仰，蹦一下，四只脚落回地上
+            s.fps = 60;
+            const u = clamp(this.pt / 0.45, 0, 1);
+            const e = easeInOut(u);
+            T.facing = dir;
+            T.roll = dir * TURN * (1 - e);
+            T.lift = DIVE * (1 - e) + 18 * bell(u);
+            T.eyes = 'squeeze';
+            T.armL = T.armR = 0.6 * (1 - u);
+            if (this.pt - dt <= 0) snowAt(7);
+            if (u >= 1) {
+              pet.squashSpring.kick(0.8);
+              this.next('shake');
+            }
+            return false;
+          }
+          case 'shake': {
+            // 甩甩头，把雪甩掉
+            s.fps = 60;
+            const amp = clamp(1 - this.pt / 0.6, 0, 1);
+            const w = Math.sin(this.pt * 32) * amp;
+            T.headTilt += w * 0.2;
+            T.earL = -w * 0.4;
+            T.earR = w * 0.4;
+            T.eyes = 'squeeze';
+            if (this.pt - dt <= 0) {
+              for (let i = 0; i < 5; i++) {
+                pet.fx.spawn('snow', { x: rand(-30, 30), y: pet.headTop() + rand(4, 16), vx: rand(-70, 70), vy: -rand(20, 70), ay: 240, life: rand(0.6, 0.9), size: rand(0.5, 0.8), rot: rand(0, 3) });
+              }
+            }
+            if (this.pt > 0.65) this.next('result');
+            return false;
+          }
+          default: {
+            // 什么都没抓到：歪着头冒个问号；抓到了：得意地冒星星
+            s.fps = 30;
+            T.facing = dir * 0.4;
+            if (this.caught) {
+              T.eyes = 'happy';
+              T.mouth = 'smile';
+              T.mouthOpen = 0.4;
+              T.blush = 0.9;
+              T.tailCurl = 1;
+              s.tailAmp = 0.8;
+              s.tailSpeed = 3;
+              if (this.pt - dt <= 0) {
+                sparks(pet, 4);
+                b.reward({ mood: 0.05 });
+              }
+            } else {
+              T.headTilt += 0.18 * dir;
+              T.lookX = dir * 0.5;
+              T.lookY = 0.6;
+              T.mouth = 'wavy';
+              T.blush = 0.8;
+              if (this.pt - dt <= 0) {
+                pet.fx.spawn('question', { x: dir * 26, y: pet.headTop() + 4, life: 1.1 });
+                if (chance(0.6)) b.say('pounceMiss', 2);
+              }
+            }
+            return this.pt > 1.3;
+          }
+        }
+      },
+    };
+  },
+
+  /**
+   * 藏葡萄：狐狸会把吃不完的东西埋起来，留着以后吃。先左右看看，在旁边刨个小坑（土块往后飞），
+   * 从怀里掏出一串葡萄放进去，把土扒回去盖好、拍一拍压实，再左看右看、偷偷地笑。小土堆过一会儿就看不出来了
+   */
+  buryGrapes: (b) => {
+    const pet = b.pet;
+    const [lo, hi] = pet.spanX(40, 20);
+    const dir = hi - pet.x >= pet.x - lo ? 1 : -1;
+    const holeX = dir * 38; // 坑挖在前面一点（宠物坐标）
+    return {
+      phase: 'look',
+      pt: 0,
+      dirt: null,
+      dropped: false,
+      patted: 0,
+      said: false,
+      next(p) {
+        this.phase = p;
+        this.pt = 0;
+      },
+      update(b, dt) {
+        const T = pet.target;
+        const s = pet.style;
+        this.pt += dt;
+        s.gaze = 'none';
+        s.fps = 30;
+        const dirt = () => {
+          if (!this.dirt) this.dirt = pet.fx.spawn('dirt', { x: holeX + dir * 18, y: 0, k: 0, hole: 0, holeX: -dir * 18, life: 120, solid: true, size: 1.35 });
+          return this.dirt;
+        };
+        const lean = (k) => {
+          // 面朝着坑，压低身子、低头看着
+          T.facing = dir;
+          T.crouch = 0.45;
+          T.lean += dir * 0.28 * k;
+          T.headY += 6 * k;
+          T.lookX = dir * 0.6;
+          T.lookY = 0.95;
+        };
+        switch (this.phase) {
+          case 'look': // 左看看、右看看：没人注意吧？
+            T.lookX = Math.sin(this.pt * 5.5) * 0.85;
+            T.earDroop = -0.2;
+            if (this.pt > 1.1) this.next('dig');
+            return false;
+          case 'dig': {
+            // 两只前爪轮流刨土，土块往后飞
+            s.fps = 60;
+            lean(clamp(this.pt / 0.25, 0, 1));
+            const c = Math.sin(this.pt * 17);
+            const near = 0.5 + 0.45 * c; // 靠坑那边的爪子刨得欢
+            const far = 0.3 - 0.25 * c;
+            T.armL = dir < 0 ? near : far;
+            T.armR = dir > 0 ? near : far;
+            T.tailCurl = 0.9;
+            s.tailAmp = 0.5;
+            s.tailSpeed = 3;
+            const d = dirt();
+            d.hole = clamp(this.pt / 1.3, 0, 1);
+            d.k = clamp(this.pt / 1.6, 0, 1);
+            if (chance(dt * 14)) {
+              // 土块从坑里贴着地往后飞，从两只脚中间飞到身后去
+              pet.fx.spawn('crumb', { x: holeX + rand(-8, 4) * dir, y: -rand(1, 4), vx: -dir * rand(90, 170), vy: -rand(50, 110), ay: 520, life: 0.6, size: rand(1.8, 3), color: chance(0.5) ? '#8f6440' : '#a8774c' });
+            }
+            if (this.pt > 1.9) this.next('drop');
+            return false;
+          }
+          case 'drop':
+            // 从怀里掏出一串葡萄，看一眼，放进坑里
+            s.fps = 60;
+            if (this.pt < 0.75) {
+              T.facing = dir * 0.5;
+              T.crouch = 0.3;
+              T.snack = 1;
+              T.armL = T.armR = -0.75;
+              T.lookY = 0.5;
+              T.eyes = 'happy';
+              if (this.pt - dt <= 0) sparks(pet, 2);
+            } else {
+              lean(1);
+              T.armL = T.armR = 0.35;
+              if (!this.dropped) {
+                this.dropped = true;
+                const from = snackPoint(pet);
+                pet.pose.snack = 0; // 手里那串马上收起来（换成往坑里落的这一串）
+                pet.fx.spawn('snack', { kind: pet.sp.snack, x: from.x, y: from.y, from, to: { x: holeX, y: -3 }, arc: 14, life: 0.42, solid: true, shrink: 0.7, vrot: dir * 2 });
+              }
+            }
+            if (this.pt > 1.3) this.next('cover');
+            return false;
+          case 'cover': {
+            // 把土扒回去：两只爪子一起往坑里推
+            s.fps = 60;
+            lean(1);
+            const c = Math.sin(this.pt * 12);
+            T.armL = T.armR = 0.4 + 0.25 * c;
+            const d = dirt();
+            d.hole = clamp(1 - this.pt / 0.9, 0, 1);
+            d.k = 1 - 0.55 * clamp(this.pt / 1.2, 0, 1);
+            if (this.pt > 1.3) this.next('pat');
+            return false;
+          }
+          case 'pat': {
+            // 拍一拍，压实
+            s.fps = 60;
+            lean(1);
+            const c = Math.sin(this.pt * 13);
+            T.armL = T.armR = 0.3 + 0.35 * Math.max(0, c);
+            if (c < -0.9 && this.pt - this.patted > 0.3) {
+              this.patted = this.pt;
+              pet.fx.spawn('dust', { x: holeX + rand(-6, 6), y: -2, vx: rand(-20, 20), vy: -8, life: 0.35, size: 0.7 });
+            }
+            dirt().k = 0.45 - 0.25 * clamp(this.pt, 0, 1);
+            if (this.pt > 1.1) this.next('sly');
+            return false;
+          }
+          default: {
+            // 站好，左右看看有没有人看见，嘿嘿一笑。土堆慢慢看不出来了
+            T.crouch = 0.2;
+            if (this.pt < 1.1) {
+              T.lookX = Math.sin(this.pt * 5.5) * 0.8;
+            } else {
+              T.eyes = 'happy';
+              T.mouth = 'smile';
+              T.mouthOpen = 0.3;
+              T.blush = 0.9;
+              s.tailAmp = 0.6;
+              s.tailSpeed = 2.5;
+              if (!this.said) {
+                this.said = true;
+                if (chance(0.6)) b.say('bury', 2.2);
+              }
+            }
+            if (this.pt > 1.4) this.exit();
+            return this.pt > 2.4;
+          }
+        }
+      },
+      exit() {
+        // 土堆淡掉（半秒）；被打断时也一样，免得一堆土跟着它走
+        const d = this.dirt;
+        if (d && d.dieAt == null) {
+          d.dieAt = d.age;
+          d.life = d.age + 0.55;
+        }
+      },
+    };
+  },
+
+  /**
+   * 用大尾巴盖着鼻子睡：先原地转一圈（像小狗睡觉前那样找个舒服的姿势），趴下来，
+   * 大尾巴绕到前面、白尾巴尖塞在鼻子底下（画法见 species/fox.js 的 drawTail）；睡着睡着偷偷睁一只眼看看你，接着睡
+   */
+  tailNap: () => ({
+    phase: 'circle',
+    pt: 0,
+    dur: rand(16, 26),
+    side: chance(0.5) ? 1 : -1,
+    peekAt: rand(4, 8),
+    zz: 1.6,
+    next(p) {
+      this.phase = p;
+      this.pt = 0;
+    },
+    update(b, dt) {
+      const pet = b.pet;
+      const T = pet.target;
+      const s = pet.style;
+      this.pt += dt;
+      s.gaze = 'none';
+      if (this.phase === 'circle') {
+        // 原地转一圈：先扭向一边、再扭向另一边，脚下踏着小碎步
+        s.fps = 60;
+        const u = clamp(this.pt / 1.5, 0, 1);
+        T.facing = Math.sin(u * TAU) * this.side;
+        const st = Math.sin(this.pt * 16);
+        T.footLY = Math.max(0, st) * 3;
+        T.footRY = Math.max(0, -st) * 3;
+        T.lookY = 0.6;
+        T.tailCurl = 0.6;
+        if (u >= 1) this.next('lie');
+        return false;
+      }
+      // 趴下，尾巴绕过来盖住鼻子
+      const settled = this.pt > 0.8;
+      T.loaf = 1;
+      T.tailWrap = 1;
+      T.tailCurl = 0.15;
+      T.headY += 3;
+      T.headTilt += this.side * 0.1;
+      T.blush = 0.65;
+      T.earDroop = 0.3;
+      s.blink = false;
+      s.breathPeriod = 5;
+      s.breathDepth = 2.4;
+      s.tailAmp = 0.04;
+      s.fps = this.pt < 1.5 ? 30 : 15;
+      const peek = this.pt > this.peekAt && this.pt < this.peekAt + 1.3;
+      if (peek) {
+        // 偷偷睁一只眼看你
+        s.fps = 30;
+        T.eyes = 'open';
+        T.eyeL = this.side < 0 ? 0.5 : 0.06;
+        T.eyeR = this.side > 0 ? 0.5 : 0.06;
+      } else {
+        T.eyes = settled ? 'sleep' : 'open';
+        if (!settled) T.eyeL = T.eyeR = 0.45;
+      }
+      this.zz -= dt;
+      if (this.pt > 1.6 && this.zz <= 0 && !peek) {
+        this.zz = rand(1.8, 2.6);
+        pet.fx.spawn('zzz', { x: this.side * 22 + rand(-3, 3), y: pet.headTop() + 6, vx: this.side * rand(5, 9), vy: -rand(13, 18), life: 2.3, phase: rand(0, 6) });
+      }
+      return this.pt >= this.dur;
+    },
+  }),
+
+  // ============================================================ 企鹅
+
+  /**
+   * 肚皮着地往前滑：看看前面，小碎步往前冲几步，往前一扑趴在地上，"咻——"地滑出去，越滑越慢，
+   * 翅膀贴在身边、脚在后面扑腾；停下来乐一会儿，翻回来站好，开心地拍拍翅膀
+   */
+  bellySlide: (b) => {
+    const pet = b.pet;
+    const S = b.world.scale;
+    const [lo, hi] = pet.spanX(40, 20);
+    const dir = hi - pet.x >= pet.x - lo ? 1 : -1;
+    const LIE = 1.4;
+    return {
+      phase: 'ready',
+      pt: 0,
+      v: 0,
+      trail: 0,
+      said: false,
+      next(p) {
+        this.phase = p;
+        this.pt = 0;
+      },
+      update(b, dt) {
+        const T = pet.target;
+        const s = pet.style;
+        this.pt += dt;
+        s.gaze = 'none';
+        s.fps = 60;
+        const [a, c] = pet.spanX(34, 14);
+        const edge = dir > 0 ? c : a;
+        const ahead = Math.abs(edge - pet.x) / S; // 前面还有多远（原始像素）
+        const lying = (k) => {
+          T.facing = dir;
+          T.roll = dir * LIE * k;
+          T.headTilt += -dir * 0.3 * k; // 脑袋稍微抬起来看着前面
+          T.lift = lieLift(pet, T.roll, -dir * 0.3 * k);
+        };
+        switch (this.phase) {
+          case 'ready': // 看看前面，翅膀往后一甩
+            T.facing = dir;
+            T.lookX = dir * 0.8;
+            T.eyes = 'wide';
+            T.armL = T.armR = 0.5 * clamp(this.pt / 0.3, 0, 1);
+            T.lean += dir * 0.08;
+            if (this.pt > 0.6) this.next('run');
+            return false;
+          case 'run': // 小碎步往前冲几步
+            locomote(b, this, dt, edge, GAITS.trot, 1.3);
+            T.eyes = 'wide';
+            if (this.pt > 0.6 || ahead < 150) this.next('dive');
+            return false;
+          case 'dive': {
+            // 往前一扑，肚皮着地
+            const u = clamp(this.pt / 0.24, 0, 1);
+            lying(u * u);
+            T.lift += 10 * bell(u);
+            T.armL = T.armR = 0.15;
+            T.eyes = 'happy';
+            pet.x = clamp(pet.x + dir * 120 * S * dt, a, c);
+            if (u >= 1) {
+              pet.squashSpring.kick(1.2);
+              pet.fx.spawn('dust', { x: dir * 30, y: -3, vx: dir * 30, vy: -6, life: 0.45 });
+              this.v = clamp(ahead * 1.3, 90, 260); // 前面地方小，就滑得慢一点
+              this.next('slide');
+            }
+            return false;
+          }
+          case 'slide': {
+            // 滑出去：越滑越慢，脚在后面扑腾
+            this.v = Math.max(0, this.v - 170 * dt);
+            const step = Math.min(this.v * S * dt, Math.abs(edge - pet.x));
+            pet.x += dir * step;
+            if (Math.abs(edge - pet.x) < 0.5) this.v = 0;
+            lying(1);
+            T.armL = T.armR = 0.12;
+            const k = Math.sin(this.pt * 20);
+            T.footLY = 3 + 2 * k;
+            T.footRY = 3 - 2 * k;
+            T.eyes = 'happy';
+            T.mouth = 'o';
+            T.blush = 0.9;
+            this.trail -= dt;
+            if (this.v > 30 && this.trail <= 0) {
+              // 身后扬起的雪沫（往后飘，看起来留在原地）
+              this.trail = 0.06;
+              pet.fx.spawn('puff', { x: -dir * rand(20, 40), y: -rand(1, 4), vx: -dir * this.v * 0.8, vy: -rand(5, 15), life: 0.4, size: rand(0.6, 0.9) });
+            }
+            if (!this.said && this.pt > 0.3) {
+              this.said = true;
+              if (chance(0.6)) b.say('bellySlide', 2);
+            }
+            if (this.v <= 0) this.next('rest');
+            return false;
+          }
+          case 'rest': // 停下来，趴着乐一会儿
+            lying(1);
+            T.armL = T.armR = 0.12 + 0.1 * Math.sin(this.pt * 10);
+            T.eyes = 'happy';
+            T.mouth = 'smile';
+            T.mouthOpen = 0.4;
+            T.blush = 0.9;
+            if (this.pt > 0.7) this.next('up');
+            return false;
+          case 'up': {
+            // 翻回来站好
+            const u = clamp(this.pt / 0.55, 0, 1);
+            lying(1 - easeInOut(u));
+            T.facing = dir * (1 - u);
+            if (u >= 1) this.next('flap');
+            return false;
+          }
+          default: // 开心地拍拍翅膀
+            T.armL = T.armR = 0.9 + 0.4 * Math.sin(this.pt * 26) * clamp(1 - this.pt / 0.8, 0, 1);
+            T.eyes = 'happy';
+            T.mouth = 'smile';
+            T.mouthOpen = 0.4;
+            if (this.pt - dt <= 0) {
+              sparks(pet, 3);
+              b.reward({ mood: 0.05, boredom: -0.1 });
+            }
+            return this.pt > 0.9;
+        }
+      },
+    };
+  },
+
+  /** 拍着翅膀原地蹦：开心起来，两只小翅膀扑棱扑棱地拍，原地蹦几下、抬头看天——可惜还是飞不起来 */
+  flapHop: () => ({
+    phase: 'ready',
+    pt: 0,
+    t: 0,
+    hops: 0,
+    n: Math.round(rand(3, 5)),
+    said: false,
+    next(p) {
+      this.phase = p;
+      this.pt = 0;
+    },
+    update(b, dt) {
+      const pet = b.pet;
+      const T = pet.target;
+      const s = pet.style;
+      this.pt += dt;
+      this.t += dt;
+      s.fps = 60;
+      s.gaze = 'none';
+      const flap = Math.sin(this.t * 30);
+      T.eyes = 'happy';
+      T.mouth = 'o';
+      T.mouthOpen = 0.5;
+      T.blush = 0.9;
+      if (this.phase === 'ready') {
+        // 蹲一下
+        T.squash += 0.12 * clamp(this.pt / 0.2, 0, 1);
+        T.armL = T.armR = 1 + 0.5 * flap;
+        if (this.pt > 0.22) this.next('hop');
+        return false;
+      }
+      if (this.phase === 'hop') {
+        const D = 0.36;
+        const u = clamp(this.pt / D, 0, 1);
+        T.lift = 13 * 4 * u * (1 - u);
+        T.footLY = T.footRY = 3 * bell(u);
+        T.armL = T.armR = 1 + 0.55 * flap;
+        T.lookY = -0.5;
+        if (!this.said && this.hops === 1) {
+          this.said = true;
+          if (chance(0.6)) b.say('flapHop', 2);
+        }
+        if (u >= 1) {
+          pet.squashSpring.kick(0.9);
+          this.hops += 1;
+          this.next(this.hops >= this.n ? 'done' : 'hop');
+        }
+        return false;
+      }
+      // 停下来，翅膀慢慢放下：有点得意，又有点遗憾
+      const k = clamp(1 - this.pt / 0.5, 0, 1);
+      T.armL = T.armR = 0.45 + 0.4 * flap * k;
+      T.mouth = 'smile';
+      T.mouthOpen = 0.35;
+      if (this.pt - dt <= 0) {
+        sparks(pet, 3);
+        b.reward({ mood: 0.04 });
+      }
+      return this.pt > 1;
+    },
+  }),
+
+  /**
+   * 滑一跤：走着走着脚下一滑，一只脚往前一蹬、身子往后仰、两只翅膀乱扑腾，"噗通"一屁股坐在地上，冒小星星；
+   * 愣一下，不好意思地挠挠头，爬起来拍拍
+   */
+  slipFall: (b) => {
+    const pet = b.pet;
+    const S = b.world.scale;
+    const tx = pickWalkTarget(b, 60, 110);
+    const dir = tx >= pet.x ? 1 : -1;
+    return {
+      phase: 'walk',
+      pt: 0,
+      slipAt: rand(0.9, 1.5),
+      said: false,
+      next(p) {
+        this.phase = p;
+        this.pt = 0;
+      },
+      update(b, dt) {
+        const T = pet.target;
+        const s = pet.style;
+        this.pt += dt;
+        s.gaze = 'none';
+        s.fps = 60;
+        switch (this.phase) {
+          case 'walk':
+            if (locomote(b, this, dt, tx, GAITS.walk) || this.pt > this.slipAt) this.next('slip');
+            return false;
+          case 'slip': {
+            // 脚下一滑：前面那只脚往前一蹬，身子往后仰，翅膀乱扑腾
+            const u = clamp(this.pt / 0.32, 0, 1);
+            const [a, c] = pet.spanX(34, 14);
+            pet.x = clamp(pet.x + dir * 50 * (1 - u) * S * dt, a, c);
+            T.facing = dir;
+            if (dir > 0) {
+              T.footRX = 12 * u;
+              T.footRY = 8 * u;
+            } else {
+              T.footLX = -12 * u;
+              T.footLY = 8 * u;
+            }
+            T.lean += -dir * 0.42 * u;
+            T.lift += 7 * bell(u);
+            const fl = Math.sin(this.pt * 42);
+            T.armL = 1.45 + 0.45 * fl;
+            T.armR = 1.45 - 0.45 * fl;
+            T.eyes = 'wide';
+            T.mouth = 'o';
+            T.mouthOpen = 1;
+            if (this.pt - dt <= 0) pet.fx.spawn('bang', { x: dir * 24, y: pet.headTop() + 2, life: 0.55 });
+            if (u >= 1) {
+              pet.squashSpring.kick(2.2);
+              for (const sd of [-1, 1]) pet.fx.spawn('dust', { x: sd * 30, y: -3, vx: sd * 34, vy: -8, life: 0.45 });
+              stars(pet, 1.5, -100);
+              this.next('thud');
+            }
+            return false;
+          }
+          case 'thud': // 噗通：一屁股坐在地上，晕乎乎的
+            T.crouch = 1;
+            T.facing = dir * 0.3;
+            T.lean += -dir * 0.1 * clamp(1 - this.pt / 0.4, 0, 1);
+            T.footLY = T.footRY = 3;
+            T.armL = T.armR = 0.5;
+            T.eyes = this.pt < 0.7 ? 'dizzy' : 'squeeze';
+            T.mouth = 'wavy';
+            T.blush = 1;
+            if (this.pt > 1.4) this.next('sheepish');
+            return false;
+          case 'sheepish': {
+            // 不好意思地挠挠头
+            T.crouch = 1;
+            T.eyes = 'happy';
+            T.mouth = 'wavy';
+            T.blush = 1;
+            T.headTilt += 0.12 * dir;
+            const scratch = 1.85 + Math.sin(this.pt * 14) * 0.12;
+            if (dir > 0) T.armR = scratch;
+            else T.armL = scratch;
+            if (!this.said) {
+              this.said = true;
+              if (chance(0.7)) b.say('slipFall', 2.2);
+            }
+            if (this.pt > 1.4) this.next('up');
+            return false;
+          }
+          default: // 爬起来，拍拍
+            T.armL = T.armR = 0.3 + 0.25 * Math.max(0, Math.sin(this.pt * 16));
+            return this.pt > 0.7;
+        }
+      },
+    };
+  },
+
+  // ============================================================ 水獭
+
+  /**
+   * 抛小石子玩杂耍：坐好，两只爪子里各一颗小石子——左爪往上高高一抛、右爪接住，右爪再低低地递回左爪，
+   * 两颗石子在空中轮流飞（眼睛跟着高的那颗转）。最后多半稳稳接住、得意地冒星星；
+   * 有时候最后一颗抛歪了，"咚"地砸在自己脑袋上，冒小星星，石子弹到地上
+   */
+  juggle: () => {
+    const HIGH = 0.68; // 左爪抛给右爪：抛得高（秒），差不多抛到眼睛那么高
+    const LOW = 0.3; // 右爪递回左爪：低低的
+    const DWELL = 0.12; // 接住以后在爪子里停多久再抛
+    const G = 760;
+    const SIZE = 1.35; // 石子画大一点，不然在桌面上看不清
+    return {
+      phase: 'sit',
+      pt: 0,
+      throws: 0,
+      n: Math.round(rand(8, 12)),
+      bonk: chance(0.3),
+      said: false,
+      stones: null,
+      kickL: 0,
+      kickR: 0,
+      next(p) {
+        this.phase = p;
+        this.pt = 0;
+      },
+      /** 爪子在哪儿（坐着时在下巴下面的两边，石子停在爪子上面） */
+      hand(pet, side) {
+        const g = getGeometry(pet.sp, pet.pose);
+        return { x: g.torsoCx + side * 17, y: g.torsoCy + 2 - pet.pose.lift };
+      },
+      /** 石子停在爪子里（画在爪子上，停 dur 秒） */
+      rest(pet, st, dur) {
+        const h = this.hand(pet, st.side);
+        st.fx = pet.fx.spawn('pebble', { x: h.x, y: h.y, life: dur, solid: true, rot: st.rot || 0, size: SIZE });
+      },
+      /** 抛出去：to = 'head' 时砸到自己头上 */
+      toss(pet, st, t, to) {
+        const from = this.hand(pet, st.side);
+        const head = to === 'head';
+        const target = head ? { x: 0, y: pet.headTop() + 6 } : this.hand(pet, -st.side);
+        const F = head ? 0.75 : st.side < 0 ? HIGH : LOW;
+        if (st.fx) st.fx.life = st.fx.age; // 爪子里那颗不画了（换成飞起来的这颗）
+        if (st.side < 0) this.kickL = 1;
+        else this.kickR = 1;
+        st.air = true;
+        st.until = t + F;
+        st.side = -st.side;
+        st.rot = rand(0, 3);
+        st.fx = pet.fx.spawn('pebble', { x: from.x, y: from.y, vx: (target.x - from.x) / F, vy: (target.y - from.y) / F - 0.5 * G * F, ay: G, life: F, solid: true, rot: st.rot, vrot: rand(-7, 7), size: SIZE });
+        this.throws += 1;
+      },
+      update(b, dt) {
+        const pet = b.pet;
+        const T = pet.target;
+        const s = pet.style;
+        this.pt += dt;
+        s.fps = 60;
+        s.gaze = 'none';
+        s.tailAmp = 0.5;
+        T.crouch = 1;
+        T.tailCurl = 0.4;
+        // 抛的那一下爪子往上一扬（角度越小越往里收、越高）
+        this.kickL = Math.max(0, this.kickL - dt * 6);
+        this.kickR = Math.max(0, this.kickR - dt * 6);
+        T.armL = -0.62 - 0.38 * this.kickL;
+        T.armR = -0.62 - 0.38 * this.kickR;
+        T.eyes = 'wide';
+        T.mouth = 'smile';
+        T.mouthOpen = 0.3;
+        T.blush = 0.8;
+        if (this.phase === 'sit') {
+          if (this.pt > 0.45) {
+            this.stones = [{ side: -1, air: false, until: 0.05 }, { side: 1, air: false, until: 0.3 }];
+            for (const st of this.stones) this.rest(pet, st, st.until);
+            this.next('juggle');
+          }
+          return false;
+        }
+        if (this.phase === 'juggle') {
+          const t = this.pt;
+          let watch = null;
+          for (const st of this.stones) {
+            if (t < st.until) {
+              if (st.air) watch = !watch || st.fx.y < watch.y ? st.fx : watch;
+              continue;
+            }
+            if (st.air) {
+              // 接住了
+              st.air = false;
+              st.until = t + DWELL;
+              this.rest(pet, st, this.throws >= this.n ? 2.5 : DWELL + 0.02);
+            } else if (this.throws < this.n) {
+              // 最后一抛：有时候抛歪了，砸到自己头上
+              const last = this.throws === this.n - 1;
+              this.toss(pet, st, t, last && this.bonk ? 'head' : null);
+              if (last && this.bonk) st.bonk = true;
+            } else {
+              st.done = true;
+            }
+          }
+          if (watch) {
+            T.lookX = clamp(watch.x / 30, -1, 1) * 0.8;
+            T.lookY = clamp((watch.y + 62) / 30, -0.9, 0.6);
+          }
+          if (!this.said && this.throws === 3) {
+            this.said = true;
+            if (chance(0.5)) b.say('juggle', 2);
+          }
+          const bonked = this.stones.find((st) => st.bonk && !st.air);
+          if (bonked) {
+            // 咚！砸到头了：石子弹到地上，另一颗也掉了
+            for (const st of this.stones) if (st.fx) st.fx.life = st.fx.age;
+            pet.fx.spawn('bang', { x: 18, y: pet.headTop() - 4, life: 0.6 });
+            stars(pet, 1.6);
+            pet.squashSpring.kick(1.2);
+            const h = pet.headTop();
+            pet.fx.spawn('pebble', { x: 4, y: h + 4, vx: rand(50, 80), vy: -90, ay: 700, life: 0.72, rot: 1, vrot: 9, size: SIZE });
+            const other = this.hand(pet, 1);
+            pet.fx.spawn('pebble', { x: other.x, y: other.y, vx: 20, vy: -30, ay: 700, life: 0.32, rot: 2, vrot: -5, size: SIZE });
+            this.next('bonk');
+            return false;
+          }
+          if (this.stones.every((st) => st.done)) this.next('proud');
+          return false;
+        }
+        if (this.phase === 'bonk') {
+          // 晕乎乎的，揉揉脑袋
+          T.eyes = this.pt < 0.6 ? 'squeeze' : 'dizzy';
+          T.mouth = 'wavy';
+          T.blush = 1;
+          T.armL = T.armR = -0.75;
+          T.armR = 1.85 + Math.sin(this.pt * 13) * 0.12;
+          if (!this.said2) {
+            this.said2 = true;
+            if (chance(0.7)) b.say('juggleBonk', 2);
+          }
+          return this.pt > 1.6;
+        }
+        // 接住了，一脸得意
+        T.eyes = 'happy';
+        T.mouth = 'smile';
+        T.mouthOpen = 0.45;
+        T.lookX = 0;
+        T.lookY = 0;
+        if (this.pt - dt <= 0) {
+          sparks(pet, 4);
+          b.reward({ mood: 0.05, boredom: -0.1 });
+        }
+        if (this.pt > 1.2) {
+          for (const st of this.stones) if (st.fx) st.fx.life = Math.min(st.fx.life, st.fx.age + 0.3);
+          return true;
+        }
+        return false;
+      },
+      exit() {
+        // 被打断：爪子里的石子收起来
+        for (const st of this.stones || []) if (st.fx && !st.air) st.fx.life = st.fx.age;
+      },
+    };
+  },
+
+  /** 搓手手：坐着，两只小爪子在下巴底下搓呀搓，眯着眼嘿嘿笑，一脸期待（有好吃的吗？） */
+  pawRub: () => ({
+    dur: rand(3.2, 4.6),
+    said: false,
+    sparkIn: 0.9,
+    update(b, dt, t) {
+      const pet = b.pet;
+      const T = pet.target;
+      const s = pet.style;
+      const k = fade(t, this.dur, 0.35);
+      s.fps = 30;
+      s.gaze = 'none';
+      s.tailAmp = 0.5;
+      s.tailSpeed = 2.5;
+      T.crouch = 1;
+      const c = Math.sin(t * 15);
+      // 两只爪子都收到下巴底下（画在脸前面），一上一下地搓
+      T.armL = -1.45 + 0.12 * c * k;
+      T.armR = -1.45 - 0.12 * c * k;
+      T.eyes = 'happy';
+      T.mouth = 'smile';
+      T.mouthOpen = 0.3;
+      T.blush = 0.95;
+      T.headTilt += Math.sin(t * 2.2) * 0.08;
+      T.lift += Math.abs(c) * 0.5 * k; // 激动得一颠一颠
+      this.sparkIn -= dt;
+      if (this.sparkIn <= 0 && t < this.dur - 0.5) {
+        this.sparkIn = rand(0.8, 1.3);
+        pet.fx.spawn('spark', { x: rand(-10, 10), y: -30 + rand(-4, 4), vx: rand(-15, 15), vy: -rand(15, 30), life: 0.5, size: 0.6, vrot: rand(-3, 3) });
+      }
+      if (!this.said && t > 0.6) {
+        this.said = true;
+        if (chance(0.6)) b.say('pawRub', 2.2);
+      }
+      return t >= this.dur;
+    },
+  }),
+
+  /**
+   * 仰面漂着打盹：慢慢翻过身、仰面躺下，两只爪子搭在肚子上，像漂在水面上一样轻轻地一起一伏、
+   * 慢慢往一边漂，身边一圈圈小水波；睡一会儿，再翻回来坐好
+   */
+  floatNap: (b) => {
+    const pet = b.pet;
+    const S = b.world.scale;
+    const [lo, hi] = pet.spanX(40, 20);
+    const side = hi - pet.x >= pet.x - lo ? 1 : -1; // 脑袋朝空的那一边躺
+    const LIE = 1.42;
+    return {
+      phase: 'lie',
+      pt: 0,
+      dur: rand(14, 22),
+      zz: 1.8,
+      ripple: 0.4,
+      drift: chance(0.5) ? 1 : -1,
+      said: false,
+      next(p) {
+        this.phase = p;
+        this.pt = 0;
+      },
+      update(b, dt) {
+        const T = pet.target;
+        const s = pet.style;
+        this.pt += dt;
+        s.gaze = 'none';
+        T.crouch = 0.2;
+        const lying = (k, bob = 0) => {
+          // 仰面躺着：脸转过来朝着你、脑袋离身子远一点（肚子露出来），爪子搭在肚子上，尾巴顺着身子伸到脚那头
+          T.roll = side * (LIE + bob * 0.025) * k;
+          T.headTilt += -side * 1.0 * k;
+          T.headY -= 6 * k;
+          T.lift = lieLift(pet, T.roll, -side * 1.0 * k) + (1.5 + bob * 1.6) * k;
+          T.armL = T.armR = -0.75 * k;
+          T.tailHang = 0.8 * k;
+          T.tailCurl = 1 - k;
+          T.footLY = T.footRY = -4 * k;
+        };
+        if (this.phase === 'lie') {
+          // 慢慢仰面躺下
+          s.fps = 30;
+          const u = clamp(this.pt / 0.8, 0, 1);
+          lying(easeInOut(u));
+          T.eyes = u > 0.6 ? 'sleep' : 'open';
+          if (u >= 1) this.next('float');
+          return false;
+        }
+        if (this.phase === 'float') {
+          s.fps = 15;
+          s.blink = false;
+          s.breathPeriod = 5;
+          s.breathDepth = 2;
+          s.tailAmp = 0.05;
+          const bob = Math.sin(this.pt * 1.6);
+          lying(1, bob);
+          T.eyes = 'sleep';
+          T.mouth = 'cat';
+          T.blush = 0.85;
+          const [a, c] = pet.spanX(40, 20);
+          pet.x = clamp(pet.x + this.drift * 5 * S * dt, a, c); // 慢慢往一边漂
+          this.ripple -= dt;
+          if (this.ripple <= 0) {
+            this.ripple = rand(1.1, 1.6);
+            for (const sd of [-1, 1]) pet.fx.spawn('ripple', { x: sd * rand(34, 50), y: -1, life: 1.6, size: rand(0.8, 1.1) });
+          }
+          this.zz -= dt;
+          if (this.zz <= 0) {
+            this.zz = rand(2, 2.8);
+            const h = headPoint(pet, 0, -pet.sp.head.ry); // 头顶上面一点
+            pet.fx.spawn('zzz', { x: h.x, y: h.y - 8, vx: side * rand(4, 8), vy: -rand(13, 18), life: 2.3, phase: rand(0, 6) });
+          }
+          if (!this.said && this.pt > 1.5) {
+            this.said = true;
+            if (chance(0.4)) b.say('floatNap', 2.2);
+          }
+          if (this.pt > this.dur) this.next('up');
+          return false;
+        }
+        // 翻回来坐好
+        s.fps = 30;
+        const u = clamp(this.pt / 0.7, 0, 1);
+        lying(1 - easeInOut(u));
+        T.eyes = u > 0.4 ? 'open' : 'sleep';
+        T.crouch = 1;
+        return u >= 1;
+      },
+    };
+  },
+
   // ============================================================ 大家都会
 
   /**
-   * 抱着零食啃：坐下，从怀里掏出自己最爱吃的（猫小鱼干、熊猫竹子、卡皮巴拉西瓜、柴犬肉干、小熊猫苹果），
-   * 两只爪子捧着，低头啃一口、嚼一嚼，掉一点渣……一口一口吃完，拍拍肚子，冒爱心
+   * 抱着零食啃：坐下，从怀里掏出自己最爱吃的（猫小鱼干、熊猫竹子、卡皮巴拉西瓜、柴犬肉干、小熊猫苹果、兔子胡萝卜、狐狸葡萄），
+   * 两只爪子捧着，低头啃一口、嚼一嚼，掉一点渣……一口一口吃完，拍拍肚子，冒爱心。
+   * 企鹅（一口吞下小鱼）和水獭（仰面躺着敲贝壳）吃法不一样，见上面的 gulpSnack、clamSnack
    */
-  snack: (b) => ({
+  snack: (b) => SNACK_STYLES[b.pet.sp.snackStyle]?.(b) ?? ({
     kind: b.pet.sp.snack,
     phase: 'sit',
     pt: 0,
@@ -1766,8 +3078,21 @@ export const TRICK_INFO = {
   binky: { cd: 1100, can:(b) => ground(b) && b.needs.energy > 0.35 && !b.hasMail && !covered(b), weight: (b) => 0.022 + 0.06 * b.mood },
   faceWash: { cd: 900, can: (b) => b.pet.mode === 'ground' && !b.hasMail, weight: () => 0.04 },
   flop: { cd: 900, can: (b) => ground(b) && !b.hasMail && !covered(b) && room(b, 80), weight: (b) => 0.03 + 0.12 * tired(b) },
-  snack: { cd: 1500, can: (b) => ground(b) && !b.hasMail && !covered(b) && !!b.pet.sp.snack, weight: () => 0.03 },
+  // 狐狸：扑雪要在真正的地上（窗口顶边下面看得见，脑袋会露出来）
+  pounce: { cd: 900, can: (b) => ground(b) && !b.perched && b.needs.energy > 0.35 && !b.hasMail && !covered(b) && room(b, 110), weight: (b) => 0.03 + 0.08 * b.needs.boredom },
+  buryGrapes: { cd: 1100, can: (b) => ground(b) && !b.perched && !b.hasMail && !covered(b) && room(b, 80), weight: (b) => 0.035 + 0.04 * b.needs.boredom },
+  tailNap: { cd: 900, can: (b) => b.pet.mode === 'ground', weight: (b) => 0.03 + 0.18 * tired(b) },
+  // 企鹅
+  bellySlide: { cd: 900, can: (b) => ground(b) && !b.perched && b.needs.energy > 0.3 && !b.hasMail && !covered(b) && room(b, 220), weight: (b) => 0.03 + 0.08 * b.needs.boredom },
+  flapHop: { cd: 700, can: (b) => ground(b) && b.needs.energy > 0.25 && !covered(b), weight: (b) => 0.025 + 0.06 * b.mood },
+  slipFall: { cd: 1100, can: (b) => ground(b) && !b.perched && !b.hasMail && !covered(b) && room(b, 90), weight: () => 0.03 },
+  // 水獭
+  juggle: { cd: 900, can: (b) => ground(b) && !b.hasMail && !covered(b), weight: (b) => 0.035 + 0.08 * b.needs.boredom },
+  pawRub: { cd: 700, can: (b) => b.pet.mode === 'ground' && !b.hasMail, weight: () => 0.04 },
+  floatNap: { cd: 900, can: (b) => b.pet.mode === 'ground' && !b.perched && !b.hasMail && !covered(b) && room(b, 70), weight: (b) => 0.03 + 0.16 * tired(b) },
+  // 大家都会。水獭要仰面躺下来吃，旁边得有地方
+  snack: { cd: 1500, can: (b) => ground(b) && !b.hasMail && !covered(b) && !!b.pet.sp.snack && (b.pet.sp.snackStyle !== 'clam' || room(b, 70)), weight: () => 0.03 },
 };
 
 /** 费劲的招牌动作：做的时候精力掉得快（和走路、爬墙一样，见 brain.js 的 ENERGETIC） */
-export const ENERGETIC_TRICKS = ['yarn', 'fetch', 'chaseTail', 'roll', 'backScratch', 'binky'];
+export const ENERGETIC_TRICKS = ['yarn', 'fetch', 'chaseTail', 'roll', 'backScratch', 'binky', 'pounce', 'bellySlide', 'flapHop'];

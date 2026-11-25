@@ -442,15 +442,227 @@ function snackCarrot(ctx, bite) {
   ctx.restore();
 }
 
-const SNACKS = { fish: snackFish, jerky: snackJerky, bamboo: snackBamboo, watermelon: snackWatermelon, apple: snackApple, carrot: snackCarrot };
+/**
+ * 狐狸：一串紫葡萄。蒂在上面（带一片小叶子），往下一排比一排少（4、3、2、1 颗）；
+ * 葡萄是一颗一颗整个吃掉的，吃掉的地方露出连着它的细梗，最后只剩一根光秃秃的梗
+ */
+const GRAPES = [
+  [-9.3, -6.2], [-3.1, -6.6], [3.1, -6.6], [9.3, -6.2],
+  [-6.2, -0.9], [0, -1.1], [6.2, -0.9],
+  [-3.1, 4.4], [3.1, 4.4],
+  [0, 9.6],
+];
+const GRAPE_ORDER = [0, 3, 1, 6, 4, 2, 5, 8, 7, 9]; // 先吃哪颗：从上面、外面的开始
+function snackGrapes(ctx, bite) {
+  ctx.save();
+  ctx.rotate(-0.08);
+  const eaten = new Set(GRAPE_ORDER.slice(0, Math.round(clamp(bite, 0, 1) * GRAPES.length)));
+  // 梗：从蒂往下分出去连着每一颗（葡萄还在的时候被盖住，吃掉了才露出来）
+  ctx.beginPath();
+  ctx.moveTo(0.4, -13.5);
+  ctx.quadraticCurveTo(0, -11, 0, -9.5);
+  ctx.lineTo(0, 7);
+  for (const [x, y] of GRAPES) {
+    ctx.moveTo(0, Math.min(y, 4) - 2.5);
+    ctx.quadraticCurveTo(x * 0.5, y - 3, x, y);
+  }
+  ctx.strokeStyle = '#7a5a36';
+  ctx.lineWidth = 1.1;
+  ctx.stroke();
+  // 葡萄：上面一排先画，下面的压在上面（离你近一点）
+  for (let i = 0; i < GRAPES.length; i++) {
+    if (eaten.has(i)) continue;
+    const [x, y] = GRAPES[i];
+    ellipse(ctx, x, y, 3.45, 3.7);
+    const grad = ctx.createRadialGradient(x - 1.2, y - 1.4, 0.4, x, y, 4);
+    grad.addColorStop(0, '#c9a2e6');
+    grad.addColorStop(0.55, '#9466c2');
+    grad.addColorStop(1, '#6d4699');
+    fillStroke(ctx, grad, 1, '#553273');
+    ellipse(ctx, x - 1.2, y - 1.5, 1.05, 0.7, -0.5); // 高光
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.fill();
+  }
+  // 叶子
+  ctx.beginPath();
+  ctx.moveTo(0.8, -12.2);
+  ctx.quadraticCurveTo(4.5, -16.5, 9, -13.6);
+  ctx.quadraticCurveTo(5, -10.6, 0.8, -12.2);
+  ctx.closePath();
+  fillStroke(ctx, '#7cbf55', 0.9, '#4f7a3a');
+  ctx.restore();
+}
+
+/** 企鹅：一整条小蓝鱼（不是鱼干）。鱼头朝左，背是蓝的、肚子浅浅的，一只圆眼睛 */
+function snackBlueFish(ctx, bite) {
+  ctx.save();
+  ctx.translate(1, 0);
+  ctx.rotate(-0.1);
+  const cut = -14 + bite * 25;
+  if (bite > 0.02) clipBitten(ctx, cut, 1, -6.5, 6.5);
+  ctx.beginPath(); // 尾巴
+  ctx.moveTo(9.5, 0);
+  ctx.quadraticCurveTo(13, -2.5, 17, -6.2);
+  ctx.quadraticCurveTo(14.6, 0, 17, 6.2);
+  ctx.quadraticCurveTo(13, 2.5, 9.5, 0);
+  ctx.closePath();
+  fillStroke(ctx, '#4f97d0', 1.1);
+  ctx.beginPath(); // 背鳍
+  ctx.moveTo(-3, -4.6);
+  ctx.quadraticCurveTo(1, -8.6, 5.5, -4);
+  ctx.closePath();
+  fillStroke(ctx, '#4f97d0', 1);
+  const body = () => {
+    ctx.beginPath();
+    ctx.moveTo(-14, 0.4);
+    ctx.bezierCurveTo(-11.5, -6, 4, -6.4, 11, -0.3);
+    ctx.bezierCurveTo(4, 5.6, -11.5, 5.8, -14, 0.4);
+    ctx.closePath();
+  };
+  body();
+  const grad = ctx.createLinearGradient(0, -5.5, 0, 5.5);
+  grad.addColorStop(0, '#4f97d0');
+  grad.addColorStop(0.5, '#86c3ec');
+  grad.addColorStop(1, '#e3f3fb');
+  fillStroke(ctx, grad, 1.2);
+  ctx.save();
+  body();
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(40, 90, 140, 0.45)'; // 鳃
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-7.5, -3.6);
+  ctx.quadraticCurveTo(-5.6, 0, -7.5, 3.6);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)'; // 身上一道亮亮的反光
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-4, -2.4);
+  ctx.quadraticCurveTo(2, -3.6, 7, -1.6);
+  ctx.stroke();
+  ctx.restore();
+  ctx.beginPath(); // 眼睛
+  ctx.arc(-10.2, -1, 1.7, 0, TAU);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(-10.4, -1, 0.95, 0, TAU);
+  ctx.fillStyle = '#2b2b33';
+  ctx.fill();
+  ctx.restore();
+}
+
+/** 一块灰灰的小石头：原点在中心，r 是半宽（水獭敲贝壳的石头、玩杂耍的小石子） */
+export function drawPebble(ctx, r = 4) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(-r, r * 0.1);
+  ctx.bezierCurveTo(-r, -r * 0.65, -r * 0.35, -r * 0.82, r * 0.2, -r * 0.78);
+  ctx.bezierCurveTo(r * 0.8, -r * 0.74, r * 1.05, -r * 0.3, r, r * 0.15);
+  ctx.bezierCurveTo(r * 0.95, r * 0.66, r * 0.4, r * 0.8, -r * 0.1, r * 0.78);
+  ctx.bezierCurveTo(-r * 0.62, r * 0.76, -r, r * 0.55, -r, r * 0.1);
+  ctx.closePath();
+  const grad = ctx.createRadialGradient(-r * 0.35, -r * 0.35, r * 0.1, 0, 0, r * 1.2);
+  grad.addColorStop(0, '#d3cec6');
+  grad.addColorStop(0.6, '#aaa49b');
+  grad.addColorStop(1, '#8c867e');
+  fillStroke(ctx, grad, Math.min(1.2, 0.35 * r), '#5f5953');
+  ellipse(ctx, -r * 0.38, -r * 0.4, r * 0.3, r * 0.17, -0.4);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.fill();
+  ctx.restore();
+}
+
+/** 扇形的贝壳：铰链在下面 (0, 0)，壳沿在上面一圈波浪；w 半宽、h 高 */
+function clamShell(ctx, w, h) {
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.32, 0);
+  ctx.bezierCurveTo(-w * 1.05, -h * 0.25, -w * 1.08, -h * 0.85, -w * 0.55, -h * 0.98);
+  ctx.quadraticCurveTo(0, -h * 1.12, w * 0.55, -h * 0.98);
+  ctx.bezierCurveTo(w * 1.08, -h * 0.85, w * 1.05, -h * 0.25, w * 0.32, 0);
+  ctx.quadraticCurveTo(0, h * 0.18, -w * 0.32, 0);
+  ctx.closePath();
+}
+function clamRidges(ctx, w, h) {
+  ctx.beginPath();
+  for (const a of [-0.95, -0.5, 0, 0.5, 0.95]) {
+    ctx.moveTo(a * w * 0.12, -h * 0.12);
+    ctx.lineTo(a * w * 0.8, -h * 0.9 + Math.abs(a) * h * 0.12);
+  }
+  ctx.strokeStyle = 'rgba(160, 90, 60, 0.45)';
+  ctx.lineWidth = 0.9;
+  ctx.stroke();
+}
+
+/**
+ * 水獭：放在肚子上的小石头 + 一个蛤蜊。bite 0 … 0.4 敲的时候壳上的裂纹越来越多；
+ * 0.4 以后壳打开成左右两半，露出里面的肉，越吃越少，最后剩两片空壳。
+ * lift：贝壳举起来多高（0 碰到石头 … 1 举得最高）。它仰面躺着、肚子朝着你，所以"举起来"就是离你近一点：画大一点、往上挪一点
+ */
+function snackClam(ctx, bite, time, lift = 0) {
+  const open = bite >= 0.4;
+  ctx.translate(0, 7); // 往肚子中间挪一点（胸口紧挨着大脑袋，放在那儿会压住脸）
+  drawPebble(ctx, 9.5); // 石头一直放在肚子上
+  ctx.save();
+  const k = 1 + 0.28 * clamp(lift, 0, 1);
+  ctx.translate(0, -4.5 - 4 * clamp(lift, 0, 1));
+  ctx.scale(k, k);
+  const fill = ctx.createLinearGradient(0, -13, 0, 1);
+  fill.addColorStop(0, '#fbd9c2');
+  fill.addColorStop(1, '#e9a988');
+  if (!open) {
+    clamShell(ctx, 9.5, 12);
+    fillStroke(ctx, fill, 1.2);
+    clamRidges(ctx, 9.5, 12);
+    // 敲出来的裂纹：一条、两条……
+    const cracks = Math.floor(clamp(bite / 0.4, 0, 0.999) * 4);
+    ctx.beginPath();
+    const CRACKS = [
+      [[-1, -11.5], [0.8, -8.2], [-0.6, -5.6], [1.2, -3]],
+      [[5.5, -9.5], [3.6, -7.4], [4.8, -5.2]],
+      [[-6, -9], [-4, -7.2], [-5.2, -4.8]],
+    ];
+    for (const crack of CRACKS.slice(0, cracks)) {
+      ctx.moveTo(...crack[0]);
+      for (const p of crack.slice(1)) ctx.lineTo(...p);
+    }
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  } else {
+    // 打开了：左右两半，里面是珍珠白的壳内面和一团肉
+    const meat = clamp((1 - bite) / 0.6, 0, 1);
+    for (const s of [-1, 1]) {
+      ctx.save();
+      ctx.translate(s * 7, 2);
+      ctx.rotate(s * 0.55);
+      clamShell(ctx, 7.5, 10);
+      const inside = ctx.createRadialGradient(0, -5, 0.5, 0, -4, 9);
+      inside.addColorStop(0, '#fffaf4');
+      inside.addColorStop(1, '#f6dccb');
+      fillStroke(ctx, inside, 1.1);
+      if (meat > 0.02) {
+        ellipse(ctx, 0, -4.6, 4.6 * meat + 0.4, 3.6 * meat + 0.3);
+        fillStroke(ctx, '#f3a58c', 0.9, '#c96f5a');
+      }
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
+const SNACKS = { fish: snackFish, jerky: snackJerky, bamboo: snackBamboo, watermelon: snackWatermelon, apple: snackApple, carrot: snackCarrot, grapes: snackGrapes, bluefish: snackBlueFish, clam: snackClam };
 // 画多大：细长的小鱼干、肉干放大一点，不然抱在胸前被爪子一挡就看不清是什么了
-const SNACK_SCALE = { fish: 1.35, jerky: 1.35, bamboo: 1.15, watermelon: 1.05, apple: 1, carrot: 1.25 };
+const SNACK_SCALE = { fish: 1.35, jerky: 1.35, bamboo: 1.15, watermelon: 1.05, apple: 1, carrot: 1.25, grapes: 1, bluefish: 1.3, clam: 1 };
 
 /** 零食的颜色（嚼的时候掉的渣用） */
-export const SNACK_CRUMB = { fish: '#d9a660', jerky: '#a8563a', bamboo: '#8cc46a', watermelon: '#ff7b7b', apple: '#fbf1d6', carrot: '#f39a3c' };
+export const SNACK_CRUMB = { fish: '#d9a660', jerky: '#a8563a', bamboo: '#8cc46a', watermelon: '#ff7b7b', apple: '#fbf1d6', carrot: '#f39a3c', grapes: '#a77bd0', bluefish: '#86c3ec', clam: '#f3a58c' };
 
-/** 画一样零食：kind 见 SNACKS（每种动物爱吃的写在动物文件的 snack 里） */
-export function drawSnack(ctx, kind, bite = 0, time = 0) {
+/**
+ * 画一样零食：kind 见 SNACKS（每种动物爱吃的写在动物文件的 snack 里）。
+ * lift：零食举起来多少（0 … 1，水獭把贝壳举起来往石头上敲；别的零食不用它）
+ */
+export function drawSnack(ctx, kind, bite = 0, time = 0, lift = 0) {
   const draw = SNACKS[kind];
   if (!draw) return;
   ctx.save();
@@ -458,7 +670,30 @@ export function drawSnack(ctx, kind, bite = 0, time = 0) {
   ctx.lineCap = 'round';
   const k = SNACK_SCALE[kind] || 1;
   ctx.scale(k, k);
-  draw(ctx, clamp(bite, 0, 1), time);
+  draw(ctx, clamp(bite, 0, 1), time, lift);
+  ctx.restore();
+}
+
+/** 一小撮刚翻出来的土（狐狸藏葡萄挖的坑）：原点在地面上土堆的中间，k 是土堆有多高（0 平的 … 1 鼓鼓的一堆） */
+export function drawDirt(ctx, k = 1, w = 22) {
+  ctx.save();
+  ctx.lineJoin = 'round';
+  const h = 2 + 7 * clamp(k, 0, 1.2);
+  ctx.beginPath();
+  ctx.moveTo(-w, 0.5);
+  ctx.bezierCurveTo(-w * 0.75, -h * 0.75, -w * 0.4, -h, 0, -h);
+  ctx.bezierCurveTo(w * 0.4, -h, w * 0.75, -h * 0.75, w, 0.5);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, -h, 0, 1);
+  grad.addColorStop(0, '#b98a5e');
+  grad.addColorStop(1, '#8f6440');
+  fillStroke(ctx, grad, 1.1, '#6a4527');
+  ctx.fillStyle = 'rgba(90, 58, 32, 0.55)'; // 几粒小土块
+  for (const [x, y, r] of [[-w * 0.45, -h * 0.45, 1.3], [w * 0.15, -h * 0.7, 1.1], [w * 0.5, -h * 0.35, 1.2], [-w * 0.05, -h * 0.25, 0.9]]) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
+  }
   ctx.restore();
 }
 

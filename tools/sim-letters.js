@@ -18,7 +18,7 @@ const O = require('../src/shared/outfits/catalog');
 
 const days = Number(process.argv[2]) || 30;
 const lang = process.argv[3] === 'en' ? 'en' : 'zh';
-const species = ['panda', 'capybara', 'shiba', 'redpanda', 'bunny'].includes(process.argv[4]) ? process.argv[4] : 'cat';
+const species = ['panda', 'capybara', 'shiba', 'redpanda', 'bunny', 'fox', 'penguin', 'otter'].includes(process.argv[4]) ? process.argv[4] : 'cat';
 const brief = process.argv[5] === 'brief';
 const name = lang === 'zh' ? '年糕' : 'Mochi';
 

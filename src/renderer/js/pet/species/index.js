@@ -10,8 +10,13 @@ import { capybara } from './capybara.js';
 import { shiba } from './shiba.js';
 import { redpanda } from './redpanda.js';
 import { bunny } from './bunny.js';
+import { fox } from './fox.js';
+import { penguin } from './penguin.js';
+import { otter } from './otter.js';
 
-export const SPECIES = Object.freeze({ cat, panda, capybara, shiba, redpanda, bunny });
+// 顺序就是菜单里的顺序（2026-11-24 用户说"合理一点"）：家里养的猫和狗在前，然后是狗的亲戚狐狸、长得像狐狸的小熊猫、
+// 名字里也有"熊猫"的熊猫、兔子，最后是爱泡水的卡皮巴拉、水獭和企鹅（从陆地一路走进水里）
+export const SPECIES = Object.freeze({ cat, shiba, fox, redpanda, panda, bunny, capybara, otter, penguin });
 export const SPECIES_IDS = Object.freeze(Object.keys(SPECIES));
 export const DEFAULT_SPECIES = 'cat';
 

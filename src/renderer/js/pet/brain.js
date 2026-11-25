@@ -324,7 +324,8 @@ export class Brain {
   }
 
   #cooldown(name) {
-    const cd = COOLDOWN[name] ?? (TRICK_INFO[name] && TRICK_INFO[name].cd);
+    // 动物文件里的 cooldowns 可以改某个动作隔多久再做（水獭黏人：跑来找你的间隔短一半）
+    const cd = this.pet.sp.cooldowns?.[name] ?? COOLDOWN[name] ?? (TRICK_INFO[name] && TRICK_INFO[name].cd);
     if (!cd) return 1;
     const last = this.history[name];
     if (last === undefined) return 1;

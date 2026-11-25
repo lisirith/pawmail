@@ -1,8 +1,9 @@
 // 右键点宠物弹出的菜单。
 //
 // 菜单内容由一个简单的列表（model）描述，三种行：
-//   { type: 'choice', key, label, value, options: [{ value, label, icon }], compact }   几选一（icon：可选的小图片，图片网址；
-//                                                                                     compact：没选中的只显示小图片，名字在鼠标停上去时显示）
+//   { type: 'choice', key, label, value, options: [{ value, label, icon }], compact, perRow }
+//       几选一（icon：可选的小图片，图片网址；compact：没选中的只显示小图片，名字在鼠标停上去时显示；
+//       perRow：一行最多放几个，多了换到下一行——动物有九种，一行放不下）
 //   { type: 'action', id, label, danger }                                点一下执行
 //   { type: 'separator' }                                                分隔线
 
@@ -68,8 +69,15 @@ export class PetMenu {
 
       const line = el('div', 'menu-row');
       line.append(el('span', 'menu-label', row.label));
-      const seg = el('div', 'seg');
-      for (const option of row.options) {
+      // 选项太多就分成几行（每行是一组按钮），一行一行叠起来、左边对齐
+      const per = row.perRow || row.options.length;
+      const segs = el('div', 'segs');
+      let seg = null;
+      row.options.forEach((option, i) => {
+        if (i % per === 0) {
+          seg = el('div', 'seg');
+          segs.append(seg);
+        }
         const button = el('button', option.value === row.value ? 'seg-btn active' : 'seg-btn');
         if (option.icon) {
           const img = el('img', 'seg-icon');
@@ -90,8 +98,8 @@ export class PetMenu {
         if (option.title) button.title = option.title;
         button.addEventListener('click', () => this.onChoice(row.key, option.value));
         seg.append(button);
-      }
-      line.append(seg);
+      });
+      line.append(segs);
       return line;
     });
     this.el.replaceChildren(...rows);

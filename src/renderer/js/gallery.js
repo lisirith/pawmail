@@ -75,6 +75,9 @@ const SHIBA_SHEET = '/img resource/ChatGPT 图像 2026年11月22日 13_18_18.png
 const REDPANDA_SHEET = '/img resource/ChatGPT 图像 2026年11月22日 13_18_51.png';
 // 兔子：用户用 ChatGPT 生成的奶油兔贴纸表（2026-11-23）
 const BUNNY_SHEET = '/img resource/可爱奶油兔角色设定贴纸表.png';
+// 狐狸、企鹅、水獭：用户用 ChatGPT 生成的两张设定表（2026-11-24）。企鹅用"企鹅与水獭"那张（另一张里戴护目镜的不用）
+const FOX_SHEET = '/img resource/狐狸与企鹅可爱角色设定表.png';
+const PENGUIN_OTTER_SHEET = '/img resource/企鹅与水獭萌系角色设定表.png';
 const REFERENCE = {
   src: '/img resource/ba8d7185-40d5-456b-ab17-12ce9a388f21.png',
   cat: { head: [1252, 370], rx: 282, pose: { crouch: 1, headTilt: -0.06, lookY: -0.15, tailCurl: 0.75, tailSide: 1 } },
@@ -107,6 +110,24 @@ const REFERENCE = {
     { src: BUNNY_SHEET, head: [293.75, 276], rx: 192.25, pose: { crouch: 1, headTilt: -0.07, lookX: 0.2, mouth: 'smile', mouthOpen: 0.85, blush: 1 } },
     // 最下面一排第一个：正面站着
     { src: BUNNY_SHEET, head: [110.5, 765], rx: 52.5, pose: {} },
+  ],
+  fox: [
+    // 第二排第一个表情头像：平常的样子（只有头；头是在这个头像上量的）
+    { src: FOX_SHEET, head: [870, 251.5], rx: 52.5, pose: {} },
+    // 左边的大图：坐着、脸稍微朝右、张嘴笑，尾巴在左边
+    { src: FOX_SHEET, head: [233, 163], rx: 132, pose: { crouch: 1, lookX: 0.5, mouth: 'smile', mouthOpen: 1, blush: 1, tailSide: -1, tailCurl: 0.35 } },
+  ],
+  penguin: [
+    // 第三排第一个表情头像：平常的样子（只有头；头是在这个头像上量的）
+    { src: PENGUIN_OTTER_SHEET, head: [83.1, 475.7], rx: 48.8, pose: {} },
+    // 左上角的大图：坐着，脑袋往右歪一点
+    { src: PENGUIN_OTTER_SHEET, head: [210, 190], rx: 157, pose: { crouch: 1, headTilt: -0.09, blush: 1 } },
+  ],
+  otter: [
+    // 最下面一排第一个表情头像：平常的样子（只有头；头是在这个头像上量的）
+    { src: PENGUIN_OTTER_SHEET, head: [79.4, 945], rx: 45, pose: { mouth: 'smile', mouthOpen: 0.8 } },
+    // 左下角的大图：坐着、张嘴笑，脑袋往右歪，尾巴在右边
+    { src: PENGUIN_OTTER_SHEET, head: [205, 688], rx: 144, pose: { crouch: 1, headTilt: -0.156, mouth: 'smile', mouthOpen: 1, blush: 1, tailSide: 1, tailCurl: 0.6 } },
   ],
 };
 

@@ -142,7 +142,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch, phone
   const swapped = await js(`return window.__pawmail.pet.sp.id;`);
   // 后来加的动物也挨个切过去：画面换成了它，存档里也记住了
   const later = {};
-  for (const id of ['capybara', 'shiba', 'redpanda', 'bunny']) {
+  for (const id of ['capybara', 'shiba', 'redpanda', 'bunny', 'fox', 'penguin', 'otter']) {
     setSetting('species', id);
     await wait(250);
     const shown = await js(`const P = window.__pawmail; P.run(0.2); return P.pet.sp.id;`);
@@ -151,7 +151,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch, phone
   setSetting('species', info.species);
   await wait(250);
   const laterOk = Object.entries(later).every(([id, r]) => r.shown === id && r.saved === id);
-  check('从后台切换动物，画面会跟着变（猫、熊猫、卡皮巴拉、柴犬、小熊猫、兔子）', swapped !== info.species && laterOk, { swapped, ...later });
+  check('从后台切换动物，画面会跟着变（猫、熊猫、卡皮巴拉、柴犬、小熊猫、兔子、狐狸、企鹅、水獭）', swapped !== info.species && laterOk, { swapped, ...later });
 
   const previousCoat = store.data.settings.catCoat;
   setSetting('species', 'cat'); setSetting('catCoat', 'lucky');
@@ -354,7 +354,10 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch, phone
     await wait(500); // 日志是排队写的，等它落到硬盘上
     let text = '';
     try {
-      text = fs.readFileSync(file, 'utf8');
+      // 测试存档的日志会一直累加，正好在这次自检里超过 512 KB 的话，前半截被改名成 pawmail.old.log：两份接起来看
+      const old = path.join(path.dirname(file), 'pawmail.old.log');
+      if (fs.existsSync(old) && fs.statSync(old).mtimeMs > Date.now() - 10 * 60000) text = fs.readFileSync(old, 'utf8');
+      text += fs.readFileSync(file, 'utf8');
     } catch {
       // 没有文件：下面的检查会失败
     }
@@ -840,8 +843,12 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch, phone
     setSetting('todoNotify', true);
     Note.shown.length = 0;
     const lastNote = () => Note.shown[Note.shown.length - 1] || null;
-    const petState = () =>
-      js(`const P = window.__pawmail; P.run(0.5); return { name: P.brain.name, queued: P.brain.queue.map((q) => q[0]), reminder: P.brain.reminder && { text: P.brain.reminder.text, kind: P.brain.reminder.kind }, said: P.bubble.textEl.textContent };`);
+    // sayText：等它把这句话说出来再看（它要先跑到你的鼠标旁边才开口：鼠标离得远的话要跑几秒，最多等 8 秒）
+    const petState = (sayText = null) =>
+      js(`const P = window.__pawmail; const want = ${JSON.stringify(sayText)};
+        P.run(0.5);
+        for (let i = 0; want && i < 15 && !P.bubble.textEl.textContent.includes(want); i++) P.run(0.5);
+        return { name: P.brain.name, queued: P.brain.queue.map((q) => q[0]), reminder: P.brain.reminder && { text: P.brain.reminder.text, kind: P.brain.reminder.kind }, said: P.bubble.textEl.textContent };`);
     await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.2); return true;`);
     // 在信纸窗口的「待办」页里写一件事，选"30 分钟后"、提前 15 分钟，点"加上"
     const win = mail.open({ view: 'todos' });
@@ -881,7 +888,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch, phone
     const early = todos.check(true);
     await wait(300);
     const soonNote = lastNote();
-    const petSoon = await petState();
+    const petSoon = await petState('自检的待办');
     await js(`const P = window.__pawmail; P.brain.ackReminder(); P.run(0.2); return true;`); // 提前的那次点它：只是它自己应一声
     await wait(300);
     check(

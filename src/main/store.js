@@ -16,7 +16,8 @@ const { sanitizePhone } = require('./phone');
 
 const SCALES = [0.8, 1, 1.3];
 const LANGUAGES = ['zh', 'en'];
-const SPECIES = ['cat', 'panda', 'capybara', 'shiba', 'redpanda', 'bunny']; // 和画面那边 species/index.js 的 SPECIES 一致
+// 和画面那边 species/index.js 的 SPECIES 一致（顺序也一样，托盘菜单按这个顺序列出来）
+const SPECIES = ['cat', 'shiba', 'fox', 'redpanda', 'panda', 'bunny', 'capybara', 'otter', 'penguin'];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH = /^\d{4}-\d{2}$/;
 const YEAR = /^\d{4}$/;
@@ -336,4 +337,4 @@ class Store {
   }
 }
 
-module.exports = { Store, DEFAULT_SETTINGS, LANGUAGES, MAX_LETTERS, isValidSetting, sanitizePet };
+module.exports = { Store, DEFAULT_SETTINGS, LANGUAGES, MAX_LETTERS, SPECIES, isValidSetting, sanitizePet };

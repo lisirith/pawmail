@@ -17,6 +17,9 @@
     "shiba": "Shiba Inu",
     "redpanda": "Red Panda",
     "bunny": "Bunny",
+    "fox": "Fox",
+    "penguin": "Penguin",
+    "otter": "Otter",
     "display": "Show",
     "top": "On top",
     "desktop": "Desktop only",
@@ -186,6 +189,31 @@
       "faceWash": ["Washing my face~", "Ears need a wash too~", "Scrub, scrub~"],
       "flop": ["(flop) …so comfy", "This spot is perfect…", "Don't mind me, just melting~"],
       "snack": ["Carrot!", "Nom nom nom~"]
+    },
+    "fox": {
+      "hello": ["Hi!", "(ears up) Hello~", "I'm here~"],
+      "held": ["Whoa! Mind my tail!", "Put me down~", "I-I'll be good!"],
+      "pounce": ["Shh… something's under there", "Hear that?", "(ears up) …"],
+      "pounceMiss": ["…it got away", "Huh? Nothing there", "Next time!"],
+      "bury": ["Shh, my secret stash", "All hidden~", "Nobody will find it!"],
+      "snack": ["Grapes!", "Sweet and sour~"]
+    },
+    "penguin": {
+      "hello": ["Hi!", "(waddle waddle) I'm here~", "Hello!"],
+      "held": ["Whoa, am I flying?!", "Put me down~", "So high!"],
+      "bellySlide": ["Wheee!", "Sliiide~", "Here I go!"],
+      "flapHop": ["Flap flap~", "I'm gonna fly!", "…still can't fly"],
+      "slipFall": ["Oof…", "So slippery…", "Didn't hurt! Didn't hurt!"],
+      "snack": ["Fish!", "In one gulp!"]
+    },
+    "otter": {
+      "hello": ["Hi!", "I'm here~ Play with me!", "(rubs paws) Hello~"],
+      "held": ["Hug!", "Higher!", "Hehe, this is fun~"],
+      "juggle": ["Watch this!", "Hup! Hup! Hup!", "One, two~"],
+      "juggleBonk": ["Ow!", "…right on my head", "That one's naughty"],
+      "pawRub": ["Hehe…", "Got any snacks?", "Rub rub rub~"],
+      "floatNap": ["Floating…", "So comfy…", "Mm…"],
+      "snack": ["Clams!", "Knock knock… open!"]
     }
   },
   "mail": {

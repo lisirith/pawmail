@@ -1,5 +1,5 @@
 {
-  "snack": { "cat": "小鱼干", "panda": "竹子", "capybara": "西瓜", "shiba": "肉干", "redpanda": "苹果", "bunny": "胡萝卜" },
+  "snack": { "cat": "小鱼干", "panda": "竹子", "capybara": "西瓜", "shiba": "肉干", "redpanda": "苹果", "bunny": "胡萝卜", "fox": "葡萄", "penguin": "小鱼", "otter": "蛤蜊" },
 
   "openers": [
     "昨天你关电脑以后，我溜去了{place}。",

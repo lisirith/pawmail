@@ -60,6 +60,7 @@ export const POSE_DEFAULTS = Object.freeze({
   roll: 0, // 整个身子绕着身体中间转多少（弧度）：熊猫打滚、打瞌睡歪倒。lean 是绕着脚底转，这个是绕着肚子转
   snack: 0, // 0 … 1 两只爪子捧着自己爱吃的零食（猫小鱼干、熊猫竹子……，见动物文件里的 snack）
   bite: 0, // 0 … 1 零食已经吃掉了多少
+  snackLift: 0, // 0 … 1 把零食举起来（水獭把贝壳举起来往肚子上的石头敲）
   box: 0, // 0 … 1 纸箱（猫钻纸箱）：从没有到"啵"地出现
   boxX: 0, // 纸箱离脚底中心多远（像素）：猫还没跳进去时，箱子在旁边
   tub: 0, // 0 … 1 泡澡的小木盆（卡皮巴拉泡温泉），就在脚底下
@@ -114,6 +115,7 @@ export const HALF_LIFE = Object.freeze({
   roll: 0.02, // 打滚的角度由动作一帧帧算好
   snack: 0.08,
   bite: 0.06,
+  snackLift: 0.03, // 敲贝壳要干脆
   box: 0.06,
   boxX: 0.015,
   tub: 0.08,
@@ -169,6 +171,7 @@ const POSE_PIXELS = Object.freeze({
   roll: 60,
   snack: 25,
   bite: 14,
+  snackLift: 8,
   box: 40,
   boxX: 1,
   tub: 40,

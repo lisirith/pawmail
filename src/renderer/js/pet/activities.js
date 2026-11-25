@@ -65,6 +65,7 @@ export const GAITS = {
   run: { speed: 150, stride: 24, lift: 8, bob: 4.5, lean: 0.13, sway: 0.04, arm: 0.6, hop: 12 },
 };
 const HOP_STRIDE = 1.8; // 蹦着走时一跳的距离是一步的几倍（兔子一跳比别的动物迈一步远）
+const WADDLE_STRIDE = 0.6; // 企鹅（gait: 'waddle'）迈的是小碎步：一步只有别的动物的六成
 
 /** 朝 tx 走一步，并摆出走路的姿势。走到了返回 true。 */
 export function locomote(b, st, dt, tx, gait, speedMul = 1) {
@@ -82,16 +83,33 @@ export function locomote(b, st, dt, tx, gait, speedMul = 1) {
   pet.style.gaze = 'forward';
   pet.style.fps = 60;
   const hop = pet.sp.gait === 'hop';
+  const waddle = pet.sp.gait === 'waddle';
   // 先转过身，再迈步
   if (pet.pose.facing * dir > 0.35) {
     // sp.pace：这种动物走得快慢（卡皮巴拉慢悠悠的，见 species/）
     const moved = Math.min(Math.abs(dx), gait.speed * speedMul * (pet.sp.pace || 1) * S * dt);
     pet.x += dir * moved;
     // 走了多远，腿就摆了多少（记在 walkPhase 里；别和动作自己的 phase 混在一起）
-    st.walkPhase = (st.walkPhase || 0) + (moved / (gait.stride * (hop ? HOP_STRIDE : 1) * S)) * Math.PI;
+    st.walkPhase = (st.walkPhase || 0) + (moved / (gait.stride * (hop ? HOP_STRIDE : waddle ? WADDLE_STRIDE : 1) * S)) * Math.PI;
   }
   const s = Math.sin(st.walkPhase || 0);
   const c = Math.cos(st.walkPhase || 0);
+  if (waddle) {
+    // 企鹅：小碎步，脚几乎不抬；身子往踩着地的那只脚那边歪，一左一右地摇摆，脑袋跟着晃；
+    // 两只翅膀微微张开，跟着身子一甩一甩的（手里拿着东西时不甩）
+    T.footLY = Math.max(0, s) * gait.lift * 0.45;
+    T.footRY = Math.max(0, -s) * gait.lift * 0.45;
+    T.footLX = -c * 2 * dir;
+    T.footRX = c * 2 * dir;
+    T.lift += Math.abs(s) * gait.bob * 0.35;
+    T.lean += dir * gait.lean * 0.5 + s * 0.13;
+    T.headTilt += s * 0.05;
+    if (!pet.holding) {
+      T.armL += 0.32 - s * 0.14;
+      T.armR += 0.32 + s * 0.14;
+    }
+    return Math.abs(tx - pet.x) < 0.75;
+  }
   if (hop) {
     // 兔子：两只脚并在一起，一蹦一蹦地往前跳（walkPhase 每走过 π 跳一下）。
     // 在空中时脚收在身子后面、两只前爪往前伸一点、耳朵往后甩一点；落地那一下身子压扁一点
@@ -298,7 +316,8 @@ function wallLeap(st, pet, side, S) {
 // ------------------------------------------------------------ 自己上窗口（brain.js 的 hopUp / climbUp）
 
 // 一跳最高能跳多高（按宠物原始大小算的像素）：猫轻巧，熊猫沉，卡皮巴拉懒得使劲
-const HOP_REACH = { cat: 190, panda: 120, capybara: 110, shiba: 170, redpanda: 180, bunny: 205 }; // 兔子最能跳
+// 兔子最能跳，狐狸也很能蹦；企鹅只跳得上矮矮的窗口
+const HOP_REACH = { cat: 190, panda: 120, capybara: 110, shiba: 170, redpanda: 180, bunny: 205, fox: 200, penguin: 110, otter: 160 };
 const hopReach = (sp) => HOP_REACH[sp.id] ?? 150;
 // 顺着窗口侧边爬到顶时：爪子扒住了顶边，脚还在顶边下面这么多，然后一翻身上去
 const HANG = 72;

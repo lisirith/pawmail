@@ -89,6 +89,20 @@ async function inspectArt(poses, guideUrl) {
     ['trick-earpull-left', { crouch: 1, earPull: -1, armL: -2.45, armR: -2.45, headTilt: -0.2, headY: 2.5, lookX: -0.35, lookY: 0.5, eyes: 'sleep' }],
     ['trick-flop', { crouch: 1, roll: 1.42, lift: rollLift(1.42), earDroop: 0.5, footLY: -4, footRY: -4, footLX: -5, footRX: -5, armL: 0.35, armR: 0.35, eyes: 'sleep' }],
     ['trick-flop-left', { crouch: 1, roll: -1.42, lift: rollLift(-1.42), earDroop: 0.5, footLY: -4, footRY: -4, footLX: 5, footRX: 5, armL: 0.35, armR: 0.35, eyes: 'sleep' }],
+    // 狐狸：扑雪时倒立着一头扎进地里（地面以下在游戏里被裁掉，这里照样整只画出来，看会不会出画布）
+    ['trick-dive', { roll: 2.9, lift: -44, armL: 1.25, armR: 1.25, footLY: -3, footRY: 1, tailCurl: 0, tail: 0.8 }],
+    ['trick-dive-left', { roll: -2.9, lift: -44, armL: 1.25, armR: 1.25, footLY: 1, footRY: -3, tailCurl: 0, tail: -0.8 }],
+    // 企鹅：肚皮着地滑出去、滑一跤、仰头张大嘴等小鱼掉进来
+    ['trick-slide', { facing: 1, roll: 1.4, lift: -6, headTilt: -0.3, armL: 0.12, armR: 0.12, footLY: 5, footRY: 1, eyes: 'happy', mouth: 'o' }],
+    ['trick-slide-left', { facing: -1, roll: -1.4, lift: -6, headTilt: 0.3, armL: 0.12, armR: 0.12, eyes: 'happy' }],
+    ['trick-slip', { facing: 1, footRX: 12, footRY: 8, lean: -0.42, lift: 7, armL: 1.9, armR: 1.0, eyes: 'wide', mouth: 'o', mouthOpen: 1 }],
+    ['trick-gulp', { mouth: 'yawn', mouthOpen: 1, lookY: -0.9, headY: -2.5, armL: 0.35, armR: 0.35, eyes: 'wide' }],
+    // 水獭：仰面躺着（脸转过来朝着你）、在肚子上敲贝壳（举起来 / 打开了）、搓手手
+    ['trick-back', { roll: 1.4, lift: -8, headTilt: -1, headY: -6, crouch: 0.2, armL: -0.75, armR: -0.75, tailHang: 0.8, tailCurl: 0, footLY: -4, footRY: -4, eyes: 'sleep' }],
+    ['trick-back-left', { roll: -1.4, lift: -8, headTilt: 1, headY: -6, crouch: 0.2, armL: -0.75, armR: -0.75, tailHang: 0.8, tailCurl: 0, tailSide: -1, footLY: -4, footRY: -4, eyes: 'sleep' }],
+    ['trick-back-clam', { roll: 1.4, lift: -8, headTilt: -1, headY: -6, crouch: 0.2, armL: -0.9, armR: -0.9, tailHang: 0.8, tailCurl: 0, footLY: -4, footRY: -4, snack: 1, bite: 0.2, snackLift: 1, eyes: 'wide' }],
+    ['trick-back-clam-open', { roll: -1.4, lift: -8, headTilt: 1, headY: -6, crouch: 0.2, armL: -0.75, armR: -0.75, tailHang: 0.8, tailCurl: 0, footLY: -4, footRY: -4, snack: 1, bite: 0.6, mouth: 'o' }],
+    ['trick-pawrub', { crouch: 1, armL: -1.33, armR: -1.57, eyes: 'happy', mouth: 'smile', mouthOpen: 0.3 }],
     ['todo-sign', { armL: 2.15, armR: 2.15, sign: 1, lift: 7, eyes: 'wide', mouth: 'o' }], // 待办提醒：举着便签
     ['todo-sign-perch', { armL: 2.15, armR: 2.15, sign: 0.5 }],
     ['bedtime-pillow', { crouch: 1, pillow: 1, armL: -0.75, armR: -0.75, mouth: 'yawn', mouthOpen: 1, eyes: 'sleep' }], // 深夜催睡：抱着小枕头
@@ -193,16 +207,18 @@ async function inspectArt(poses, guideUrl) {
     }
     stats[variantId] = { cases: cases.length, minPixels, minMargin, averageDrawMs: +( (performance.now() - start) / 240).toFixed(3) };
   }
+  // 每种动物一行（顺序和菜单一样，招财猫跟在橘猫后面）
+  const rowsOfSpecies = Object.values(SPECIES).flatMap((sp) => (sp.id === 'cat' ? [sp, luckyCat] : [sp]));
   const sheet = document.createElement('canvas');
-  sheet.width = 1680; sheet.height = 2690;
+  sheet.width = 1680; sheet.height = 130 + rowsOfSpecies.length * 365;
   const s = sheet.getContext('2d');
   s.fillStyle = '#f7f0e5'; s.fillRect(0, 0, sheet.width, sheet.height);
   s.fillStyle = '#614839'; s.font = '600 30px "Microsoft YaHei", sans-serif';
-  s.fillText('Pawmail · 熊猫、橘猫、招财猫、卡皮巴拉、柴犬、小熊猫与兔子 / 动作预览', 36, 50);
+  s.fillText('Pawmail · 九种动物（加上招财猫）/ 动作预览', 36, 50);
   s.font = '17px "Microsoft YaHei", sans-serif'; s.fillStyle = '#856e5e';
   s.fillText('游戏实际绘制 · 放大检查轮廓、表情与部件衔接', 36, 82);
   const featured = [poses[0], poses[5], poses[3], poses[6], poses[7], ['抱信', { armL: -0.75, armR: -0.75 }], poses[8]];
-  for (const [row, sp] of [SPECIES.panda, SPECIES.cat, luckyCat, SPECIES.capybara, SPECIES.shiba, SPECIES.redpanda, SPECIES.bunny].entries()) {
+  for (const [row, sp] of rowsOfSpecies.entries()) {
     const top = 110 + row * 365;
     s.fillStyle = row ? '#e9e0d2' : '#fffaf3'; s.fillRect(20, top, sheet.width - 40, 348);
     for (const [col, [name, pose]] of featured.entries()) {
@@ -212,10 +228,10 @@ async function inspectArt(poses, guideUrl) {
       s.fillText(name, 135 + col * 235, top + 326); s.textAlign = 'left';
     }
   }
-  const dark = document.createElement('canvas'); dark.width = 1600; dark.height = 430;
-  const d = dark.getContext('2d'); d.fillStyle = '#252a34'; d.fillRect(0, 0, 1600, 430);
-  for (const [i, id] of ['panda', 'cat', 'capybara', 'shiba', 'redpanda', 'bunny'].entries()) {
-    d.save(); d.translate(140 + i * 264, 365); d.scale(2.3, 2.3);
+  const dark = document.createElement('canvas'); dark.width = 1900; dark.height = 400;
+  const d = dark.getContext('2d'); d.fillStyle = '#252a34'; d.fillRect(0, 0, dark.width, dark.height);
+  for (const [i, id] of Object.keys(SPECIES).entries()) {
+    d.save(); d.translate(120 + i * 207, 345); d.scale(1.9, 1.9);
     drawPet(d, SPECIES[id], makePose({ crouch: 1 }), { time: 0.3 }); d.restore();
   }
   const images = { 'poses.png': sheet.toDataURL(), 'dark.png': dark.toDataURL() };

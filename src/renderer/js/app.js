@@ -2,7 +2,7 @@
 
 import { createBridge } from './bridge.js';
 import { createI18n } from './i18n.js';
-import { getSpecies } from './pet/species/index.js';
+import { getSpecies, SPECIES_IDS } from './pet/species/index.js';
 import { Pet } from './pet/pet.js';
 import { Brain } from './pet/brain.js';
 import { RIG, drawHeadOnly } from './pet/draw.js';
@@ -823,14 +823,13 @@ async function main() {
         label: t('menu.animal'),
         value: settings.species,
         compact: true, // 没选中的动物只显示小头像，名字在鼠标停上去时显示
-        options: [
-          { value: 'cat', label: t('menu.cat'), icon: headIcon('cat', settings.catCoat || 'tabby') },
-          { value: 'panda', label: t('menu.panda'), icon: headIcon('panda') },
-          { value: 'capybara', label: t('menu.capybara'), icon: headIcon('capybara') },
-          { value: 'shiba', label: t('menu.shiba'), icon: headIcon('shiba') },
-          { value: 'redpanda', label: t('menu.redpanda'), icon: headIcon('redpanda') },
-          { value: 'bunny', label: t('menu.bunny'), icon: headIcon('bunny') },
-        ],
+        perRow: 5, // 九种动物，分两行
+        // 顺序和 species/index.js 的 SPECIES 一样：猫狗在前，狐狸挨着狗，小熊猫挨着熊猫……
+        options: SPECIES_IDS.map((id) => ({
+          value: id,
+          label: t(`menu.${id}`),
+          icon: id === 'cat' ? headIcon('cat', settings.catCoat || 'tabby') : headIcon(id),
+        })),
       },
       ...(settings.species === 'cat' ? [{
         type: 'choice', key: 'catCoat', label: t('menu.catCoat'), value: settings.catCoat || 'tabby',
