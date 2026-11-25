@@ -1,7 +1,7 @@
 {
   "name": "pawmail",
   "productName": "Pawmail",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "爪爪来信 Pawmail — a tiny desktop pet that writes you a letter every day.",
   "author": "Pawmail",

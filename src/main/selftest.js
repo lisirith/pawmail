@@ -156,6 +156,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch, phone
   // 陪它玩（右键「陪它玩…」，见 pet/play.js）：每种动物的小游戏都能开始，再点一次"不玩了"能收工，桌面上的道具也收起来。
   // 柴犬的叼球要鼠标在屏幕上才玩得起来（自检时鼠标在哪说不准），这里不测
   const plays = {};
+  const homeX = await js(`return window.__pawmail.pet.x;`); // 玩的时候它会跑来跑去：测完放回原处，后面的检查才找得到它
   for (const id of ['cat', 'fox', 'redpanda', 'panda', 'bunny', 'capybara', 'otter', 'penguin']) {
     setSetting('species', id);
     await wait(250);
@@ -167,6 +168,7 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch, phone
   }
   setSetting('species', info.species);
   await wait(250);
+  await js(`const P = window.__pawmail; P.brain.start('idle'); P.pet.x = ${Number(homeX) || 0}; P.run(0.3); return true;`);
   const playOk = Object.values(plays).every((r) => r && r.ok && r.playing && !r.stillPlaying && !r.leftovers);
   check('右键「陪它玩…」：八种动物的小游戏都能开始，点"不玩了"能收工（桌面上的道具也收起来）', playOk, plays);
 
@@ -181,9 +183,10 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch, phone
   // 8. 截一张图，并检查背景是不是真的透明
   await js(`const P = window.__pawmail; P.brain.start('greet', { line: 'hello' }); P.run(0.9); return true;`);
   await wait(600);
+  const here = await js(`return { x: window.__pawmail.pet.x, y: window.__pawmail.pet.y };`); // 截它现在站的地方
   const rect = {
-    x: Math.max(0, Math.round(info.x - 220)),
-    y: Math.max(0, Math.round(info.y - 330)),
+    x: Math.max(0, Math.round(here.x - 220)),
+    y: Math.max(0, Math.round(here.y - 330)),
     width: 440,
     height: 334,
   };
