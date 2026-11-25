@@ -76,6 +76,9 @@ export class Pet {
 
     this.birdDir = 1; // 头顶的小鸟朝哪边（卡皮巴拉的招牌动作，见 tricks.js 的 bird）
     this.mouthToy = 'ball'; // 嘴里叼的是网球还是骨头（柴犬叼球，见 tricks.js 的 fetch）
+    // 陪它玩时身上的东西（抢的竹子、身下的树枝、头顶一摞橘子，见 play.js）；null = 没有。
+    // 变了就换成新对象（画面靠"是不是同一个对象"知道要不要重画）
+    this.playProp = null;
 
     this.look = null; // 节日装扮（见 looks.js）；null = 平常的样子
     this.outfit = null; // 穿着的衣服 { hat, glasses, top, bag, held }（衣服编号，见 outfits.js）；null = 什么都没穿
@@ -745,6 +748,7 @@ export class Pet {
       sheetLift: this.sheetLift,
       birdDir: this.birdDir,
       mouthToy: this.mouthToy,
+      playProp: this.playProp,
     });
     ctx.restore();
     this.fx.draw(ctx);

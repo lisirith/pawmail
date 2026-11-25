@@ -12,9 +12,10 @@
 import { clamp, damp, pickWeighted, chance, pick } from '../util/math.js';
 import { ACTIVITIES, INTERRUPTIBLE, REACTIVE, wallDistances, planHop, planClimb } from './activities.js';
 import { TRICKS, TRICK_INFO, ENERGETIC_TRICKS } from './tricks.js';
+import { PLAYS, PLAY_INFO, PLAYING } from './play.js';
 
-// 所有会做的动作：日常的（activities.js）+ 招牌动作（tricks.js）
-const ACTIONS = { ...ACTIVITIES, ...TRICKS };
+// 所有会做的动作：日常的（activities.js）+ 招牌动作（tricks.js）+ 陪它玩的小游戏（play.js）
+const ACTIONS = { ...ACTIVITIES, ...TRICKS, ...PLAYS };
 
 // 每个动作做完之后，过多少秒才会恢复到正常的出现概率
 const COOLDOWN = {
@@ -48,7 +49,7 @@ const RUSH_BLUFF_AFTER = 90;
 // 刚从窗口上下来（自己跳的、掉下来的）：过这么多秒才想再上去
 const UP_AGAIN_AFTER = 180;
 // 活动的、费劲的动作：精力掉得快
-const ENERGETIC = new Set(['walk', 'run', 'chase', 'hop', 'climb', 'hopUp', 'climbUp', ...ENERGETIC_TRICKS]);
+const ENERGETIC = new Set(['walk', 'run', 'chase', 'hop', 'climb', 'hopUp', 'climbUp', ...ENERGETIC_TRICKS, 'wand', 'prey', 'hurdles', 'fishToss', 'tug']);
 // 打盹一类的（招牌动作里的抱着尾巴睡、趴在窗口边上睡）：和 nap 一样慢慢恢复精力，眼皮不算"困"
 const NAPPING = new Set(['nap', 'tailHug', 'drapeNap']);
 
@@ -262,7 +263,8 @@ export class Brain {
     const was = this.petting;
     this.petting = over && this.stroke > (was ? 35 : 110) * S;
     if (this.petting && !was) this.stat('pet');
-    if (this.petting && !was && !REACTIVE.has(this.name) && this.name !== 'sleep' && this.name !== 'petted') {
+    // （陪它玩的时候鼠标常常就在它身上晃——牵着手、拿着树枝——那不算摸头，不打断）
+    if (this.petting && !was && !REACTIVE.has(this.name) && !PLAYING.has(this.name) && this.name !== 'sleep' && this.name !== 'petted') {
       this.start('petted');
     }
 
@@ -626,6 +628,44 @@ export class Brain {
     if (this.name !== 'remind') return; // 已经提醒完了：不用再说什么
     this.start('hop', { count: 1 });
     this.say('remindOk', 2.4);
+  }
+
+  /** 正在陪它玩（柴犬叼球，或者 play.js 里的小游戏）：菜单里那一项变成"不玩了" */
+  get playing() {
+    return PLAYING.has(this.name) || this.name === 'fetch';
+  }
+
+  /**
+   * 右键菜单「陪它玩…」：每种动物自己的小游戏（见 play.js 的 PLAY_INFO；柴犬是叼球）。正在玩的时候再点一次 = 不玩了。
+   * 睡着了先醒；站在窗口上、这个游戏要在地上玩的话，先跳下来；万圣节披着白布时玩不了，就开心地蹦一下
+   */
+  play() {
+    const pet = this.pet;
+    const info = PLAY_INFO[pet.sp.id];
+    if (!info) return false;
+    if (this.playing) {
+      if (this.current && this.current.stop) this.current.stop(this);
+      else this.start('idle');
+      return true;
+    }
+    if (info.name === 'fetch') return this.playFetch();
+    if (pet.mode !== 'ground' || REACTIVE.has(this.name) || this.name === 'arrive') return false;
+    if (pet.look && pet.look.cover) {
+      this.start('hop');
+      return true;
+    }
+    this.queue = this.queue.filter(([q]) => !TRICK_INFO[q] && !PLAYS[q]);
+    if (this.name === 'sleep') {
+      this.start('wake');
+      this.queue.unshift([info.name, {}]);
+    } else if (info.ground && this.perched) {
+      const A = this.world.area;
+      this.queue.unshift([info.name, {}]);
+      this.start('jumpDown', { dir: pet.x < (A.left + A.right) / 2 ? 1 : -1 });
+    } else {
+      this.start(info.name, {});
+    }
+    return true;
   }
 
   /**

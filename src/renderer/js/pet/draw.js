@@ -9,7 +9,7 @@
 import { TAU, clamp } from '../util/math.js';
 import { drawLookHead, drawLookNeck, drawHeldItem, drawLookCover } from './looks.js';
 import { resolveOutfit } from './outfits.js';
-import { drawOrange, drawSnack, drawBoxBack, drawBoxFront, drawTubBack, drawTubFront, drawBird, drawBall, drawBone, drawReminderSign, drawPillow, BOX, TUB } from './props.js';
+import { drawOrange, drawSnack, drawBoxBack, drawBoxFront, drawTubBack, drawTubFront, drawBird, drawBall, drawBone, drawReminderSign, drawPillow, drawBranch, drawBambooStalk, drawOrangeStack, BOX, TUB } from './props.js';
 
 export const RIG = Object.freeze({
   // 宠物所在的小画布的大小，以及"脚底中心"在这块画布里的位置
@@ -581,6 +581,19 @@ function drawHead(ctx, sp, P, g, time, look, outfit = null, extra = {}) {
   if (hat) hat.hat(ctx, info); // 换装：帽子（过节那天节日戴了帽子，这里就是空的）
   // 头顶的小东西（卡皮巴拉的橘子）。戴着帽子、节日头饰时不画（大脑也不会在这时候安排它）
   if (sp.headProp && P.prop > 0.02 && !hat && !(look && look.head)) drawHeadProp(ctx, sp, P, lx);
+  // 陪卡皮巴拉叠橘子：头顶一摞，还有正往下掉、对准了的那一个（坐标相对于这一摞的底，见 play.js 的 stack）
+  const pp = extra.playProp;
+  if (pp && pp.kind === 'oranges') {
+    ctx.save();
+    ctx.translate(lx * 4, -sp.head.ry + 3);
+    drawOrangeStack(ctx, pp.stack || [], pp.sway || 0);
+    if (pp.falling) {
+      ctx.translate(pp.falling.x, pp.falling.y);
+      ctx.rotate(pp.falling.rot || 0);
+      drawOrange(ctx, 9);
+    }
+    ctx.restore();
+  }
   if (P.mouthBall > 0.02) drawMouthBall(ctx, sp, P, lx, ly, extra.mouthToy); // 嘴里叼着球或骨头（柴犬叼球）
   // 头顶落着的小鸟（卡皮巴拉）。戴着帽子、节日头饰时不画（大脑也不会在这时候安排它）
   if (P.bird > 0.02 && !hat && !(look && look.head)) drawHeadBird(ctx, sp, P, lx, time, extra.birdDir || 1);
@@ -746,8 +759,12 @@ export function drawPet(ctx, sp, P, opts = {}) {
   const pal = sp.palette;
   const g = getGeometry(sp, P);
   const time = opts.time || 0;
-  const look = opts.look || null;
-  const outfit = resolveOutfit(opts.outfit, look); // 换装：穿着的衣服（见 outfits.js）
+  // 陪它玩时身上的东西（见 play.js 的 pet.playProp）：抢的竹子、身下的树枝、头顶一摞橘子。
+  // hideHat：头顶要叠橘子，帽子（和节日的头饰）先摘下来
+  const pp = opts.playProp || null;
+  const hideHat = !!(pp && pp.hideHat);
+  const look = hideHat && opts.look && opts.look.head ? { ...opts.look, head: null } : opts.look || null;
+  const outfit = resolveOutfit(hideHat && opts.outfit ? { ...opts.outfit, hat: null } : opts.outfit, look); // 换装：穿着的衣服（见 outfits.js）
   const carryLift = opts.carry ? clamp(opts.carryLift || 0, 0, 1) : -1; // -1 = 手里没东西
 
   ctx.save();
@@ -794,6 +811,16 @@ export function drawPet(ctx, sp, P, opts = {}) {
   // 狐狸（sp.tailOverHead）睡觉时尾巴尖盖住鼻子：头画完以后，再把尾巴尖那一截画一遍，压在脸的下半截上
   const tailFront = (P.tailWrap || 0) > 0.5;
   if (!tailFront) sp.drawTail(ctx, P, g);
+
+  // 小熊猫趴在你递的树枝上：树枝在肚子底下（垂下来的手脚、尾巴挡在它前面）。
+  // 身子跟着荡（整只转了 pet.rot），树枝却一直是平的：转回去（counter）再画
+  if (pp && pp.kind === 'branch') {
+    ctx.save();
+    ctx.rotate(pp.counter || 0);
+    ctx.translate(0, 3);
+    drawBranch(ctx, 110);
+    ctx.restore();
+  }
 
   const feetInFront = g.low > 0.5;
   if (!feetInFront) drawFeet(ctx, sp, P, g);
@@ -901,10 +928,23 @@ export function drawPet(ctx, sp, P, opts = {}) {
     ctx.restore();
   }
 
-  drawHead(ctx, sp, P, g, time, look, outfit, { birdDir: opts.birdDir, mouthToy: opts.mouthToy });
+  drawHead(ctx, sp, P, g, time, look, outfit, { birdDir: opts.birdDir, mouthToy: opts.mouthToy, playProp: pp });
   drawLookNeck(ctx, look, g); // 围巾、香囊挂在下巴下面
   // （尾巴正在绕过来、还没绕到位的时候不补：那时候尾巴尖还在脸的另一边）
   if (tailFront && sp.tailOverHead && P.tailWrap > 0.85) sp.drawTail(ctx, P, g, 'tip');
+
+  // 熊猫抢竹子：竹子从胸口伸到你抓着的那一头（抱在胸前的爪子画在它前面，像攥着它）
+  if (pp && pp.kind === 'bamboo') {
+    const [fx, fy] = pp.from;
+    const [tx, ty] = pp.to;
+    const len = pp.len || 74;
+    const ang = Math.atan2(ty - fy, tx - fx);
+    ctx.save();
+    ctx.translate(tx - Math.cos(ang) * len, ty - Math.sin(ang) * len);
+    ctx.rotate(ang);
+    drawBambooStalk(ctx, len);
+    ctx.restore();
+  }
 
   // 零食捧在下巴前面（啃的时候低头，嘴正好碰到它）；熊猫抱在胸前的爪子还会再画在它前面
   if (snack > 0.02) {
@@ -942,6 +982,21 @@ export function drawPet(ctx, sp, P, opts = {}) {
   }
 
   drawLookCover(ctx, look, sp, P, g, opts.sheetLift || 0, time); // 万圣节的白布：盖住全身
+
+  // 卡皮巴拉叠橘子：没对准的、倒下来的橘子在地上滚（按脚底、没跳没歪的坐标画，和纸箱一样）
+  if (pp && pp.kind === 'oranges' && pp.loose && pp.loose.length) {
+    ctx.save();
+    ctx.setTransform(base);
+    for (const o of pp.loose) {
+      ctx.save();
+      ctx.globalAlpha *= o.a ?? 1;
+      ctx.translate(o.x, o.y);
+      ctx.rotate(o.rot || 0);
+      drawOrange(ctx, 9);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
 
   // 纸箱的前墙、木盆的前壁和水面：盖住坐在里面的身子，只露出脑袋和搭在边上的爪子
   if (box > 0.02 || tub > 0.02) {

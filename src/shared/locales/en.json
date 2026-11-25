@@ -6,6 +6,15 @@
     "wardrobe": "Wardrobe",
     "trick": "Do a trick!",
     "fetch": "Play fetch",
+    "playWand": "Tease with a wand",
+    "playPrey": "Hunt mice in the snow",
+    "playBranch": "Hold out a branch",
+    "playTug": "Bamboo tug-of-war",
+    "playHurdles": "Set up hurdles",
+    "playStack": "Stack oranges on it",
+    "playHands": "Hold its paw",
+    "playFish": "Toss it a fish",
+    "playStop": "Stop playing",
     "todos": "To-dos",
     "animal": "Animal",
     "cat": "Cat",
@@ -83,6 +92,7 @@
     "firstRun": "Hi there! Right-click me to open the menu~",
     "hello": ["Hi!", "I'm here~", "Hello!"],
     "welcomeBack": ["You're back!", "Welcome back~", "I missed you!"],
+    "playBored": ["Done already…?", "Okay… next time"],
     "annoyed": ["Hmph!", "Stop poking!", "Not talking to you!"],
     "dizzy": ["Dizzy...", "Everything's spinning...", "@_@"],
     "caught": ["Gotcha!", "Ha!"],
@@ -150,7 +160,10 @@
       "knead": ["Purrr…", "Knead, knead~", "So soft~"],
       "box": ["This box is mine now!", "If it fits, I sits~", "A box! I'm going in!"],
       "beckon": ["Good luck, come on in~", "Fortune, this way~", "Come here, come here~"],
-      "snack": ["Dried fish!", "My favorite fishy~"]
+      "snack": ["Dried fish!", "My favorite fishy~"],
+      "wandStart": ["What's that!", "Mrrp! Hold still!"],
+      "wandCatch": ["Got it!", "Mine now!"],
+      "wandEnd": ["All tuckered out…", "Phew, that was fun!"]
     },
     "panda": {
       "hello": ["Hi!", "I'm here~", "Mm-hm~"],
@@ -158,14 +171,23 @@
       "roll": ["Roly-poly~", "Hehe, one whole roll!", "Another one?"],
       "topple": ["…I wasn't sleeping!", "Nothing happened just now!", "Huh? Why am I lying down?"],
       "scratch": ["Ahh~ right there~", "So itchy~", "That's the spot~"],
-      "snack": ["Mmm, bamboo~", "Crunch crunch!"]
+      "snack": ["Mmm, bamboo~", "Crunch crunch!"],
+      "tugStart": ["Come and get it~", "This bamboo is mine!"],
+      "tugPull": ["Heave—ho!", "Nope, nope!"],
+      "tugLose": ["Hmph… my bamboo…", "I'll win next time!"],
+      "tugWin": ["I win!", "Dinner time~"],
+      "tugEnd": ["No more tugging, time to eat!", "That was fun~"]
     },
     "capybara": {
       "hello": ["Hi~", "I'm here~", "Mm… hello"],
       "held": ["No rush, no rush…", "Where are we going?", "Okay… whatever you say"],
       "onsen": ["So nice…", "A warm bath~", "I'm never getting out…"],
       "bird": ["… (not moving)", "Shh, don't scare it", "You came to sunbathe too?"],
-      "snack": ["Watermelon!", "So sweet~"]
+      "snack": ["Watermelon!", "So sweet~"],
+      "stackStart": ["…go ahead", "I won't move"],
+      "stackCount": ["That's {n}…", "{n} now"],
+      "stackFall": ["…they fell", "That's okay"],
+      "stackEnd": ["Let's call it a day", "…that was fun"]
     },
     "shiba": {
       "hello": ["Woof!", "Hi!", "I'm here~"],
@@ -180,7 +202,13 @@
       "hello": ["Hi!", "I'm here~", "(peeks) Hello"],
       "held": ["P-put me down!", "I'm very fierce, you know!", "Eep… so high"],
       "bluff": ["I'm VERY fierce!", "Rawr!", "Stay back! I bite!"],
-      "snack": ["Apple~", "Crunch, crunch~"]
+      "snack": ["Apple~", "Crunch, crunch~"],
+      "branchStart": ["A branch!", "Let me up!"],
+      "branchReach": ["C-can't reach…", "Lower, please!"],
+      "branchRide": ["So high~", "Swing me again!"],
+      "branchNap": ["…zzz", "Comfy up here"],
+      "branchFall": ["Waaah!", "I f-fell!"],
+      "branchEnd": ["That's enough climbing", "Thanks for the branch~"]
     },
     "bunny": {
       "hello": ["Hi!", "Hop, hop~ I'm here!", "(ears up) Hello~"],
@@ -188,7 +216,11 @@
       "binky": ["Wheee!", "So happy I could fly!", "Boing!"],
       "faceWash": ["Washing my face~", "Ears need a wash too~", "Scrub, scrub~"],
       "flop": ["(flop) …so comfy", "This spot is perfect…", "Don't mind me, just melting~"],
-      "snack": ["Carrot!", "Nom nom nom~"]
+      "snack": ["Carrot!", "Nom nom nom~"],
+      "hurdleStart": ["Watch me jump!", "Boing—"],
+      "hurdleTall": ["That one's… kinda high", "Are you sure?"],
+      "hurdleOops": ["Oops…", "Knocked it over…"],
+      "hurdleEnd": ["All jumped out~", "Wasn't I amazing?"]
     },
     "fox": {
       "hello": ["Hi!", "(ears up) Hello~", "I'm here~"],
@@ -196,7 +228,10 @@
       "pounce": ["Shh… something's under there", "Hear that?", "(ears up) …"],
       "pounceMiss": ["…it got away", "Huh? Nothing there", "Next time!"],
       "bury": ["Shh, my secret stash", "All hidden~", "Nobody will find it!"],
-      "snack": ["Grapes!", "Sweet and sour~"]
+      "snack": ["Grapes!", "Sweet and sour~"],
+      "preyStart": ["Wiggle your mouse along the ground, I'll catch it!", "Something's under the snow… move it around"],
+      "preyCatch": ["Got you!", "Hehe, no escape!"],
+      "preyEnd": ["Good hunting today~", "Hunt's over!"]
     },
     "penguin": {
       "hello": ["Hi!", "(waddle waddle) I'm here~", "Hello!"],
@@ -204,7 +239,12 @@
       "bellySlide": ["Wheee!", "Sliiide~", "Here I go!"],
       "flapHop": ["Flap flap~", "I'm gonna fly!", "…still can't fly"],
       "slipFall": ["Oof…", "So slippery…", "Didn't hurt! Didn't hurt!"],
-      "snack": ["Fish!", "In one gulp!"]
+      "snack": ["Fish!", "In one gulp!"],
+      "fishStart": ["Throw it!", "I can catch it!"],
+      "fishCatch": ["Gulp!", "Yum!"],
+      "fishCombo": ["{n} in a row!", "That's {n}!"],
+      "fishMiss": ["…it fell", "Floor fish is fine too"],
+      "fishFull": ["I'm full~", "*hic*~"]
     },
     "otter": {
       "hello": ["Hi!", "I'm here~ Play with me!", "(rubs paws) Hello~"],
@@ -213,7 +253,12 @@
       "juggleBonk": ["Ow!", "…right on my head", "That one's naughty"],
       "pawRub": ["Hehe…", "Got any snacks?", "Rub rub rub~"],
       "floatNap": ["Floating…", "So comfy…", "Mm…"],
-      "snack": ["Clams!", "Knock knock… open!"]
+      "snack": ["Clams!", "Knock knock… open!"],
+      "handsStart": ["Hold paws~", "Gimme your paw!"],
+      "handsHold": ["Don't let go~", "Hehe"],
+      "handsSlip": ["Huh? Where'd you go?", "Don't leave—"],
+      "handsSleep": ["…(squeezes tight)", "Now we won't drift apart"],
+      "handsEnd": ["Hold my paw again sometime", "Hehe, that was nice"]
     }
   },
   "mail": {

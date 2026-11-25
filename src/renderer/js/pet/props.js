@@ -1157,3 +1157,367 @@ export function drawCoin(ctx, r = 6) {
   ctx.fill();
   ctx.restore();
 }
+
+// ================================================================ 陪它玩的道具（见 play.js）
+//
+// 跟着鼠标的（逗猫棒、树枝、小爪子、手里的橘子、雪里动的那一小块）由 drawPlayCursor 画，原点是鼠标尖
+// （雪那一小块是鼠标正下方的地面）；宠物身上的（竹子、树枝、头顶一摞橘子）由 draw.js 调下面这些画。
+// 单位都是宠物原始大小的像素。
+
+/** 一根羽毛：根在原点，顺着 +y 方向垂下去。len 多长，color 主色，dark 描边和根部的颜色 */
+function feather(ctx, len, color, dark) {
+  const w = len * 0.3;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(-w * 1.15, len * 0.25, -w * 1.05, len * 0.78, 0, len);
+  ctx.bezierCurveTo(w * 1.05, len * 0.78, w * 1.15, len * 0.25, 0, 0);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, len);
+  grad.addColorStop(0, dark);
+  grad.addColorStop(0.35, color);
+  grad.addColorStop(1, '#fff6f8');
+  fillStroke(ctx, grad, 0.9, dark);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)'; // 一道一道的细纹
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  for (const t of [0.32, 0.48, 0.64, 0.8]) {
+    ctx.moveTo(0, len * t);
+    ctx.lineTo(-w * 0.85, len * (t + 0.09));
+    ctx.moveTo(0, len * t);
+    ctx.lineTo(w * 0.85, len * (t + 0.09));
+  }
+  ctx.stroke();
+  ctx.beginPath(); // 羽轴
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, len * 0.9);
+  ctx.strokeStyle = dark;
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * 逗猫棒：棍子从鼠标尖（原点）伸到 stick，绳子从棍子头挂下来，末端一小簇羽毛在 tip。
+ * taut：绳子绷直了（猫按住了羽毛，你在往回拽）
+ */
+export function drawWand(ctx, stick, tip, taut = false) {
+  const [sx, sy] = stick;
+  const [tx, ty] = tip;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath(); // 棍子
+  ctx.moveTo(0, 0);
+  ctx.lineTo(sx, sy);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 4.4;
+  ctx.stroke();
+  ctx.strokeStyle = '#dca866';
+  ctx.lineWidth = 2.6;
+  ctx.stroke();
+  ctx.beginPath(); // 手握的那一截缠着红布条
+  ctx.moveTo(0, 0);
+  ctx.lineTo(sx * 0.3, sy * 0.3);
+  ctx.strokeStyle = '#e0584f';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  // 绳子：没绷直时中间往下垂一点
+  const sag = taut ? 0 : Math.min(6, Math.hypot(tx - sx, ty - sy) * 0.12);
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.quadraticCurveTo((sx + tx) / 2, (sy + ty) / 2 + sag, tx, ty);
+  ctx.strokeStyle = 'rgba(122, 74, 44, 0.9)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // 羽毛顺着绳子垂下去：粉的大、蓝绿的小，一左一右张开，根上一颗小铃铛
+  const ang = Math.atan2(tx - sx, ty - sy);
+  ctx.translate(tx, ty);
+  ctx.rotate(-ang);
+  ctx.save();
+  ctx.rotate(0.34);
+  feather(ctx, 13, '#7fd6cb', '#3f9c91');
+  ctx.restore();
+  ctx.save();
+  ctx.rotate(-0.18);
+  feather(ctx, 17, '#ff8db0', '#cf4f78');
+  ctx.restore();
+  ellipse(ctx, 0, 0.5, 2.5, 2.5);
+  fillStroke(ctx, '#ffd447', 0.9, '#a8741a');
+  ctx.restore();
+}
+
+/** 一根树枝：横着，正中间上沿在原点下面一点，len 多长；右边分出一个小叉、挂着几片叶子 */
+export function drawBranch(ctx, len = 110) {
+  const h = len / 2;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath(); // 小叉
+  ctx.moveTo(h * 0.42, -2.5);
+  ctx.quadraticCurveTo(h * 0.6, -9, h * 0.8, -13);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 3.6;
+  ctx.stroke();
+  ctx.strokeStyle = '#9a6a3e';
+  ctx.lineWidth = 2.1;
+  ctx.stroke();
+  ctx.beginPath(); // 树枝本身：两头细一点，弯弯的
+  ctx.moveTo(-h, -2);
+  ctx.bezierCurveTo(-h * 0.4, -4.4, h * 0.3, -1.4, h, -3.2);
+  ctx.quadraticCurveTo(h + 2.2, -1, h + 0.6, 1.2);
+  ctx.bezierCurveTo(h * 0.3, 3.8, -h * 0.4, 1.9, -h, 3.1);
+  ctx.quadraticCurveTo(-h - 1.8, 0.5, -h, -2);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, -4.5, 0, 4);
+  grad.addColorStop(0, '#b9834f');
+  grad.addColorStop(1, '#7a512d');
+  fillStroke(ctx, grad, 1.2);
+  ctx.strokeStyle = 'rgba(70, 40, 20, 0.45)'; // 树皮上的几道纹
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  for (const x of [-h * 0.72, -h * 0.25, h * 0.2, h * 0.68]) {
+    ctx.moveTo(x, -1.6);
+    ctx.lineTo(x + 3, 1.2);
+  }
+  ctx.stroke();
+  const leaf = (x, y, rot, s = 1) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.scale(s, s);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(4.5, -4.2, 10.5, 0);
+    ctx.quadraticCurveTo(4.5, 4.2, 0, 0);
+    ctx.closePath();
+    fillStroke(ctx, '#7cbf55', 0.9, '#4f7a3a');
+    ctx.beginPath();
+    ctx.moveTo(1, 0);
+    ctx.lineTo(8.5, 0);
+    ctx.strokeStyle = 'rgba(79, 122, 58, 0.6)';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+    ctx.restore();
+  };
+  leaf(h * 0.8, -13, -0.65);
+  leaf(h * 0.8, -13, 0.45, 0.85);
+  leaf(-h + 1, -1, Math.PI + 0.55, 0.9);
+  ctx.restore();
+}
+
+/** 一只小爪子（陪水獭牵手时你的"手"）：原点是鼠标尖，爪子在它右下方一点，四个指头朝下 */
+export function drawPawHand(ctx, held = false) {
+  ctx.save();
+  ctx.translate(6, 10);
+  ctx.rotate(0.25);
+  ellipse(ctx, 0, 0, 8.6, 7.6); // 掌心
+  const grad = ctx.createRadialGradient(-2, -3, 1, 0, 0, 10);
+  grad.addColorStop(0, '#dbb38f');
+  grad.addColorStop(1, '#b98863');
+  fillStroke(ctx, grad, 1.2, '#6e4a30');
+  for (const [x, y] of [[-6.2, 5.4], [-2.2, 7.6], [2.2, 7.6], [6.2, 5.4]]) {
+    ellipse(ctx, x, y, 2.7, 2.5);
+    fillStroke(ctx, '#c99c79', 1, '#6e4a30');
+  }
+  ctx.fillStyle = '#f3aba3'; // 肉垫
+  ellipse(ctx, 0, 1.2, 3.6, 2.7);
+  ctx.fill();
+  if (held) {
+    // 牵住了：冒一颗小爱心
+    ctx.translate(9, -9);
+    ctx.beginPath();
+    ctx.moveTo(0, 2.6);
+    ctx.bezierCurveTo(-3.8, 0, -2.2, -3, 0, -1.2);
+    ctx.bezierCurveTo(2.2, -3, 3.8, 0, 0, 2.6);
+    ctx.closePath();
+    fillStroke(ctx, '#ff6f8d', 0.9, '#ffffff');
+  }
+  ctx.restore();
+}
+
+/** 一根竹子：从原点沿 +x 方向长 len，最右边那头带两片叶子（熊猫抢竹子） */
+export function drawBambooStalk(ctx, len = 74) {
+  const r = 3.4;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const [rot, s] of [[-0.75, 1], [0.35, 0.85]]) {
+    ctx.save(); // 叶子（先画，压在竹竿下面）
+    ctx.translate(len - 4, 0);
+    ctx.rotate(rot);
+    ctx.scale(s, s);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(7, -4.4, 18, -1);
+    ctx.quadraticCurveTo(7, 3.2, 0, 0);
+    ctx.closePath();
+    fillStroke(ctx, '#7cbf55', 0.9, '#4f7a3a');
+    ctx.restore();
+  }
+  ctx.beginPath();
+  ctx.roundRect(0, -r, len, r * 2, r);
+  const grad = ctx.createLinearGradient(0, -r, 0, r);
+  grad.addColorStop(0, '#bfe68a');
+  grad.addColorStop(0.5, '#8fcb5d');
+  grad.addColorStop(1, '#5f9e3c');
+  fillStroke(ctx, grad, 1.1, '#3f7a2c');
+  ctx.strokeStyle = 'rgba(63, 122, 44, 0.75)'; // 竹节
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  for (let x = 14; x < len - 4; x += 15) {
+    ctx.moveTo(x, -r + 0.6);
+    ctx.lineTo(x, r - 0.6);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 兔子跳的小栏杆有多高（level 1~3） */
+export const HURDLE_HEIGHT = Object.freeze([0, 18, 30, 42]);
+
+/** 兔子跳的小栏杆：原点在地面正中；level 越高横杆越多；fallen 被撞倒了（朝 fallen 那边躺在地上）；hot 鼠标正停在上面 */
+export function drawHurdle(ctx, level = 1, fallen = 0, hot = false) {
+  const lv = clamp(Math.round(level), 1, 3);
+  const H = HURDLE_HEIGHT[lv];
+  const W = 18; // 两根柱子离中间多远
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (fallen) {
+    // 倒了：绕着那一边柱子的底转平
+    const s = fallen < 0 ? -1 : 1;
+    ctx.translate(s * W, 0);
+    ctx.rotate(s * 1.45);
+    ctx.translate(-s * W, 0);
+  }
+  if (hot && !fallen) {
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
+    ctx.shadowBlur = 6;
+  }
+  for (const s of [-1, 1]) {
+    ctx.beginPath(); // 柱子
+    ctx.roundRect(s * W - 1.8, -H - 5, 3.6, H + 5, 1.2);
+    fillStroke(ctx, '#ecc994', 1.1);
+    ctx.beginPath(); // 小底座
+    ctx.roundRect(s * W - 4.5, -2.5, 9, 2.8, 1);
+    fillStroke(ctx, '#c98a4b', 1);
+  }
+  ctx.shadowBlur = 0;
+  for (let i = 0; i < lv; i++) {
+    const y = -H + i * 12; // 横杆：红白相间
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(-W - 2.5, y - 1.9, W * 2 + 5, 3.8, 1.7);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.clip();
+    ctx.fillStyle = '#e0584f';
+    for (let x = -W - 2.5; x < W + 3; x += 8) ctx.fillRect(x, y - 2, 4, 4);
+    ctx.restore();
+    ctx.beginPath();
+    ctx.roundRect(-W - 2.5, y - 1.9, W * 2 + 5, 3.8, 1.7);
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** 雪地里有东西在动的那一小块（陪狐狸扑"老鼠"）：一个小雪包，k（0~1）动得多厉害，time 让它抖、往上溅雪沫 */
+export function drawSnowLump(ctx, k = 1, time = 0) {
+  ctx.save();
+  const wob = Math.sin(time * 26) * k;
+  const h = 5 + 2.5 * k + wob * 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-13, 1);
+  ctx.bezierCurveTo(-9 + wob, -h, 9 + wob, -h, 13, 1);
+  ctx.closePath();
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(115, 145, 200, 0.9)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(150, 175, 215, 0.6)'; // 几道小裂纹
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(-4, -h * 0.55);
+  ctx.lineTo(-1, -h * 0.25);
+  ctx.moveTo(3, -h * 0.6);
+  ctx.lineTo(5, -h * 0.3);
+  ctx.stroke();
+  if (k > 0.5) {
+    // 溅起来的雪沫
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = 'rgba(115, 145, 200, 0.75)';
+    ctx.lineWidth = 0.8;
+    for (let i = 0; i < 4; i++) {
+      const ph = (time * 3 + i * 0.27) % 1;
+      const x = (i - 1.5) * 6 + Math.sin(i * 7.3) * 2 + (i % 2 ? 1 : -1) * ph * 6;
+      ctx.globalAlpha = 1 - ph;
+      ellipse(ctx, x, -h - ph * 14, 1.6, 1.6);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * 卡皮巴拉头顶的一摞橘子：原点在最下面那个橘子的底（头顶上），从下往上一个个叠。
+ * stack：[{ dx, rot }] 每个橘子左右偏一点、转一点；sway：整摞往一边歪多少（越往上歪得越多）。
+ * 返回最上面那个橘子顶上的位置（新的橘子落在那儿）
+ */
+export function drawOrangeStack(ctx, stack, sway = 0, r = 9) {
+  let x = 0;
+  let y = -r;
+  for (let i = 0; i < stack.length; i++) {
+    if (i > 0) {
+      const a = sway * i;
+      x += Math.sin(a) * r * 1.68;
+      y -= Math.cos(a) * r * 1.68;
+    }
+    const o = stack[i];
+    ctx.save();
+    ctx.translate(x + (o.dx || 0), y);
+    ctx.rotate((o.rot || 0) + sway * i * 0.6);
+    drawOrange(ctx, r);
+    ctx.restore();
+  }
+  return { x, y: y - r };
+}
+
+/** 跟着鼠标的道具（见 play.js 的 world.play.cursor）：原点是鼠标尖（kind 'rustle' 时是鼠标正下方的地面） */
+export function drawPlayCursor(ctx, c, time = 0) {
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  switch (c.kind) {
+    case 'wand':
+      drawWand(ctx, c.stick, c.feather, c.taut);
+      break;
+    case 'branch':
+      ctx.translate(0, 3); // 鼠标尖正好在树枝上沿的正中（小熊猫趴上来以后也是这样对齐的）
+      drawBranch(ctx, 110);
+      break;
+    case 'paw':
+      drawPawHand(ctx, !!c.held);
+      break;
+    case 'orange':
+      ctx.translate(6, 13);
+      drawOrange(ctx, 9);
+      break;
+    case 'rustle':
+      drawSnowLump(ctx, c.k ?? 1, time);
+      break;
+    case 'bamboo':
+      // 抢赢了：竹子被你拿在手里（一头在鼠标尖）
+      ctx.rotate(c.rot || 0);
+      ctx.translate(-8, 0);
+      drawBambooStalk(ctx, 74);
+      break;
+    default:
+      break;
+  }
+  ctx.restore();
+}

@@ -76,7 +76,7 @@ const gone = (v) => v < 0.03;
  * 身子上的一个点（身子自己的坐标，和 draw.js 一样：先抬高 lift、再绕身子中间转 roll）在宠物坐标里的位置。
  * 特效不跟着身子转，所以仰面躺着、侧躺着的时候，要用它算嘴、肚子在哪儿
  */
-function bodyPoint(pet, x, y) {
+export function bodyPoint(pet, x, y) {
   const P = pet.pose;
   if (P.roll) {
     const g = getGeometry(pet.sp, P);
@@ -103,7 +103,7 @@ function headPoint(pet, hx, hy) {
  * 按这种动物自己的头、身子有多大来算（rollLift 是照着熊猫缩成一团的样子量的，企鹅、水獭伸直了躺用这个）。
  * tilt：躺着时脑袋自己又歪了多少（水獭仰面躺着时把脸转过来朝着你）
  */
-function lieLift(pet, theta, tilt = 0) {
+export function lieLift(pet, theta, tilt = 0) {
   const g = getGeometry(pet.sp, pet.pose);
   const cy = (g.torsoCy + g.headCy) / 2;
   const c = Math.cos(theta);
@@ -1515,6 +1515,10 @@ export const TRICKS = {
           }
           return this.pt > 1.6;
       }
+    },
+    /** 右键菜单里点了"不玩了"：趴下歇着，球收起来 */
+    stop() {
+      if (this.phase !== 'rest' && this.phase !== 'sulk') this.next('rest');
     },
     exit(b) {
       const toy = b.world.toy;

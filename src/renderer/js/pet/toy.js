@@ -1,4 +1,4 @@
-// 桌面上滚来滚去的玩具：猫拍着玩的毛线球、柴犬叼来叼去的网球和骨头。
+// 桌面上滚来滚去的玩具：猫拍着玩的毛线球、柴犬叼来叼去的网球和骨头、扔给企鹅的小鱼。
 //
 // 它和宠物、特效不一样：会滚得很远（滚出宠物那块小画布），所以单独用一块小画布画，
 // 画布的位置由 app.js 摆（没动就不去碰页面，省电）。这里只管它在哪儿、怎么弹、怎么滚、能不能点、能不能拖。
@@ -10,10 +10,12 @@ import { GRAVITY } from './pet.js';
 
 // 每种玩具：r 贴地时的半径（球就是半径；骨头横着躺，是它一半的高度）、hit 能点到的范围、
 // bounce 落地弹多高、friction 在地上滑一秒还剩多少速度、roll 是滚着走（球）还是滑着走、在空中打转（骨头）
+// flip：落地后转到最近的"平躺"角度，每隔多少弧度算一个（骨头两头一样，π；小鱼要肚子朝下，2π）
 const KINDS = Object.freeze({
   yarn: { r: 8, hit: 20, bounce: 0.42, friction: 0.32, roll: true },
   ball: { r: 7.5, hit: 20, bounce: 0.5, friction: 0.32, roll: true },
-  bone: { r: 5.5, hit: 22, bounce: 0.25, friction: 0.06, roll: false },
+  bone: { r: 5.5, hit: 22, bounce: 0.25, friction: 0.06, roll: false, flip: Math.PI },
+  fish: { r: 5, hit: 24, bounce: 0.18, friction: 0.05, roll: false, flip: Math.PI * 2 }, // 企鹅的小鱼（见 play.js 的 fishToss）
 });
 export const TOY_RADIUS = Object.freeze(Object.fromEntries(Object.entries(KINDS).map(([k, v]) => [k, v.r])));
 
@@ -187,8 +189,9 @@ export class Toy {
     if (spec.roll) {
       this.rot += (this.vx / r) * dt; // 球：滚多远转多少（不打滑）
     } else if (this.vy === 0) {
-      // 骨头：落到地上就平躺下来（转到最近的"横着"的角度）
-      const flat = Math.round(this.rot / Math.PI) * Math.PI;
+      // 骨头、小鱼：落到地上就平躺下来（转到最近的"横着"的角度）
+      const step = spec.flip || Math.PI;
+      const flat = Math.round(this.rot / step) * step;
       this.rot += (flat - this.rot) * Math.min(1, dt * 12);
       this.vrot = 0;
     } else {

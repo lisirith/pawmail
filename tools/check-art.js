@@ -103,10 +103,16 @@ async function inspectArt(poses, guideUrl) {
     ['trick-back-clam', { roll: 1.4, lift: -8, headTilt: -1, headY: -6, crouch: 0.2, armL: -0.9, armR: -0.9, tailHang: 0.8, tailCurl: 0, footLY: -4, footRY: -4, snack: 1, bite: 0.2, snackLift: 1, eyes: 'wide' }],
     ['trick-back-clam-open', { roll: -1.4, lift: -8, headTilt: 1, headY: -6, crouch: 0.2, armL: -0.75, armR: -0.75, tailHang: 0.8, tailCurl: 0, footLY: -4, footRY: -4, snack: 1, bite: 0.6, mouth: 'o' }],
     ['trick-pawrub', { crouch: 1, armL: -1.33, armR: -1.57, eyes: 'happy', mouth: 'smile', mouthOpen: 0.3 }],
+    // 陪它玩（play.js）：抱着竹子被拽（竹子另一头在两边）、趴在树枝上荡、头顶一摞橘子（还有正掉下来的、地上滚的）、伸手牵你
+    ['play-tug', { crouch: 1, armL: -0.95, armR: -0.95, lean: -0.2, eyes: 'squeeze', mouth: 'wavy', playProp: { kind: 'bamboo', from: [3, -28], to: [72, -60], len: 74 } }],
+    ['play-tug-left', { crouch: 1, armL: -0.95, armR: -0.95, lean: 0.2, playProp: { kind: 'bamboo', from: [-3, -28], to: [-74, -40], len: 74 } }],
+    ['play-branch', { loaf: 1, drape: 1, footLY: -15, footRY: -15, tailHang: 1, tailCurl: 1, headY: 5, playProp: { kind: 'branch', counter: 0 } }],
+    ['play-oranges', { crouch: 1, eyeL: 0.45, eyeR: 0.45, playProp: { kind: 'oranges', hideHat: true, stack: [{ dx: 0, rot: 0.2 }, { dx: 2, rot: -0.3 }, { dx: -1, rot: 0 }, { dx: 1, rot: 0.4 }, { dx: 0, rot: -0.2 }, { dx: -2, rot: 0.1 }], sway: 0.06, falling: { x: 2, y: -140, rot: 0.5 }, loose: [{ x: 60, y: -9, rot: 1, a: 1 }, { x: -70, y: -9, rot: -2, a: 0.6 }] } }],
+    ['play-reach', { armR: 2.05, armL: 0.4, facing: 0.4, eyes: 'wide', mouth: 'o' }],
     ['todo-sign', { armL: 2.15, armR: 2.15, sign: 1, lift: 7, eyes: 'wide', mouth: 'o' }], // 待办提醒：举着便签
     ['todo-sign-perch', { armL: 2.15, armR: 2.15, sign: 0.5 }],
     ['bedtime-pillow', { crouch: 1, pillow: 1, armL: -0.75, armR: -0.75, mouth: 'yawn', mouthOpen: 1, eyes: 'sleep' }], // 深夜催睡：抱着小枕头
-  ]) cases.push({ name, pose, opts: { birdDir: -1, mouthToy: pose.mouthToy } }); // 嘴里叼的是什么是画法的选项，不是姿势
+  ]) cases.push({ name, pose, opts: { birdDir: -1, mouthToy: pose.mouthToy, playProp: pose.playProp } }); // 嘴里叼的是什么、身上的道具是画法的选项，不是姿势
   // 衣柜里的衣服：每件单独穿，在站、坐、趴、走、举手、被拎起、扒墙歪着这些姿势下都画一遍；再加两套全身搭配
   const { OUTFITS } = await import('/src/renderer/js/pet/outfits.js');
   const outfitPoses = [

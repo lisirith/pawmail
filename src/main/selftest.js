@@ -153,6 +153,23 @@ async function run({ overlay, mail, store, outDir, setSetting, ledgeWatch, phone
   const laterOk = Object.entries(later).every(([id, r]) => r.shown === id && r.saved === id);
   check('从后台切换动物，画面会跟着变（猫、熊猫、卡皮巴拉、柴犬、小熊猫、兔子、狐狸、企鹅、水獭）', swapped !== info.species && laterOk, { swapped, ...later });
 
+  // 陪它玩（右键「陪它玩…」，见 pet/play.js）：每种动物的小游戏都能开始，再点一次"不玩了"能收工，桌面上的道具也收起来。
+  // 柴犬的叼球要鼠标在屏幕上才玩得起来（自检时鼠标在哪说不准），这里不测
+  const plays = {};
+  for (const id of ['cat', 'fox', 'redpanda', 'panda', 'bunny', 'capybara', 'otter', 'penguin']) {
+    setSetting('species', id);
+    await wait(250);
+    plays[id] = await js(`const P = window.__pawmail; P.brain.queue.length = 0; P.brain.start('idle'); P.run(0.2);
+      const ok = P.brain.play(); P.run(1.5); const name = P.brain.name; const playing = P.brain.playing;
+      P.brain.play(); P.run(4);
+      const st = P.world.play;
+      return { ok, name, playing, after: P.brain.name, stillPlaying: P.brain.playing, leftovers: !!(st.cursor || st.ground.length || st.handler || P.pet.playProp) };`);
+  }
+  setSetting('species', info.species);
+  await wait(250);
+  const playOk = Object.values(plays).every((r) => r && r.ok && r.playing && !r.stillPlaying && !r.leftovers);
+  check('右键「陪它玩…」：八种动物的小游戏都能开始，点"不玩了"能收工（桌面上的道具也收起来）', playOk, plays);
+
   const previousCoat = store.data.settings.catCoat;
   setSetting('species', 'cat'); setSetting('catCoat', 'lucky');
   await wait(250);
